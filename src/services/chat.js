@@ -26,22 +26,28 @@ export async function listRoomsForUser(userId) {
     const privateRooms = result.filter((r) => r && (r.is_private === true || r.application_id))
     for (const pr of privateRooms) {
       try {
-        const { data: mems } = await supabase
-          .from('chat_members')
-          .select('user_id')
+        // Query direct_conversations to find the other user
+        const { data: convs } = await supabase
+          .from('direct_conversations')
+          .select('user_a,user_b')
           .eq('room_id', pr.id)
-        const ids = (mems || []).map((m) => m.user_id)
-        // Pick the other user id (not the creator if possible)
-        const otherId = ids.find((id) => id && id !== pr.creator_id) || ids[0]
-        if (otherId) {
-          const { data: users } = await supabase
-            .from('User')
-            .select('userid,nombre,apellido')
-            .eq('userid', otherId)
-          const u = (users || [])[0]
-          if (u) {
-            const full = [u.nombre, u.apellido].filter(Boolean).join(' ').trim()
-            if (full) pr.display_name = full
+          .limit(1)
+        
+        const conv = (convs || [])[0]
+        if (conv) {
+          // Pick the other user: if I'm user_a, pick user_b, and vice versa
+          const otherId = String(conv.user_a) === String(userId) ? conv.user_b : conv.user_a
+          
+          if (otherId) {
+            const { data: users } = await supabase
+              .from('User')
+              .select('userid,nombre,apellido')
+              .eq('userid', otherId)
+            const u = (users || [])[0]
+            if (u) {
+              const full = [u.nombre, u.apellido].filter(Boolean).join(' ').trim()
+              if (full) pr.display_name = full
+            }
           }
         }
       } catch {}
