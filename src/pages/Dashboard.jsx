@@ -390,6 +390,21 @@ export default function Dashboard() {
     return 'Usuario'
   }
 
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const getFileIcon = (fileType) => {
+    if (fileType?.startsWith('image/')) return '🖼️'
+    if (fileType === 'application/pdf') return '📄'
+    if (fileType?.includes('word') || fileType?.includes('document')) return '📝'
+    return '📎'
+  }
+
   // Resolve and cache sender names from Supabase public.User by userid
   async function resolveNamesForMessages(msgs) {
     try {
@@ -621,9 +636,52 @@ export default function Dashboard() {
                                 displayContent = ''
                               }
                               return (
-                              <div key={m.id} className="glass-card" style={{ padding: 8 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{getSenderLabel(m)}</div>
-                                  {displayContent && <div style={{ fontSize: 13 }}>{displayContent}</div>}
+                                <div key={m.id} className="glass-card" style={{ padding: 8 }}>
+                                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{getSenderLabel(m)}</div>
+                                  {m.is_file ? (
+                                    <div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                        <span>{getFileIcon(m.file_type)}</span>
+                                        <span style={{ fontWeight: '600' }}>{m.file_name}</span>
+                                      </div>
+                                      <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '8px' }}>
+                                        {formatFileSize(m.file_size)} • {m.file_type}
+                                      </div>
+                                      {m.file_type?.startsWith('image/') ? (
+                                        <img
+                                          src={m.file_url}
+                                          alt={m.file_name}
+                                          style={{
+                                            maxWidth: '200px',
+                                            maxHeight: '200px',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer'
+                                          }}
+                                          onClick={() => window.open(m.file_url, '_blank')}
+                                        />
+                                      ) : (
+                                        <a
+                                          href={m.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          style={{
+                                            color: '#60a5fa',
+                                            textDecoration: 'none',
+                                            display: 'inline-block',
+                                            padding: '8px 12px',
+                                            backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                                            borderRadius: '8px',
+                                            fontSize: '14px',
+                                            border: '1px solid rgba(96, 165, 250, 0.3)'
+                                          }}
+                                        >
+                                          📥 Descargar archivo
+                                        </a>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    displayContent && <div style={{ fontSize: 13 }}>{displayContent}</div>
+                                  )}
                                   {(() => {
                                     try {
                                       const isPrivate = !!(activeRoom?.is_private || activeRoom?.application_id)
@@ -683,6 +741,92 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', position: 'relative' }}>
+                          <input
+                            type="file"
+                            id="chat-file-input"
+                            style={{ display: 'none' }}
+                            accept="image/*,application/pdf,.doc,.docx,.txt"
+                            onChange={async (e) => {
+                              const file = e.target.files[0]
+                              if (!file) return
+                              
+                              // Validar tipo de archivo
+                              const allowedTypes = [
+                                'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+                                'application/pdf', 'text/plain',
+                                'application/msword',
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                              ]
+                              
+                              if (!allowedTypes.includes(file.type)) {
+                                alert('Tipo de archivo no permitido. Solo se permiten imágenes, PDFs y documentos de texto.')
+                                return
+                              }
+                              
+                              // Validar tamaño (10MB)
+                              if (file.size > 10 * 1024 * 1024) {
+                                alert('El archivo es demasiado grande. Máximo 10MB.')
+                                return
+                              }
+                              
+                              try {
+                                const formData = new FormData()
+                                formData.append('file', file)
+                                formData.append('room_id', activeRoomId)
+                                formData.append('user_id', profile?.user_id)
+                                
+                                console.log('Subiendo archivo:', {
+                                  fileName: file.name,
+                                  fileSize: file.size,
+                                  fileType: file.type,
+                                  roomId: activeRoomId,
+                                  userId: profile?.user_id
+                                })
+                                
+                                // Usar fetch directamente para subir archivo y crear mensaje en una sola operación
+                                const response = await fetch('http://127.0.0.1:8000/api/chat/upload-file/', {
+                                  method: 'POST',
+                                  body: formData,
+                                  mode: 'cors'
+                                })
+                                
+                                if (!response.ok) {
+                                  const errorData = await response.json()
+                                  throw new Error(errorData.error || 'Error subiendo archivo')
+                                }
+                                
+                                const data = await response.json()
+                                console.log('Respuesta del servidor:', data)
+                                
+                                if (data.status === 'success') {
+                                  // Recargar mensajes para mostrar el nuevo archivo
+                                  const updatedMessages = await fetchMessages(activeRoomId)
+                                  setMessages(updatedMessages)
+                                }
+                              } catch (error) {
+                                console.error('Error uploading file:', error)
+                                alert('Error subiendo archivo. Intenta nuevamente.')
+                              } finally {
+                                e.target.value = ''
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('chat-file-input')?.click()}
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.1)',
+                              border: '1px solid rgba(255, 255, 255, 0.2)',
+                              color: 'white',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '16px'
+                            }}
+                            title="Subir archivo"
+                          >
+                            📎
+                          </button>
                           <Input
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}

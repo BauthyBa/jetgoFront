@@ -78,7 +78,7 @@ export async function createRoom(name) {
 export async function fetchMessages(roomId) {
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, room_id, user_id, content, created_at')
+    .select('id, room_id, user_id, content, created_at, is_file, file_url, file_name, file_type, file_size')
     .eq('room_id', roomId)
     .order('created_at', { ascending: true })
   if (error) throw error
@@ -133,6 +133,49 @@ export function subscribeToRoomMessages(roomId, onInsert) {
 
 export async function inviteByEmail(roomId, email, inviterId) {
   const { data } = await api.post('/chat/invite/', { room_id: roomId, email, inviter_id: inviterId })
+  return data
+}
+
+// Nuevas funciones para manejo de archivos
+export async function uploadChatFile(file, roomId) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('room_id', roomId)
+  
+  const { data } = await api.post('/chat/upload-file/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    }
+  })
+  return data
+}
+
+export async function sendMessageWithFile(roomId, content, fileData) {
+  const { data } = await api.post('/chat/send-message/', {
+    room_id: roomId,
+    content: content,
+    file_data: fileData
+  })
+  return data
+}
+
+export async function getChatRooms() {
+  const { data } = await api.get('/chat/rooms/')
+  return data
+}
+
+export async function getChatMessages(roomId) {
+  const { data } = await api.get(`/chat/rooms/${roomId}/messages/`)
+  return data
+}
+
+export async function deleteChatFile(messageId) {
+  const { data } = await api.delete(`/chat/messages/${messageId}/delete-file/`)
+  return data
+}
+
+export async function getRoomFileStats(roomId) {
+  const { data } = await api.get(`/chat/rooms/${roomId}/file-stats/`)
   return data
 }
 

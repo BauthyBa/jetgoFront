@@ -13,6 +13,6 @@ export async function respondToApplication(applicationId, action) {
 }
 
 export async function getUserApplications() {
-  const { data } = await api.get('/applications/')
+  const { data } = await api.get('/applications/my/')
   return data
 }
