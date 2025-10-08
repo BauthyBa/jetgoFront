@@ -12,6 +12,7 @@ import GlassCard from '@/components/GlassCard'
 import ProfileCard from '@/components/ProfileCard'
 import ChatsCard from '@/components/ChatsCard'
 import NotificationCenter from '@/components/NotificationCenter'
+import EmojiPicker from '@/components/EmojiPicker'
 import { upsertProfileToBackend } from '../services/api'
 import { useNavigate } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
@@ -79,6 +80,7 @@ export default function Dashboard() {
   const [applicationStatuses, setApplicationStatuses] = useState({})
   const [applicationOrganizer, setApplicationOrganizer] = useState({})
   const [userApplications, setUserApplications] = useState([])
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
   // Autocomplete state for country and cities
   const [isoCountry, setIsoCountry] = useState('')
@@ -678,7 +680,7 @@ export default function Dashboard() {
                             {messages.length === 0 && <p className="muted">No hay mensajes aún.</p>}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', position: 'relative' }}>
                           <Input
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
@@ -693,7 +695,33 @@ export default function Dashboard() {
                             placeholder="Escribí un mensaje..."
                             className="flex-1 bg-slate-700 border-slate-600 text-white placeholder-slate-400"
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              fontSize: 24,
+                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              borderRadius: 6,
+                              transition: 'background 0.2s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            title="Agregar emoji"
+                          >
+                            😊
+                          </button>
                           <Button onClick={handleSend}>Enviar</Button>
+                          <EmojiPicker
+                            isOpen={showEmojiPicker}
+                            onClose={() => setShowEmojiPicker(false)}
+                            onEmojiSelect={(emoji) => {
+                              setNewMessage(prev => prev + emoji)
+                              setShowEmojiPicker(false)
+                            }}
+                          />
                         </div>
                       </>
                     )}
