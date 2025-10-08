@@ -466,41 +466,41 @@ export default function Dashboard() {
               <div id="inicio" style={{ marginBottom: 8 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }}>
                   <div>
-                    <h1 style={{ fontSize: 32, fontWeight: 800 }}>
-                      Bienvenido{profile?.meta?.first_name ? (
-                        <span style={{ background: 'linear-gradient(135deg, #3b82f6, #22c55e)', WebkitBackgroundClip: 'text', color: 'transparent' }}>{`, ${profile.meta.first_name}`}</span>
-                      ) : ''}
-                    </h1>
-                    <p className="muted">Aquí está tu resumen de viajes</p>
+                <h1 style={{ fontSize: 32, fontWeight: 800 }}>
+                  Bienvenido{profile?.meta?.first_name ? (
+                    <span style={{ background: 'linear-gradient(135deg, #3b82f6, #22c55e)', WebkitBackgroundClip: 'text', color: 'transparent' }}>{`, ${profile.meta.first_name}`}</span>
+                  ) : ''}
+                </h1>
+                <p className="muted">Aquí está tu resumen de viajes</p>
                     <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
                       <div className="glass-card" style={{ padding: 16, minHeight: 88, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <div style={{ fontSize: 12, color: '#94a3b8' }}>Mis viajes</div>
-                        <div style={{ fontSize: 28, fontWeight: 800 }}>{tripsBase.length}</div>
-                      </div>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Mis viajes</div>
+                    <div style={{ fontSize: 28, fontWeight: 800 }}>{tripsBase.length}</div>
+                  </div>
                       <div className="glass-card" style={{ padding: 16, minHeight: 88, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <div style={{ fontSize: 12, color: '#94a3b8' }}>Chats</div>
-                        <div style={{ fontSize: 28, fontWeight: 800 }}>{rooms.length}</div>
-                      </div>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Chats</div>
+                    <div style={{ fontSize: 28, fontWeight: 800 }}>{rooms.length}</div>
+                  </div>
                       <div className="glass-card" style={{ padding: 16, minHeight: 88, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <div style={{ fontSize: 12, color: '#94a3b8' }}>Gastos guardados</div>
-                        <div style={{ fontSize: 28, fontWeight: 800 }}>{expenses.length}</div>
-                      </div>
-                    </div>
-                    <div style={{ marginTop: 16 }}>
-                      <Button
-                        variant="secondary"
-                        onClick={async () => {
-                          try {
-                            await supabase.auth.signOut()
-                            localStorage.removeItem('access_token')
-                            navigate('/')
-                          } catch (e) {
-                            alert('No se pudo cerrar sesión')
-                          }
-                        }}
-                      >
-                        Cerrar sesión
-                      </Button>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Gastos guardados</div>
+                    <div style={{ fontSize: 28, fontWeight: 800 }}>{expenses.length}</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <Button
+                    variant="secondary"
+                    onClick={async () => {
+                      try {
+                        await supabase.auth.signOut()
+                        localStorage.removeItem('access_token')
+                        navigate('/')
+                      } catch (e) {
+                        alert('No se pudo cerrar sesión')
+                      }
+                    }}
+                  >
+                    Cerrar sesión
+                  </Button>
                     </div>
                   </div>
                   <NotificationCenter />
@@ -571,30 +571,32 @@ export default function Dashboard() {
                                     return
                                   }
 
-                                  // Chats de viaje: usar backend y completar nombres faltantes
-                                  const tripId = activeRoom?.trip_id
-                                  if (!tripId) {
-                                    alert('No se pueden cargar integrantes: falta el trip_id asociado a esta sala')
+                                  // Chats de viaje: cargar miembros desde backend (bypass RLS)
+                                  const roomId = activeRoom?.id
+                                  console.log('🔍 Frontend: roomId =', roomId)
+                                  if (!roomId) {
+                                    alert('No se pueden cargar integrantes: falta el room_id de la sala')
                                     return
                                   }
-                                  const res = await api.get('/trips/members/', { params: { trip_id: tripId } })
-                                  const rawMembers = Array.isArray(res?.data?.members) ? res.data.members : []
-                                  const ids = Array.from(new Set(rawMembers.map((m) => m.user_id).filter(Boolean)))
-                                  const nameMap = await fetchNamesForUserIds(ids)
-                                  const members = rawMembers.map((m) => {
-                                    const id = m.user_id
-                                    let name = m.name || nameMap[id]
-                                    if (!name) {
-                                      if (profile?.user_id && id === profile.user_id) {
-                                        name = (profile?.meta?.first_name && profile?.meta?.last_name) ? `${profile.meta.first_name} ${profile.meta.last_name}` : 'Tú'
-                                      } else {
-                                        name = 'Usuario'
-                                      }
-                                    }
-                                    return { user_id: id, name }
-                                  })
-                                  setChatMembers(members)
-                                  setChatInfoOpen(true)
+                                  
+                                  // Cargar miembros desde backend
+                                  console.log('🔍 Frontend: consultando backend para room_id =', roomId)
+                                  const response = await api.get('/chat-members/', { params: { room_id: roomId } })
+                                  console.log('🔍 Frontend: resultado del backend =', response.data)
+                                  
+                                  if (response.data?.ok && response.data?.members) {
+                                    const members = response.data.members.map((m) => ({
+                                      user_id: m.user_id,
+                                      name: (profile?.user_id && m.user_id === profile.user_id)
+                                        ? (profile?.meta?.first_name && profile?.meta?.last_name ? `${profile.meta.first_name} ${profile.meta.last_name}` : 'Tú')
+                                        : m.name
+                                    }))
+                                    console.log('🔍 Frontend: members finales =', members)
+                                    setChatMembers(members)
+                                    setChatInfoOpen(true)
+                                  } else {
+                                    alert('No se pudieron cargar los integrantes')
+                                  }
                                 } catch (e) {
                                   alert('No se pudieron cargar los integrantes')
                                 }
@@ -619,8 +621,8 @@ export default function Dashboard() {
                                 displayContent = ''
                               }
                               return (
-                                <div key={m.id} className="glass-card" style={{ padding: 8 }}>
-                                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{getSenderLabel(m)}</div>
+                              <div key={m.id} className="glass-card" style={{ padding: 8 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{getSenderLabel(m)}</div>
                                   {displayContent && <div style={{ fontSize: 13 }}>{displayContent}</div>}
                                   {(() => {
                                     try {
@@ -673,8 +675,8 @@ export default function Dashboard() {
                                     } catch {}
                                     return null
                                   })()}
-                                  <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>{new Date(m.created_at).toLocaleString()}</div>
-                                </div>
+                                <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>{new Date(m.created_at).toLocaleString()}</div>
+                              </div>
                               )
                             })}
                             {messages.length === 0 && <p className="muted">No hay mensajes aún.</p>}
@@ -820,8 +822,8 @@ export default function Dashboard() {
                     </div>
                   </div>
                   {(() => { const list = showMineOnly ? trips : trips.filter((t) => !(t.creatorId && t.creatorId === profile?.user_id)); return list.length > 0 })() && visibleCount < (showMineOnly ? trips.length : trips.filter((t) => !(t.creatorId && t.creatorId === profile?.user_id))).length && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
-                      <Button onClick={() => setVisibleCount((v) => v + 6)}>Cargar más</Button>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+                          <Button onClick={() => setVisibleCount((v) => v + 6)}>Cargar más</Button>
                     </div>
                   )}
                 </div>
@@ -1393,10 +1395,10 @@ export default function Dashboard() {
               {(() => { const isOwner = activeRoom?.trip_id && (tripsBase || []).some((t) => String(t.id) === String(activeRoom.trip_id) && t.creatorId === profile?.user_id); return leavingId === activeRoom?.trip_id ? (isOwner ? 'Eliminando…' : 'Saliendo…') : (isOwner ? 'Eliminar viaje' : 'Abandonar') })()}
             </Button>
           )}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  )}
+      )}
 
       {filtersOpen && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="filtersTitle">
