@@ -786,7 +786,8 @@ export default function Dashboard() {
                                 })
                                 
                                 // Usar fetch directamente para subir archivo y crear mensaje en una sola operación
-                                const response = await fetch('http://127.0.0.1:8000/api/chat/upload-file/', {
+                                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://jetgoback.onrender.com/api'
+                                const response = await fetch(`${API_BASE_URL}/chat/upload-file/`, {
                                   method: 'POST',
                                   body: formData,
                                   mode: 'cors'
