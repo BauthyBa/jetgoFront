@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import CurrencySelect from '@/components/CurrencySelect'
 
 export default function Dashboard() {
   const [profile, setProfile] = useState(null)
@@ -32,6 +33,7 @@ export default function Dashboard() {
     endDate: '',
     budgetMin: '',
     budgetMax: '',
+    currency: 'USD',
     status: '',
     roomType: '',
     season: '',
@@ -1193,7 +1195,7 @@ export default function Dashboard() {
 
       {showCreateModal && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="createTripTitle">
-          <div className="overlay-box" style={{ maxWidth: 840, width: '95%' }}>
+          <div className="overlay-box" style={{ maxWidth: 1000, width: '95%' }}>
             <h3 id="createTripTitle" className="page-title" style={{ margin: 0, color: '#60a5fa' }}>Crear viaje</h3>
             <div className="glass-card" style={{ padding: 16, marginTop: 8, background: 'linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, position: 'relative' }}>
@@ -1278,16 +1280,40 @@ export default function Dashboard() {
                   <input type="date" value={trip.endDate} onChange={(e) => setTrip({ ...trip, endDate: e.target.value })} min={new Date().toISOString().split('T')[0]} style={{ color: '#e5e7eb', background: 'rgba(255,255,255,0.06)' }} />
                 </div>
                 <div className="field">
+                  <label>Cantidad de personas (máx.)</label>
+                  <input type="number" inputMode="numeric" value={trip.maxParticipants} onChange={(e) => setTrip({ ...trip, maxParticipants: e.target.value })} placeholder="2" style={{ color: '#e5e7eb' }} />
+                </div>
+                <div className="field">
                   <label>Presupuesto mín.</label>
-                  <input type="number" inputMode="numeric" value={trip.budgetMin} onChange={(e) => setTrip({ ...trip, budgetMin: e.target.value })} placeholder="0" min="0" style={{ color: '#e5e7eb' }} />
+                  <input 
+                    type="number" 
+                    inputMode="numeric" 
+                    value={trip.budgetMin} 
+                    onChange={(e) => setTrip({ ...trip, budgetMin: e.target.value })} 
+                    placeholder="0" 
+                    min="0" 
+                    style={{ color: '#e5e7eb' }} 
+                  />
                 </div>
                 <div className="field">
                   <label>Presupuesto máx.</label>
-                  <input type="number" inputMode="numeric" value={trip.budgetMax} onChange={(e) => setTrip({ ...trip, budgetMax: e.target.value })} placeholder="9999" min="0" style={{ color: '#e5e7eb' }} />
+                  <input 
+                    type="number" 
+                    inputMode="numeric" 
+                    value={trip.budgetMax} 
+                    onChange={(e) => setTrip({ ...trip, budgetMax: e.target.value })} 
+                    placeholder="9999" 
+                    min="0" 
+                    style={{ color: '#e5e7eb' }} 
+                  />
                 </div>
-                <div className="field">
-                  <label>Cantidad de personas (máx.)</label>
-                  <input type="number" inputMode="numeric" value={trip.maxParticipants} onChange={(e) => setTrip({ ...trip, maxParticipants: e.target.value })} placeholder="2" style={{ color: '#e5e7eb' }} />
+                <div className="field" style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <label>Divisa</label>
+                  <CurrencySelect 
+                    value={trip.currency} 
+                    onChange={(e) => setTrip({ ...trip, currency: e.target.value })}
+                    style={{ width: '200px' }}
+                  />
                 </div>
                 <div className="field">
                   <label>Estado</label>
@@ -1450,6 +1476,7 @@ export default function Dashboard() {
                         end_date: trip.endDate || null,
                         budget_min: trip.budgetMin !== '' ? Number(trip.budgetMin) : null,
                         budget_max: trip.budgetMax !== '' ? Number(trip.budgetMax) : null,
+                        currency: trip.currency || 'USD',
                         status: trip.status || null,
                         room_type: trip.roomType || null,
                         season: trip.season || null,
@@ -1460,7 +1487,7 @@ export default function Dashboard() {
                       }
                       const { data } = await api.post('/trips/create/', payload)
                       setShowCreateModal(false)
-                      setTrip({ name: '', origin: '', destination: '', startDate: '', endDate: '', budgetMin: '', budgetMax: '', status: '', roomType: '', season: '', country: '', maxParticipants: '' })
+                      setTrip({ name: '', origin: '', destination: '', startDate: '', endDate: '', budgetMin: '', budgetMax: '', currency: 'USD', status: '', roomType: '', season: '', country: '', maxParticipants: '' })
                       await loadTrips()
                       setJoinDialog({ open: true, title: 'Viaje creado', message: 'Tu viaje fue creado con éxito.' })
                     } catch (e) {
@@ -1580,7 +1607,7 @@ export default function Dashboard() {
 
       {editTripModal.open && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="editTripTitle">
-          <div className="overlay-box" style={{ maxWidth: 840, width: '95%' }}>
+          <div className="overlay-box" style={{ maxWidth: 1000, width: '95%' }}>
             <h3 id="editTripTitle" className="page-title" style={{ margin: 0 }}>Editar viaje</h3>
             <div className="glass-card" style={{ padding: 12, marginTop: 8 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1605,16 +1632,36 @@ export default function Dashboard() {
                   <input type="date" defaultValue={editTripModal.data?.endDate} onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, endDate: e.target.value } }))} min={new Date().toISOString().split('T')[0]} />
                 </div>
                 <div className="field">
+                  <label>Cantidad de personas (máx.)</label>
+                  <input type="number" inputMode="numeric" defaultValue={editTripModal.data?.maxParticipants ?? ''} onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, maxParticipants: e.target.value } }))} />
+                </div>
+                <div className="field">
                   <label>Presupuesto mín.</label>
-                  <input type="number" inputMode="numeric" defaultValue={editTripModal.data?.budgetMin ?? ''} onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, budgetMin: e.target.value } }))} min="0" />
+                  <input 
+                    type="number" 
+                    inputMode="numeric" 
+                    defaultValue={editTripModal.data?.budgetMin ?? ''} 
+                    onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, budgetMin: e.target.value } }))} 
+                    min="0" 
+                  />
                 </div>
                 <div className="field">
                   <label>Presupuesto máx.</label>
-                  <input type="number" inputMode="numeric" defaultValue={editTripModal.data?.budgetMax ?? ''} onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, budgetMax: e.target.value } }))} min="0" />
+                  <input 
+                    type="number" 
+                    inputMode="numeric" 
+                    defaultValue={editTripModal.data?.budgetMax ?? ''} 
+                    onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, budgetMax: e.target.value } }))} 
+                    min="0" 
+                  />
                 </div>
-                <div className="field">
-                  <label>Cantidad de personas (máx.)</label>
-                  <input type="number" inputMode="numeric" defaultValue={editTripModal.data?.maxParticipants ?? ''} onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, maxParticipants: e.target.value } }))} />
+                <div className="field" style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <label>Divisa</label>
+                  <CurrencySelect 
+                    value={editTripModal.data?.currency || 'USD'} 
+                    onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, currency: e.target.value } }))}
+                    style={{ width: '200px' }}
+                  />
                 </div>
                 <div className="field">
                   <label>Estado</label>
@@ -1666,6 +1713,7 @@ export default function Dashboard() {
                       end_date: editTripModal.data?.endDate || null,
                       budget_min: editTripModal.data?.budgetMin !== '' ? Number(editTripModal.data?.budgetMin) : null,
                       budget_max: editTripModal.data?.budgetMax !== '' ? Number(editTripModal.data?.budgetMax) : null,
+                      currency: editTripModal.data?.currency || 'USD',
                       status: editTripModal.data?.status || null,
                       room_type: editTripModal.data?.roomType || null,
                       season: editTripModal.data?.season || null,
