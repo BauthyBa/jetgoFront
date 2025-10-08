@@ -1,4 +1,5 @@
 import GlassCard from './GlassCard'
+import AvatarUpload from './AvatarUpload'
 import { useState, useMemo } from 'react'
 import { updateUserMetadata } from '@/services/supabase'
 import { upsertProfileToBackend } from '@/services/api'
@@ -46,6 +47,7 @@ export default function ProfileCard({ profile, readOnly = false }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [savedOnce, setSavedOnce] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState(profile?.meta?.avatar_url || '')
 
   const interestsArray = useMemo(() => (
     interestsText
@@ -81,14 +83,70 @@ export default function ProfileCard({ profile, readOnly = false }) {
 
   const initialInterestsTokens = useMemo(() => parseListValue(profile?.meta?.interests), [profile?.meta?.interests])
   const initialFavTripsTokens = useMemo(() => parseListValue(profile?.meta?.favorite_travel_styles), [profile?.meta?.favorite_travel_styles])
+
+  const handleAvatarChange = async (newAvatarUrl) => {
+    try {
+      setSaving(true)
+      setError('')
+      
+      // Actualizar metadata en Supabase
+      await updateUserMetadata({
+        avatar_url: newAvatarUrl
+      })
+      
+      // Actualizar en el backend
+      try {
+        await upsertProfileToBackend({
+          user_id: profile?.user_id,
+          email: email,
+          first_name: name,
+          last_name: lastName,
+          document_number: dni,
+          sex: profile?.meta?.sex,
+          birth_date: profile?.meta?.birth_date,
+          bio: (bio || '').slice(0, 500),
+          interests: interestsArray,
+          favorite_travel_styles: favTripsArray,
+          avatar_url: newAvatarUrl,
+        })
+      } catch (e) {
+        console.warn('Error updating backend avatar:', e)
+      }
+      
+      setAvatarUrl(newAvatarUrl)
+      setSavedOnce(true)
+    } catch (e) {
+      setError(e?.message || 'Error al actualizar la foto de perfil')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <GlassCard>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <div style={{ width: 80, height: 80, borderRadius: 999, background: 'rgba(59,130,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(59,130,246,0.3)' }}>
-          {name ? (
-            <span style={{ fontSize: 28, color: '#3b82f6', fontWeight: 700 }}>{name?.charAt(0)?.toUpperCase()}</span>
-          ) : null}
-        </div>
+        {!readOnly ? (
+          <AvatarUpload
+            currentAvatarUrl={avatarUrl}
+            onAvatarChange={handleAvatarChange}
+            userId={userId}
+            disabled={saving}
+          />
+        ) : (
+          <div style={{ width: 80, height: 80, borderRadius: 999, background: 'rgba(59,130,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(59,130,246,0.3)', overflow: 'hidden' }}>
+            {avatarUrl ? (
+              <img 
+                src={avatarUrl} 
+                alt="Avatar" 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <span style={{ fontSize: 28, color: '#3b82f6', fontWeight: 700 }}>
+                {name ? name.charAt(0).toUpperCase() : '?'}
+              </span>
+            )}
+          </div>
+        )}
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
             <div>
