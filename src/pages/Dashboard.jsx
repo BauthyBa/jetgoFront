@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getSession, supabase, updateUserMetadata } from '../services/supabase'
 import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages, inviteByEmail } from '@/services/chat'
 import { api } from '@/services/api'
-import { listTrips as fetchTrips, joinTrip, leaveTrip, getUserParticipatingTrips } from '@/services/trips'
+import { listTrips as fetchTrips, joinTrip, leaveTrip } from '@/services/trips'
 import { applyToTrip, respondToApplication, getUserApplications } from '@/services/applications'
 import ApplyToTripModal from '@/components/ApplyToTripModal'
 import TripFilters from '@/components/TripFilters'
@@ -19,6 +19,8 @@ import { useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import CurrencySelect from '@/components/CurrencySelect'
+import TripAdvisorPreview from '@/components/TripAdvisorPreview'
+import { processMessageForTripAdvisor } from '@/utils/tripadvisorUtils'
 
 export default function Dashboard() {
   const [profile, setProfile] = useState(null)
@@ -43,7 +45,6 @@ export default function Dashboard() {
   const [tab, setTab] = useState('chats')
   const [tripsBase, setTripsBase] = useState([])
   const [trips, setTrips] = useState([])
-  const [userParticipatingTrips, setUserParticipatingTrips] = useState([])
   const [showMineOnly, setShowMineOnly] = useState(false)
   const [visibleCount, setVisibleCount] = useState(6)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -84,6 +85,7 @@ export default function Dashboard() {
   const [applicationOrganizer, setApplicationOrganizer] = useState({})
   const [userApplications, setUserApplications] = useState([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [tripAdvisorPreviews, setTripAdvisorPreviews] = useState({})
 
   // Autocomplete state for country and cities
   const [isoCountry, setIsoCountry] = useState('')
@@ -235,7 +237,6 @@ export default function Dashboard() {
   useEffect(() => {
     // Load trips on mount to have data for Trips/Expenses sections
     loadTrips()
-    loadUserParticipatingTrips()
     loadUserApplications()
   }, [])
 
@@ -284,15 +285,6 @@ export default function Dashboard() {
       setTripsBase(normalized)
       setTrips(normalized)
     } catch (e) { /* noop */ }
-  }
-
-  async function loadUserParticipatingTrips() {
-    try {
-      const normalized = await getUserParticipatingTrips()
-      setUserParticipatingTrips(normalized)
-    } catch (e) { 
-      console.error('Error loading user participating trips:', e)
-    }
   }
 
   async function loadUserApplications() {
@@ -401,6 +393,14 @@ export default function Dashboard() {
     const name = userNames[uid]
     if (name) return name
     return 'Usuario'
+  }
+
+  const closeTripAdvisorPreview = (messageId) => {
+    setTripAdvisorPreviews(prev => {
+      const newPreviews = { ...prev }
+      delete newPreviews[messageId]
+      return newPreviews
+    })
   }
 
   const formatFileSize = (bytes) => {
@@ -648,6 +648,22 @@ export default function Dashboard() {
                                 // Render-only; actual status sync happens in updateApplicationStatusesFromMessages
                                 displayContent = ''
                               }
+
+                              // Procesar mensaje para detectar enlaces de TripAdvisor
+                              const messageData = processMessageForTripAdvisor(displayContent)
+                              const hasTripAdvisorLinks = messageData.hasTripAdvisorLinks
+                              const tripAdvisorLinks = messageData.links
+                              
+                              // Debug: Log para verificar detección
+                              if (displayContent && displayContent.includes('tripadvisor')) {
+                                console.log('🔍 Debug TripAdvisor:', {
+                                  displayContent,
+                                  hasTripAdvisorLinks,
+                                  tripAdvisorLinks,
+                                  messageData
+                                })
+                              }
+
                               return (
                                 <div key={m.id} className="glass-card" style={{ padding: 8 }}>
                                   <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{getSenderLabel(m)}</div>
@@ -695,6 +711,16 @@ export default function Dashboard() {
                                   ) : (
                                     displayContent && <div style={{ fontSize: 13 }}>{displayContent}</div>
                                   )}
+                                  
+                                  {/* TripAdvisor Previews */}
+                                  {hasTripAdvisorLinks && tripAdvisorLinks.map((link, linkIndex) => (
+                                    <TripAdvisorPreview
+                                      key={`${m.id}-${linkIndex}`}
+                                      url={link.url}
+                                      onClose={() => closeTripAdvisorPreview(`${m.id}-${linkIndex}`)}
+                                    />
+                                  ))}
+                                  
                                   {(() => {
                                     try {
                                       const isPrivate = !!(activeRoom?.is_private || activeRoom?.application_id)
@@ -996,38 +1022,15 @@ export default function Dashboard() {
                     <h4 style={{ fontWeight: 700, marginBottom: 8 }}>Participantes</h4>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                       <label style={{ fontSize: 14 }}>Origen:</label>
-                      <select 
-                        value={participantsMode} 
-                        onChange={(e) => setParticipantsMode(e.target.value)}
-                        style={{
-                          backgroundColor: '#1e293b',
-                          color: '#ffffff',
-                          border: '1px solid #475569',
-                          borderRadius: '6px',
-                          padding: '8px 12px',
-                          fontSize: '14px'
-                        }}
-                      >
+                      <select value={participantsMode} onChange={(e) => setParticipantsMode(e.target.value)}>
                         <option value="manual">Manual</option>
                         <option value="trip">Desde viaje</option>
                       </select>
                       {participantsMode === 'trip' && (
                         <>
-                          <select 
-                            value={participantsTripId} 
-                            onChange={(e) => setParticipantsTripId(e.target.value)}
-                            style={{
-                              backgroundColor: '#1e293b',
-                              color: '#ffffff',
-                              border: '1px solid #475569',
-                              borderRadius: '6px',
-                              padding: '8px 12px',
-                              fontSize: '14px',
-                              minWidth: '200px'
-                            }}
-                          >
+                          <select value={participantsTripId} onChange={(e) => setParticipantsTripId(e.target.value)}>
                             <option value="">Seleccioná un viaje</option>
-                            {(userParticipatingTrips || []).map((t) => (
+                            {(tripsBase || []).map((t) => (
                               <option key={t.id} value={t.id}>{t.name || t.destination}</option>
                             ))}
                           </select>
@@ -1076,19 +1079,7 @@ export default function Dashboard() {
                       </div>
                       <div className="field">
                         <label>Pagado por</label>
-                        <select 
-                          id="exp_paid_by" 
-                          defaultValue=""
-                          style={{
-                            backgroundColor: '#1e293b',
-                            color: '#ffffff',
-                            border: '1px solid #475569',
-                            borderRadius: '6px',
-                            padding: '8px 12px',
-                            fontSize: '14px',
-                            width: '100%'
-                          }}
-                        >
+                        <select id="exp_paid_by" defaultValue="">
                           <option value="">Seleccioná</option>
                           {participants.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
