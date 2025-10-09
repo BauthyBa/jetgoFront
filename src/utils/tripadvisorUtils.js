@@ -8,21 +8,12 @@
 export function isTripAdvisorUrl(url) {
   if (!url || typeof url !== 'string') return false
   
-  // Debug log
-  console.log('🔍 isTripAdvisorUrl - URL:', url)
-  console.log('🔍 isTripAdvisorUrl - includes tripadvisor.com:', url.includes('tripadvisor.com'))
-  console.log('🔍 isTripAdvisorUrl - includes tripadvisor.es:', url.includes('tripadvisor.es'))
-  console.log('🔍 isTripAdvisorUrl - includes Attraction_Review:', url.includes('Attraction_Review'))
-  
-  const result = (url.includes('tripadvisor.com') || url.includes('tripadvisor.es') || url.includes('tripadvisor.co.uk') || url.includes('tripadvisor.fr') || url.includes('tripadvisor.de') || url.includes('tripadvisor.it')) && (
+  return (url.includes('tripadvisor.com') || url.includes('tripadvisor.es') || url.includes('tripadvisor.co.uk') || url.includes('tripadvisor.fr') || url.includes('tripadvisor.de') || url.includes('tripadvisor.it')) && (
     url.includes('/d/') || 
     url.includes('/Attraction_Review') ||
     url.includes('/Restaurant_Review') ||
     url.includes('/Hotel_Review')
   )
-  
-  console.log('🔍 isTripAdvisorUrl - result:', result)
-  return result
 }
 
 /**
@@ -73,14 +64,8 @@ export function findTripAdvisorLinks(text) {
   const urlRegex = /https?:\/\/(?:www\.)?tripadvisor\.(?:com|es|co\.uk|fr|de|it)\/[^\s]+/g
   let match
   
-  console.log('🔍 findTripAdvisorLinks - text:', text)
-  console.log('🔍 findTripAdvisorLinks - urlRegex:', urlRegex)
-  
   while ((match = urlRegex.exec(text)) !== null) {
     const url = match[0]
-    console.log('🔍 findTripAdvisorLinks - found URL:', url)
-    console.log('🔍 findTripAdvisorLinks - isTripAdvisorUrl:', isTripAdvisorUrl(url))
-    
     if (isTripAdvisorUrl(url)) {
       links.push({
         url: url,
@@ -90,7 +75,6 @@ export function findTripAdvisorLinks(text) {
     }
   }
   
-  console.log('🔍 findTripAdvisorLinks - final links:', links)
   return links
 }
 
@@ -105,15 +89,6 @@ export function processMessageForTripAdvisor(message) {
   }
   
   const links = findTripAdvisorLinks(message)
-  
-  // Debug log
-  if (message.includes('tripadvisor')) {
-    console.log('🔍 processMessageForTripAdvisor:', {
-      message,
-      links,
-      hasLinks: links.length > 0
-    })
-  }
   
   return {
     hasTripAdvisorLinks: links.length > 0,

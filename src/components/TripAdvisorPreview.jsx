@@ -12,11 +12,8 @@ export default function TripAdvisorPreview({ url, onClose }) {
         setLoading(true)
         setError(null)
         
-        console.log('🔍 TripAdvisorPreview - URL:', url)
-        
         // Extraer ID de la URL de TripAdvisor
         const locationId = extractLocationId(url)
-        console.log('🔍 TripAdvisorPreview - locationId:', locationId)
         
         if (!locationId) {
           throw new Error('No se pudo extraer el ID de la ubicación')
@@ -32,7 +29,6 @@ export default function TripAdvisorPreview({ url, onClose }) {
           photo: null
         }
         
-        console.log('🔍 TripAdvisorPreview - using basic preview:', basicPreview)
         setPreviewData(basicPreview)
         
         // TODO: Implementar llamada real a la API cuando esté disponible
@@ -51,7 +47,6 @@ export default function TripAdvisorPreview({ url, onClose }) {
     }
 
     if (url) {
-      console.log('🔍 TripAdvisorPreview - starting fetch for URL:', url)
       fetchPreview()
     }
   }, [url])

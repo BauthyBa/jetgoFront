@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import CurrencySelect from '@/components/CurrencySelect'
 import TripAdvisorPreview from '@/components/TripAdvisorPreview'
 import { processMessageForTripAdvisor } from '@/utils/tripadvisorUtils'
+import { censorText, containsBannedWords } from '@/utils/wordFilter'
 
 export default function Dashboard() {
   const [profile, setProfile] = useState(null)
@@ -649,20 +650,14 @@ export default function Dashboard() {
                                 displayContent = ''
                               }
 
+                              // Aplicar filtro de palabras
+                              const censoredContent = censorText(displayContent)
+                              const wasFiltered = censoredContent !== displayContent
+                              
                               // Procesar mensaje para detectar enlaces de TripAdvisor
-                              const messageData = processMessageForTripAdvisor(displayContent)
+                              const messageData = processMessageForTripAdvisor(censoredContent)
                               const hasTripAdvisorLinks = messageData.hasTripAdvisorLinks
                               const tripAdvisorLinks = messageData.links
-                              
-                              // Debug: Log para verificar detección
-                              if (displayContent && displayContent.includes('tripadvisor')) {
-                                console.log('🔍 Debug TripAdvisor:', {
-                                  displayContent,
-                                  hasTripAdvisorLinks,
-                                  tripAdvisorLinks,
-                                  messageData
-                                })
-                              }
 
                               return (
                                 <div key={m.id} className="glass-card" style={{ padding: 8 }}>
@@ -709,7 +704,22 @@ export default function Dashboard() {
                                       )}
                                     </div>
                                   ) : (
-                                    displayContent && <div style={{ fontSize: 13 }}>{displayContent}</div>
+                                    censoredContent && (
+                                      <div style={{ fontSize: 13 }}>
+                                        {censoredContent}
+                                        {wasFiltered && (
+                                          <div style={{ 
+                                            fontSize: 10, 
+                                            color: '#fbbf24', 
+                                            marginTop: 4, 
+                                            fontStyle: 'italic',
+                                            opacity: 0.8
+                                          }}>
+                                            ⚠️ Mensaje filtrado
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
                                   )}
                                   
                                   {/* TripAdvisor Previews */}
@@ -717,7 +727,9 @@ export default function Dashboard() {
                                     <TripAdvisorPreview
                                       key={`${m.id}-${linkIndex}`}
                                       url={link.url}
-                                      onClose={() => closeTripAdvisorPreview(`${m.id}-${linkIndex}`)}
+                                      onClose={() => {
+                                        // Función para cerrar preview (opcional)
+                                      }}
                                     />
                                   ))}
                                   
