@@ -7,6 +7,7 @@ import ReportUserModal from '@/components/ReportUserModal'
 import DashboardLayout from '@/components/DashboardLayout'
 import TripHistory from '@/components/TripHistory'
 import { supabase } from '@/services/supabase'
+import { getUserAvatar } from '@/services/api'
 
 export default function PublicProfile() {
   const { userId } = useParams()
@@ -33,14 +34,17 @@ export default function PublicProfile() {
         // Cargar datos públicos básicos desde la tabla User (nombre, apellido, etc.)
         const { data, error } = await supabase
           .from('User')
-          .select('userid,nombre,apellido,sexo,fecha_nacimiento,mail,bio,interests,favorite_travel_styles')
+          .select('userid,nombre,apellido,sexo,fecha_nacimiento,mail,bio,interests,favorite_travel_styles,avatar_url')
           .eq('userid', userId)
           .limit(1)
         if (error) throw error
         const base = (data || [])[0] || null
 
+        // Obtener avatar_url desde la tabla User
+        const avatarUrl = base?.avatar_url || ''
+
         // No usar admin.getUserById() en cliente (403). Solo tabla pública.
-        if (mounted) setUserRow({ base, meta: {} })
+        if (mounted) setUserRow({ base, meta: { avatar_url: avatarUrl } })
       } catch (e) {
         if (mounted) setError(e?.message || 'No se pudo cargar el perfil')
       } finally {
@@ -99,6 +103,7 @@ export default function PublicProfile() {
               bio: bioPublic || bio,
               interests: (interestsPublic.length > 0 ? interestsPublic : interests),
               favorite_travel_styles: (favsPublic.length > 0 ? favsPublic : favs),
+              avatar_url: meta?.avatar_url || '',
             },
           }} readOnly={!isOwnProfile} />
           

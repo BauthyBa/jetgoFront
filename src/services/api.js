@@ -191,6 +191,19 @@ export async function uploadReportEvidence(file, userId) {
   }
 }
 
+// Función para obtener avatar_url de un usuario
+export async function getUserAvatar(userId) {
+  try {
+    const response = await api.get('/profile/avatar/', {
+      params: { user_id: userId }
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error getting user avatar:', error)
+    return { ok: false, error: error.message }
+  }
+}
+
 // Funciones para recuperación de contraseña
 export { sendPasswordResetEmail, updatePassword } from './passwordReset'
 

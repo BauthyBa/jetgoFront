@@ -1,7 +1,7 @@
 import GlassCard from './GlassCard'
 import AvatarUpload from './AvatarUpload'
 import { useState, useMemo } from 'react'
-import { updateUserMetadata } from '@/services/supabase'
+import { updateUserMetadata, supabase } from '@/services/supabase'
 import { upsertProfileToBackend } from '@/services/api'
 
 export default function ProfileCard({ profile, readOnly = false }) {
@@ -111,6 +111,20 @@ export default function ProfileCard({ profile, readOnly = false }) {
         })
       } catch (e) {
         console.warn('Error updating backend avatar:', e)
+      }
+      
+      // Actualizar avatar_url en la tabla User de Supabase
+      try {
+        const { error: updateError } = await supabase
+          .from('User')
+          .update({ avatar_url: newAvatarUrl })
+          .eq('userid', profile?.user_id)
+        
+        if (updateError) {
+          console.warn('Error updating avatar_url in User table:', updateError)
+        }
+      } catch (e) {
+        console.warn('Error updating avatar_url in User table:', e)
       }
       
       setAvatarUrl(newAvatarUrl)
