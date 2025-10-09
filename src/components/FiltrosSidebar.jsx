@@ -35,7 +35,7 @@ export default function FiltrosSidebar({ filtros, onFiltrosChange, onLimpiarFilt
   ]
 
   return (
-    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
       {/* Header con botón limpiar */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-white">Ordenar por</h3>
@@ -49,8 +49,8 @@ export default function FiltrosSidebar({ filtros, onFiltrosChange, onLimpiarFilt
       </div>
 
       {/* Filtros de ordenamiento */}
-      <div className="mb-6">
-        <h4 className="text-sm font-medium text-slate-300 mb-3">Ordenar por</h4>
+      <div className="mb-8">
+        <h4 className="text-sm font-medium text-slate-300 mb-4">Ordenar por</h4>
         <div className="space-y-2">
           {opcionesOrdenar.map((opcion) => (
             <label
@@ -74,8 +74,8 @@ export default function FiltrosSidebar({ filtros, onFiltrosChange, onLimpiarFilt
       </div>
 
       {/* Filtros de presupuesto */}
-      <div className="mb-6">
-        <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+      <div className="mb-8">
+        <h4 className="text-sm font-medium text-slate-300 mb-4 flex items-center gap-2">
           <Clock className="w-4 h-4" />
           Rango de precio
         </h4>
@@ -105,8 +105,8 @@ export default function FiltrosSidebar({ filtros, onFiltrosChange, onLimpiarFilt
       </div>
 
       {/* Filtro de participantes */}
-      <div className="mb-6">
-        <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+      <div className="mb-8">
+        <h4 className="text-sm font-medium text-slate-300 mb-4 flex items-center gap-2">
           <Users className="w-4 h-4" />
           Número de participantes
         </h4>

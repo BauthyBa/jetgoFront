@@ -53,7 +53,7 @@ export default function ListaViajes({ viajes, loading, desde, hasta, creadoresIn
       {/* Header con contador y filtros de tipo */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-white">
             {viajesFiltrados.length} viajes disponibles
           </h2>
         </div>
@@ -69,7 +69,7 @@ export default function ListaViajes({ viajes, loading, desde, hasta, creadoresIn
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   filtroTipo === tipo.value
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    : 'bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20'
                 }`}
               >
                 {Icon && <Icon className="w-4 h-4" />}

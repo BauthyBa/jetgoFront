@@ -131,55 +131,42 @@ export default function ViajesPage() {
   return (
     <div className="min-h-screen bg-gradient-hero">
       <Navigation />
-      <div className="w-full">
-        {/* Header con búsqueda */}
-        <div className="bg-white/10 backdrop-blur-sm border-b border-white/20 py-4">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h1 className="text-2xl font-semibold text-white mb-2">
-              Viajes disponibles
-            </h1>
-            {desde && hasta && (
-              <p className="text-slate-300">
-                {desde} → {hasta} • {fecha || 'Hoy'}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex w-full">
-          {/* Filtros Sidebar - Desktop */}
-          <div className="hidden lg:block lg:w-1/3 xl:w-1/4 bg-white/5 backdrop-blur-sm border-r border-white/10 min-h-screen">
-            <div className="p-6">
-              <FiltrosSidebar
-                filtros={filtros}
-                onFiltrosChange={aplicarFiltros}
-                onLimpiarFiltros={limpiarFiltros}
-              />
-            </div>
-          </div>
-
-          {/* Filtros Mobile - Botón para abrir */}
-          <div className="lg:hidden fixed top-20 left-4 z-40">
-            <button
-              onClick={() => setFiltrosAbiertos(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg text-white border border-white/30 hover:bg-white/30 transition-colors"
-            >
-              <Filter className="w-4 h-4" />
-              Filtros
-            </button>
-          </div>
-
-          {/* Lista de viajes */}
-          <div className="flex-1 lg:w-2/3 xl:w-3/4 p-6">
-            <ListaViajes
-              viajes={viajesFiltrados}
-              loading={loading}
-              desde={desde}
-              hasta={hasta}
-              creadoresInfo={creadoresInfo}
+      
+      {/* Contenido principal - Ocupa toda la página */}
+      <div className="flex w-full min-h-screen">
+        {/* Filtros Sidebar - Desktop */}
+        <div className="hidden lg:block lg:w-1/3 xl:w-1/4 bg-white/5 backdrop-blur-sm border-r border-white/10">
+          <div className="p-8">
+            <FiltrosSidebar
+              filtros={filtros}
+              onFiltrosChange={aplicarFiltros}
+              onLimpiarFiltros={limpiarFiltros}
             />
           </div>
         </div>
+
+        {/* Filtros Mobile - Botón para abrir */}
+        <div className="lg:hidden fixed top-20 left-4 z-40">
+          <button
+            onClick={() => setFiltrosAbiertos(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg text-white border border-white/30 hover:bg-white/30 transition-colors"
+          >
+            <Filter className="w-4 h-4" />
+            Filtros
+          </button>
+        </div>
+
+        {/* Lista de viajes - Ocupa el resto del espacio */}
+        <div className="flex-1 lg:w-2/3 xl:w-3/4 p-6">
+          <ListaViajes
+            viajes={viajesFiltrados}
+            loading={loading}
+            desde={desde}
+            hasta={hasta}
+            creadoresInfo={creadoresInfo}
+          />
+        </div>
+      </div>
 
         {/* Modal de filtros para móvil */}
         {filtrosAbiertos && (
