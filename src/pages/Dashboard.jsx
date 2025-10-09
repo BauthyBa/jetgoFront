@@ -13,6 +13,7 @@ import ProfileCard from '@/components/ProfileCard'
 import ChatsCard from '@/components/ChatsCard'
 import NotificationCenter from '@/components/NotificationCenter'
 import EmojiPicker from '@/components/EmojiPicker'
+import MyTripHistory from '@/components/MyTripHistory'
 import { upsertProfileToBackend } from '../services/api'
 import { useNavigate } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
@@ -34,7 +35,6 @@ export default function Dashboard() {
     budgetMin: '',
     budgetMax: '',
     currency: 'USD',
-    status: '',
     roomType: '',
     season: '',
     country: '',
@@ -1316,15 +1316,6 @@ export default function Dashboard() {
                   />
                 </div>
                 <div className="field">
-                  <label>Estado</label>
-                  <select value={trip.status} onChange={(e) => setTrip({ ...trip, status: e.target.value })} style={{ color: '#111827', background: '#ffffff' }}>
-                    <option value="">-</option>
-                    <option value="active">Activo</option>
-                    <option value="upcoming">Próximo</option>
-                    <option value="completed">Completado</option>
-                  </select>
-                </div>
-                <div className="field">
                   <label>Habitación</label>
                   <select value={trip.roomType} onChange={(e) => setTrip({ ...trip, roomType: e.target.value })} style={{ color: '#111827', background: '#ffffff' }}>
                     <option value="">-</option>
@@ -1422,7 +1413,6 @@ export default function Dashboard() {
                         country: trip.country,
                         budgetMin: trip.budgetMin,
                         budgetMax: trip.budgetMax,
-                        status: trip.status,
                         roomType: trip.roomType,
                         maxParticipants: trip.maxParticipants,
                       }
@@ -1477,7 +1467,6 @@ export default function Dashboard() {
                         budget_min: trip.budgetMin !== '' ? Number(trip.budgetMin) : null,
                         budget_max: trip.budgetMax !== '' ? Number(trip.budgetMax) : null,
                         currency: trip.currency || 'USD',
-                        status: trip.status || null,
                         room_type: trip.roomType || null,
                         season: trip.season || null,
                         country: trip.country || null,
@@ -1664,15 +1653,6 @@ export default function Dashboard() {
                   />
                 </div>
                 <div className="field">
-                  <label>Estado</label>
-                  <select defaultValue={editTripModal.data?.status ?? ''} onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, status: e.target.value } }))}>
-                    <option value="">-</option>
-                    <option value="active">Activo</option>
-                    <option value="upcoming">Próximo</option>
-                    <option value="completed">Completado</option>
-                  </select>
-                </div>
-                <div className="field">
                   <label>Habitación</label>
                   <select defaultValue={editTripModal.data?.roomType ?? ''} onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, roomType: e.target.value } }))}>
                     <option value="">-</option>
@@ -1714,7 +1694,6 @@ export default function Dashboard() {
                       budget_min: editTripModal.data?.budgetMin !== '' ? Number(editTripModal.data?.budgetMin) : null,
                       budget_max: editTripModal.data?.budgetMax !== '' ? Number(editTripModal.data?.budgetMax) : null,
                       currency: editTripModal.data?.currency || 'USD',
-                      status: editTripModal.data?.status || null,
                       room_type: editTripModal.data?.roomType || null,
                       season: editTripModal.data?.season || null,
                       country: editTripModal.data?.country || null,

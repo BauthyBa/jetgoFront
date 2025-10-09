@@ -5,6 +5,7 @@ import ProfileCard from '@/components/ProfileCard'
 import ReviewsSection from '@/components/ReviewsSection'
 import ReportUserModal from '@/components/ReportUserModal'
 import DashboardLayout from '@/components/DashboardLayout'
+import TripHistory from '@/components/TripHistory'
 import { supabase } from '@/services/supabase'
 
 export default function PublicProfile() {
@@ -113,6 +114,13 @@ export default function PublicProfile() {
               </button>
             </div>
           )}
+        </div>
+        
+        {/* Sección de historial de viajes */}
+        <div className="mt-8">
+          <GlassCard>
+            <TripHistory userId={userId} />
+          </GlassCard>
         </div>
         
         {/* Sección de reseñas */}
