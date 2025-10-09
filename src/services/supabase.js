@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 
 export const supabase = createClient(SUPABASE_URL || 'https://pamidjksvzshakzkrtdy.supabase.co', SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhbWlkamtzdnpzaGFremtydGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3ODgzODMsImV4cCI6MjA2OTM2NDM4M30.sjYTaPhMNymAiJI63Ia9Z7i9ur6izKqRawpkNBSEJdw')
 
-export async function signInWithGoogle(redirectPath = '/dashboard') {
+export async function signInWithGoogle(redirectPath = '/') {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.origin + redirectPath }

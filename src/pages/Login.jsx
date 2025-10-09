@@ -28,7 +28,7 @@ export default function Login() {
     setError(null)
     try {
       await login(email, password)
-      navigate('/dashboard')
+      navigate('/')
     } catch (err) {
       const status = err?.response?.status
       const data = err?.response?.data
@@ -124,7 +124,7 @@ export default function Login() {
             type="button"
             onClick={async () => {
               try {
-                await signInWithGoogle('/dashboard')
+                await signInWithGoogle('/')
               } catch (e) {
                 setError(e.message)
               }

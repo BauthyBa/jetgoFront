@@ -130,6 +130,22 @@ body::before {
   100% { transform: scale(1) rotate(0deg); }
 }
 
+@keyframes slide-in-from-top {
+  0% { 
+    opacity: 0; 
+    transform: translateY(-8px) scale(0.95); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
 a { color: hsl(var(--primary)); text-decoration: none; }
 a:hover { color: hsl(var(--primary-glow)); }
 
@@ -231,6 +247,8 @@ h1 {
     box-shadow: 0 8px 24px rgba(0, 164, 224, 0.45), inset 0 0 0 1px rgba(255,255,255,0.06);
   }
   .animate-emoji-pop { animation: emoji-pop 200ms ease-out; }
+  .animate-slide-in-from-top { animation: slide-in-from-top 200ms ease-out; }
+  .animate-fade-in { animation: fade-in 200ms ease-out; }
 }
 
 /* Text truncation helpers */

@@ -307,7 +307,7 @@ export default function Register({ embedded = false }) {
         }
         localStorage.setItem('dni_verified', 'true')
         setOk(true)
-        navigate('/dashboard')
+        navigate('/')
       } else {
         // 1) Guardar en backend
         await registerUser(form)

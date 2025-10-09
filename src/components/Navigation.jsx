@@ -3,15 +3,26 @@ import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { getSession, supabase } from '@/services/supabase'
 import ColorBar from '@/components/ColorBar'
-import ThemeToggle from '@/components/ThemeToggle'
+import ProfileMenu from '@/components/ProfileMenu'
+import { Plus } from 'lucide-react'
 
 export default function Navigation() {
   const [loggedIn, setLoggedIn] = useState(false)
+  const [user, setUser] = useState(null)
+  
   useEffect(() => {
     let mounted = true
-    getSession().then((s) => { if (mounted) setLoggedIn(!!s?.user) })
+    getSession().then((s) => { 
+      if (mounted) {
+        setLoggedIn(!!s?.user)
+        setUser(s?.user || null)
+      }
+    })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (mounted) setLoggedIn(!!session?.user)
+      if (mounted) {
+        setLoggedIn(!!session?.user)
+        setUser(session?.user || null)
+      }
     })
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
@@ -29,16 +40,18 @@ export default function Navigation() {
             <a href="#beneficios" className="text-slate-200 hover:text-emerald-400 transition-colors font-medium">Beneficios</a>
             <a href="#testimonios" className="text-slate-200 hover:text-emerald-400 transition-colors font-medium">Testimonios</a>
           </div>
-          <div className="flex items-center space-x-4 flex-shrink-0 ml-auto">
-            <ThemeToggle />
-            {loggedIn ? (
-              <Link to="/dashboard"><Button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white">Ir al dashboard</Button></Link>
-            ) : (
-              <>
-                <Link to="/login"><Button variant="ghost">Iniciar sesión</Button></Link>
-                <Link to="/signup"><Button className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white">Registrarse</Button></Link>
-              </>
-            )}
+          <div className="flex items-center space-x-3 flex-shrink-0 ml-auto">
+            {/* Publicar viaje button */}
+            <Link to="/">
+              <Button className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-medium px-4 py-2 flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Publicar viaje</span>
+                <span className="sm:hidden">+</span>
+              </Button>
+            </Link>
+            
+            {/* Profile Menu */}
+            <ProfileMenu isLoggedIn={loggedIn} user={user} />
           </div>
         </div>
       </div>
