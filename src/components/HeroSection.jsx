@@ -170,6 +170,14 @@ export default function HeroSection() {
   function handleSearchClick() {
     setHasSearched(true)
     handleSearchTrips()
+    
+    // Redirigir a la página de viajes con los parámetros de búsqueda
+    const params = new URLSearchParams()
+    if (fromText.trim()) params.set('desde', fromText.trim())
+    if (toText.trim()) params.set('hasta', toText.trim())
+    if (date && !anyDate) params.set('fecha', date)
+    
+    navigate(`/viajes?${params.toString()}`)
   }
 
   // Desactivar auto-búsqueda: ahora solo busca al tocar el botón

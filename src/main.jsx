@@ -13,6 +13,7 @@ import PublicProfile from './pages/PublicProfile.jsx'
 import TripDetails from './pages/TripDetails.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
+import ViajesPage from './pages/ViajesPage.jsx'
 
 const router = createBrowserRouter([
   {
@@ -25,6 +26,7 @@ const router = createBrowserRouter([
       { path: 'signup', element: <Signup /> },
       { path: 'verify-dni', element: <VerifyDni /> },
       { path: 'dashboard', element: <Dashboard /> },
+      { path: 'viajes', element: <ViajesPage /> },
       { path: 'u/:userId', element: <PublicProfile /> },
       { path: 'trip/:tripId', element: <TripDetails /> },
     ],
