@@ -192,7 +192,6 @@ export default function ViajesPage() {
             </div>
           </div>
         )}
-      </div>
     </div>
   )
 }
