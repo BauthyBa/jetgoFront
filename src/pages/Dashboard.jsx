@@ -604,18 +604,21 @@ export default function Dashboard() {
                                   if (response.data?.ok && response.data?.members) {
                                     const members = response.data.members.map((m) => ({
                                       user_id: m.user_id,
-                                      name: (profile?.user_id && m.user_id === profile.user_id)
-                                        ? (profile?.meta?.first_name && profile?.meta?.last_name ? `${profile.meta.first_name} ${profile.meta.last_name}` : 'Tú')
-                                        : m.name
+                                      name: m.name || 'Usuario'
                                     }))
-                                    console.log('🔍 Frontend: members finales =', members)
                                     setChatMembers(members)
                                     setChatInfoOpen(true)
                                   } else {
+                                    console.warn('🔍 Frontend: respuesta inválida del backend')
                                     alert('No se pudieron cargar los integrantes')
                                   }
-                                } catch (e) {
-                                  alert('No se pudieron cargar los integrantes')
+                                } catch (error) {
+                                  console.error('🔍 Frontend: error en chat-members:', error)
+                                  if (error.message?.includes('ERR_BLOCKED_BY_CLIENT')) {
+                                    alert('Error: La petición fue bloqueada por el navegador. Verifica extensiones o adblockers.')
+                                  } else {
+                                    alert('No se pudieron cargar los integrantes: ' + error.message)
+                                  }
                                 }
                               }}
                             >
