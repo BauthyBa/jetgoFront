@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Animación de carga para TripAdvisor preview */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 :root {
   /* Design tokens HSL traídos de go-together-spot */
   --background: 220 15% 97%;

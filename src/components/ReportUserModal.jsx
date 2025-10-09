@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import GlassCard from './GlassCard'
 import { createUserReport, getReportReasons, uploadReportEvidence } from '@/services/api'
 import { supabase } from '@/services/supabase'
+import { censorText, containsBannedWords } from '@/utils/wordFilter'
 
 export default function ReportUserModal({ isOpen, onClose, reportedUserId, reportedUserName }) {
   const [reasons, setReasons] = useState([])
@@ -14,6 +15,8 @@ export default function ReportUserModal({ isOpen, onClose, reportedUserId, repor
   const [evidenceFile, setEvidenceFile] = useState(null)
   const [evidencePreview, setEvidencePreview] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [censoredDescription, setCensoredDescription] = useState('')
+  const [wasFiltered, setWasFiltered] = useState(false)
 
   // Cargar usuario actual
   useEffect(() => {
@@ -55,8 +58,23 @@ export default function ReportUserModal({ isOpen, onClose, reportedUserId, repor
       setSuccess(false)
       setEvidenceFile(null)
       setEvidencePreview('')
+      setCensoredDescription('')
+      setWasFiltered(false)
     }
   }, [isOpen])
+
+  // Aplicar filtro de palabras cuando cambie la descripción
+  useEffect(() => {
+    if (description) {
+      const censored = censorText(description)
+      const filtered = censored !== description
+      setCensoredDescription(censored)
+      setWasFiltered(filtered)
+    } else {
+      setCensoredDescription('')
+      setWasFiltered(false)
+    }
+  }, [description])
 
   // Manejar selección de archivo de evidencia
   const handleFileSelect = (e) => {
@@ -134,7 +152,7 @@ export default function ReportUserModal({ isOpen, onClose, reportedUserId, repor
         reporter_id: currentUser.id,
         reported_user_id: reportedUserId,
         reason: selectedReason,
-        description: description.trim(),
+        description: censoredDescription.trim(),
         evidence_image_url: evidenceUrl
       })
 
@@ -238,6 +256,22 @@ export default function ReportUserModal({ isOpen, onClose, reportedUserId, repor
                     maxLength={500}
                     required={selectedReason === 'Otro motivo'}
                   />
+                  
+                  {/* Mostrar texto censurado si fue filtrado */}
+                  {wasFiltered && censoredDescription && (
+                    <div className="mt-2 p-2 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <span className="text-yellow-400 text-sm">⚠️</span>
+                        <div className="flex-1">
+                          <p className="text-xs text-yellow-300 mb-1">Texto filtrado automáticamente:</p>
+                          <p className="text-sm text-gray-300 bg-slate-800/50 p-2 rounded border-l-2 border-yellow-500/50">
+                            {censoredDescription}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <p className="text-xs text-gray-500 mt-1">
                     {description.length}/500 caracteres
                   </p>

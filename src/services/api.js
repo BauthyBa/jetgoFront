@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { supabase } from './supabase'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://jetgoback.onrender.com/api'
 
 export const api = axios.create({ baseURL: API_BASE_URL })
 export const apiPublic = axios.create({ baseURL: API_BASE_URL })
