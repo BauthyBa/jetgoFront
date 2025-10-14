@@ -21,6 +21,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import CurrencySelect from '@/components/CurrencySelect'
 import ChatExpenses from '@/components/ChatExpenses'
+import AudioRecorder from '@/components/AudioRecorder'
+import AudioMessage from '@/components/AudioMessage'
 
 export default function Dashboard() {
   const [profile, setProfile] = useState(null)
@@ -39,7 +41,8 @@ export default function Dashboard() {
     roomType: '',
     season: '',
     country: '',
-    maxParticipants: ''
+    maxParticipants: '',
+    transportType: ''
   })
   const [tab, setTab] = useState('chats')
   const [tripsBase, setTripsBase] = useState([])
@@ -72,6 +75,12 @@ export default function Dashboard() {
   const [userApplications, setUserApplications] = useState([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showExpenses, setShowExpenses] = useState(false)
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false)
+  
+  // Log when showAudioRecorder changes
+  useEffect(() => {
+    console.log('🎤 showAudioRecorder changed to:', showAudioRecorder)
+  }, [showAudioRecorder])
 
   // Autocomplete state for country and cities
   const [isoCountry, setIsoCountry] = useState('')
@@ -223,8 +232,14 @@ export default function Dashboard() {
   useEffect(() => {
     // Load trips on mount to have data for Trips/Expenses sections
     loadTrips()
-    loadUserApplications()
   }, [])
+
+  useEffect(() => {
+    // Load user applications when profile is loaded
+    if (profile?.user_id) {
+      loadUserApplications()
+    }
+  }, [profile?.user_id])
 
 
   useEffect(() => {
@@ -249,7 +264,11 @@ export default function Dashboard() {
 
   async function loadUserApplications() {
     try {
-      const data = await getUserApplications()
+      if (!profile?.user_id) {
+        console.log('Profile not loaded yet, skipping applications load')
+        return
+      }
+      const data = await getUserApplications(profile.user_id)
       setUserApplications(data || [])
     } catch (e) {
       console.error('Error loading user applications:', e)
@@ -345,6 +364,64 @@ export default function Dashboard() {
       if (saved) setNewMessage('')
     } catch (e) {
       alert(e?.message || 'No se pudo enviar el mensaje')
+    }
+  }
+
+  // Handle audio recording
+  const handleAudioRecorded = async (audioBlob) => {
+    try {
+      console.log('🎤 handleAudioRecorded called with:', audioBlob)
+      console.log('🎤 Blob type:', audioBlob.type)
+      console.log('🎤 Blob size:', audioBlob.size)
+      console.log('🎤 activeRoomId:', activeRoomId)
+      console.log('🎤 profile.user_id:', profile?.user_id)
+      
+      if (!activeRoomId || !profile?.user_id) {
+        console.log('🎤 Missing activeRoomId or profile.user_id')
+        return
+      }
+
+      const formData = new FormData()
+      // Crear un nuevo Blob con el tipo MIME correcto
+      const audioFile = new File([audioBlob], `audio_${Date.now()}.webm`, { 
+        type: 'audio/webm;codecs=opus' 
+      })
+      formData.append('file', audioFile)
+      formData.append('room_id', activeRoomId)
+      formData.append('user_id', profile.user_id)
+      
+      console.log('🎤 FormData created, sending to backend...')
+      console.log('🎤 AudioFile type:', audioFile.type)
+      console.log('🎤 AudioFile name:', audioFile.name)
+
+      const response = await fetch('http://localhost:8000/api/chat/upload-file/', {
+        method: 'POST',
+        body: formData,
+        mode: 'cors'
+      })
+
+      console.log('🎤 Backend response status:', response.status)
+      console.log('🎤 Backend response ok:', response.ok)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.log('🎤 Backend error:', errorData)
+        throw new Error(errorData.error || 'Error subiendo audio')
+      }
+
+      const data = await response.json()
+      console.log('🎤 Backend response data:', data)
+      
+      if (data.status === 'success') {
+        console.log('🎤 Audio uploaded successfully, reloading messages...')
+        // Recargar mensajes para mostrar el nuevo audio
+        const updatedMessages = await fetchMessages(activeRoomId)
+        setMessages(updatedMessages)
+        setShowAudioRecorder(false)
+      }
+    } catch (error) {
+      console.error('Error uploading audio:', error)
+      alert('Error subiendo audio. Intenta nuevamente.')
     }
   }
 
@@ -606,8 +683,16 @@ export default function Dashboard() {
                               }
                               return (
                                 <div key={m.id} className="glass-card" style={{ padding: 8 }}>
-                                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{getSenderLabel(m)}</div>
-                                  {m.is_file ? (
+                                  {m.is_file && m.file_type?.startsWith('audio/') ? (
+                                    <AudioMessage
+                                      message={m}
+                                      isOwn={profile?.user_id === m.user_id}
+                                      senderName={getSenderLabel(m)}
+                                    />
+                                  ) : (
+                                    <>
+                                      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{getSenderLabel(m)}</div>
+                                      {m.is_file ? (
                                     <div>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                                         <span>{getFileIcon(m.file_type)}</span>
@@ -650,6 +735,8 @@ export default function Dashboard() {
                                     </div>
                                   ) : (
                                     displayContent && <div style={{ fontSize: 13 }}>{displayContent}</div>
+                                  )}
+                                    </>
                                   )}
                                   {(() => {
                                     try {
@@ -711,7 +798,18 @@ export default function Dashboard() {
                           </div>
                         )}
                         {!showExpenses && (
-                          <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', position: 'relative' }}>
+                          <>
+                            {showAudioRecorder && (
+                              <>
+                                {console.log('🎤 RENDERING AudioRecorder component')}
+                                <AudioRecorder
+                                  onAudioRecorded={handleAudioRecorded}
+                                  onCancel={() => setShowAudioRecorder(false)}
+                                />
+                              </>
+                            )}
+                            {!showAudioRecorder && (
+                              <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', position: 'relative' }}>
                           <input
                             type="file"
                             id="chat-file-input"
@@ -755,7 +853,7 @@ export default function Dashboard() {
                                 })
                                 
                                 // Usar fetch directamente para subir archivo y crear mensaje en una sola operación
-                                const response = await fetch('https://jetgoback.onrender.com/api/chat/upload-file/', {
+                                const response = await fetch('http://localhost:8000/api/chat/upload-file/', {
                                   method: 'POST',
                                   body: formData,
                                   mode: 'cors'
@@ -782,6 +880,27 @@ export default function Dashboard() {
                               }
                             }}
                           />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              console.log('🎤 MICROPHONE BUTTON CLICKED!')
+                              console.log('🎤 Current showAudioRecorder:', showAudioRecorder)
+                              setShowAudioRecorder(!showAudioRecorder)
+                              console.log('🎤 New showAudioRecorder will be:', !showAudioRecorder)
+                            }}
+                            style={{
+                              background: showAudioRecorder ? '#ef4444' : 'rgba(255, 255, 255, 0.1)',
+                              border: '1px solid rgba(255, 255, 255, 0.2)',
+                              color: 'white',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '16px'
+                            }}
+                            title={showAudioRecorder ? 'Cancelar grabación' : 'Grabar audio'}
+                          >
+                            🎤
+                          </button>
                           <button
                             type="button"
                             onClick={() => document.getElementById('chat-file-input')?.click()}
@@ -839,7 +958,9 @@ export default function Dashboard() {
                               setShowEmojiPicker(false)
                             }}
                           />
-                          </div>
+                            </div>
+                            )}
+                          </>
                         )}
                       </>
                     )}
@@ -1081,6 +1202,18 @@ export default function Dashboard() {
                   </select>
                 </div>
                 <div className="field">
+                  <label>Tipo de Transporte</label>
+                  <select value={trip.transportType} onChange={(e) => setTrip({ ...trip, transportType: e.target.value })} style={{ color: '#111827', background: '#ffffff' }}>
+                    <option value="">-</option>
+                    <option value="auto">🚗 Auto</option>
+                    <option value="colectivo">🚌 Colectivo/Bus</option>
+                    <option value="avion">✈️ Avión</option>
+                    <option value="tren">🚂 Tren</option>
+                    <option value="barco">🚢 Barco</option>
+                    <option value="combinado">🔄 Combinado</option>
+                  </select>
+                </div>
+                <div className="field">
                   <label>Temporada</label>
                   <select value={trip.season} onChange={(e) => setTrip({ ...trip, season: e.target.value })} style={{ color: '#111827', background: '#ffffff' }}>
                     <option value="">-</option>
@@ -1225,6 +1358,7 @@ export default function Dashboard() {
                         budget_max: trip.budgetMax !== '' ? Number(trip.budgetMax) : null,
                         currency: trip.currency || 'USD',
                         room_type: trip.roomType || null,
+                        transport_type: trip.transportType || null,
                         season: trip.season || null,
                         country: trip.country || null,
                         max_participants: trip.maxParticipants !== '' ? Number(trip.maxParticipants) : null,
@@ -1233,7 +1367,7 @@ export default function Dashboard() {
                       }
                       const { data } = await api.post('/trips/create/', payload)
                       setShowCreateModal(false)
-                      setTrip({ name: '', origin: '', destination: '', startDate: '', endDate: '', budgetMin: '', budgetMax: '', currency: 'USD', status: '', roomType: '', season: '', country: '', maxParticipants: '' })
+                      setTrip({ name: '', origin: '', destination: '', startDate: '', endDate: '', budgetMin: '', budgetMax: '', currency: 'USD', status: '', roomType: '', transportType: '', season: '', country: '', maxParticipants: '' })
                       await loadTrips()
                       setJoinDialog({ open: true, title: 'Viaje creado', message: 'Tu viaje fue creado con éxito.' })
                     } catch (e) {
@@ -1418,6 +1552,18 @@ export default function Dashboard() {
                   </select>
                 </div>
                 <div className="field">
+                  <label>Tipo de Transporte</label>
+                  <select defaultValue={editTripModal.data?.transportType ?? ''} onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, transportType: e.target.value } }))}>
+                    <option value="">-</option>
+                    <option value="auto">🚗 Auto</option>
+                    <option value="colectivo">🚌 Colectivo/Bus</option>
+                    <option value="avion">✈️ Avión</option>
+                    <option value="tren">🚂 Tren</option>
+                    <option value="barco">🚢 Barco</option>
+                    <option value="combinado">🔄 Combinado</option>
+                  </select>
+                </div>
+                <div className="field">
                   <label>Temporada</label>
                   <select defaultValue={editTripModal.data?.season ?? ''} onChange={(e) => setEditTripModal((m) => ({ ...m, data: { ...m.data, season: e.target.value } }))}>
                     <option value="">-</option>
@@ -1452,6 +1598,7 @@ export default function Dashboard() {
                       budget_max: editTripModal.data?.budgetMax !== '' ? Number(editTripModal.data?.budgetMax) : null,
                       currency: editTripModal.data?.currency || 'USD',
                       room_type: editTripModal.data?.roomType || null,
+                      transport_type: editTripModal.data?.transportType || null,
                       season: editTripModal.data?.season || null,
                       country: editTripModal.data?.country || null,
                       max_participants: editTripModal.data?.maxParticipants !== '' ? Number(editTripModal.data?.maxParticipants) : null,

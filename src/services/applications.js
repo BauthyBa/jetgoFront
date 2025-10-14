@@ -12,7 +12,7 @@ export async function respondToApplication(applicationId, action) {
   return data
 }
 
-export async function getUserApplications() {
-  const { data } = await api.get('/applications/my/')
+export async function getUserApplications(userId) {
+  const { data } = await api.get(`/applications/my/?user_id=${userId}`)
   return data
 }
