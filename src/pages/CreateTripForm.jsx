@@ -216,9 +216,9 @@ export default function CreateTripForm() {
   return (
     <div className="min-h-screen bg-slate-900">
       <div className="pt-20 pb-12">
-        <div className="max-w-4xl mx-auto px-6">
+        <div className="max-w-7xl mx-auto px-6">
           {/* Header */}
-          <div className="mb-12">
+          <div className="mb-8">
             <Button
               variant="ghost"
               onClick={() => navigate('/crear-viaje')}
@@ -237,15 +237,19 @@ export default function CreateTripForm() {
             </div>
           </div>
 
-          {/* Formulario */}
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-8 border border-slate-700/50">
-              <h2 className="text-2xl font-semibold text-white mb-8 flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                  <MapPin className="w-5 h-5 text-emerald-400" />
-                </div>
-                Información básica
-              </h2>
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            {/* Left Column - Form */}
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50 shadow-2xl">
+              {/* Formulario */}
+              <form onSubmit={handleSubmit} className="space-y-8">
+                <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-8 border border-slate-700/50">
+                  <h2 className="text-2xl font-semibold text-white mb-8 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                      <MapPin className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    Información básica
+                  </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -369,7 +373,7 @@ export default function CreateTripForm() {
                   )}
                 </div>
               </div>
-            </div>
+                </div>
 
             <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-8 border border-slate-700/50">
               <h2 className="text-2xl font-semibold text-white mb-8 flex items-center gap-3">
@@ -594,7 +598,51 @@ export default function CreateTripForm() {
                 )}
               </Button>
             </div>
-          </form>
+              </form>
+            </div>
+
+            {/* Right Column - Illustration */}
+            <div className="relative">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-8 h-full min-h-[600px] flex items-center justify-center relative overflow-hidden">
+                {/* Background decorative elements */}
+                <div className="absolute top-4 left-4 w-16 h-16 bg-blue-200/30 rounded-full blur-sm"></div>
+                <div className="absolute top-8 right-8 w-12 h-12 bg-indigo-200/30 rounded-full blur-sm"></div>
+                <div className="absolute bottom-8 left-8 w-20 h-20 bg-cyan-200/30 rounded-full blur-sm"></div>
+                <div className="absolute bottom-4 right-4 w-14 h-14 bg-blue-300/30 rounded-full blur-sm"></div>
+                
+                {/* Main illustration content */}
+                <div className="text-center z-10">
+                  <div className="mb-8">
+                    <Globe className="w-24 h-24 text-blue-600 mx-auto mb-4" />
+                    <h3 className="text-2xl font-bold text-white mb-2">Conecta el mundo</h3>
+                    <p className="text-gray-600">Viaja con JetGo y descubre nuevas aventuras</p>
+                  </div>
+                  
+                  {/* Transport icons */}
+                  <div className="flex justify-center space-x-6 mb-6">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                      <Car className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                      <Bus className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                      <Train className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                      <Plane className="w-6 h-6 text-orange-600" />
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-gray-500">
+                    <p>🌍 Destinos únicos</p>
+                    <p>👥 Comunidad de viajeros</p>
+                    <p>💰 Ahorra en cada viaje</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

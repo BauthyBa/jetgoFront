@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { getSession, supabase } from '@/services/supabase'
 import ColorBar from '@/components/ColorBar'
@@ -9,6 +9,10 @@ import { Plus, Search } from 'lucide-react'
 export default function Navigation() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [user, setUser] = useState(null)
+  const location = useLocation()
+  
+  // Hide navigation links on specific pages
+  const hideNavLinks = location.pathname === '/viajes' || location.pathname.startsWith('/crear-viaje')
   
   useEffect(() => {
     let mounted = true
@@ -35,11 +39,13 @@ export default function Navigation() {
             <img src="/jetgo.png?v=2" alt="JetGo" width="44" height="44" />
             <Link to="/" className="text-3xl font-extrabold text-white hover:text-emerald-400 transition-colors">JetGo</Link>
           </div>
-          <div className="hidden md:flex items-center space-x-8 absolute left-1/2 -translate-x-1/2">
-            <a href="#como-funciona" className="text-slate-200 hover:text-emerald-400 transition-colors font-medium">Cómo funciona</a>
-            <a href="#beneficios" className="text-slate-200 hover:text-emerald-400 transition-colors font-medium">Beneficios</a>
-            <a href="#testimonios" className="text-slate-200 hover:text-emerald-400 transition-colors font-medium">Testimonios</a>
-          </div>
+          {!hideNavLinks && (
+            <div className="hidden md:flex items-center space-x-8 absolute left-1/2 -translate-x-1/2">
+              <a href="#como-funciona" className="text-slate-200 hover:text-emerald-400 transition-colors font-medium">Cómo funciona</a>
+              <a href="#beneficios" className="text-slate-200 hover:text-emerald-400 transition-colors font-medium">Beneficios</a>
+              <a href="#testimonios" className="text-slate-200 hover:text-emerald-400 transition-colors font-medium">Testimonios</a>
+            </div>
+          )}
           <div className="flex items-center space-x-3 flex-shrink-0 ml-auto">
             {/* Buscar viajes button */}
             <Link to="/viajes">
@@ -51,7 +57,7 @@ export default function Navigation() {
             </Link>
             
             {/* Publicar viaje button */}
-            <Link to="/">
+            <Link to="/crear-viaje">
               <Button className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-medium px-4 py-2 flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Publicar viaje</span>
