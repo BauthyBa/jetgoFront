@@ -158,7 +158,7 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
               // Logged in menu
               <>
                 <Link
-                  to="/"
+                  to="/dashboard?tab=trips"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
@@ -166,7 +166,7 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
                   Mis viajes
                 </Link>
                 <Link
-                  to="/"
+                  to="/dashboard?tab=chats"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
@@ -174,7 +174,7 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
                   Chats
                 </Link>
                 <Link
-                  to="/"
+                  to="/dashboard?tab=profile"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
@@ -182,7 +182,7 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
                   Perfil
                 </Link>
                 <Link
-                  to="/"
+                  to="/dashboard?tab=notifications"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >

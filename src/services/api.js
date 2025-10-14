@@ -195,8 +195,16 @@ export async function getUserProfile(userId) {
 
 // Funciones para notificaciones
 export async function getUserNotifications(userId, limit = 20) {
-  const { data } = await apiPublic.get(`/supabase/notifications/?user_id=${userId}&limit=${limit}`)
-  return data
+  try {
+    console.log('🔔 Llamando a getUserNotifications con userId:', userId)
+    const response = await apiPublic.get(`/supabase/notifications/?user_id=${userId}&limit=${limit}`)
+    console.log('🔔 Respuesta completa:', response)
+    return response.data
+  } catch (error) {
+    console.error('🔔 Error fetching notifications:', error)
+    console.error('🔔 Error response:', error.response?.data)
+    throw error
+  }
 }
 
 export async function markNotificationRead(notificationId, userId) {
