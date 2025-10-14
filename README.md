@@ -32,8 +32,11 @@ VITE_SUPABASE_ANON_KEY=tu_anon_key
 VITE_API_BASE_URL=https://tu-backend.com/api
 ```
 Si no defines variables, el proyecto usa valores por defecto de desarrollo:
-- `VITE_API_BASE_URL` -> `http://localhost:8000/api`
+- `VITE_API_BASE_URL` -> `https://jetgoback.onrender.com/api`
+- `VITE_LOCAL_API_BASE_URL` (opcional) -> `http://localhost:8000/api`
 - En `src/services/supabase.js` hay valores de ejemplo para URL/KEY (recomendado sobrescribir con env).
+
+Cuando la app corre en `http://localhost` intenta detectar automáticamente si el backend local (`VITE_LOCAL_API_BASE_URL`) está disponible; si no lo encuentra, usa la API deployada en Render. En producción/páginas públicas siempre se mantiene la URL remota.
 
 Importante: Nunca subas claves reales a git. Usa variables de entorno.
 
@@ -99,7 +102,7 @@ La navegación principal se basa en React Router (v7). Rutas destacadas:
   - Lee `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
   - `signInWithGoogle`, `getSession`, `updateUserMetadata`.
 - API backend (`src/services/api.js`):
-  - Base URL desde `VITE_API_BASE_URL`.
+  - Base URL desde `VITE_API_BASE_URL`, con detección automática de backend local en desarrollo (`VITE_LOCAL_API_BASE_URL`).
   - Manejador de token JWT en `localStorage` y expiración.
   - Endpoints usados: `/auth/register/`, `/auth/login/`, `/auth/upsert_profile/`.
 - Viajes (`src/services/trips.js`):
@@ -146,4 +149,3 @@ Pasos recomendados:
 
 ### Licencia
 Propietario del proyecto. Todos los derechos reservados, salvo acuerdo en contrario.
-

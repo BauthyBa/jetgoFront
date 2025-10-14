@@ -789,7 +789,7 @@ export default function Dashboard() {
                                 })
                                 
                                 // Usar fetch directamente para subir archivo y crear mensaje en una sola operación
-                                const response = await fetch('http://127.0.0.1:8000/api/chat/upload-file/', {
+                                const response = await fetch('https://jetgoback.onrender.com/api/chat/upload-file/', {
                                   method: 'POST',
                                   body: formData,
                                   mode: 'cors'

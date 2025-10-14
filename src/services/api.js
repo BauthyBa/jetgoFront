@@ -1,10 +1,78 @@
 import axios from 'axios'
 import { supabase } from './supabase'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://jetgoback.onrender.com/api'
+function normalizeBaseUrl(url) {
+  if (!url) return null
+  return url.replace(/\/+$/, '')
+}
 
-export const api = axios.create({ baseURL: API_BASE_URL })
-export const apiPublic = axios.create({ baseURL: API_BASE_URL })
+const REMOTE_API_BASE_URL = normalizeBaseUrl('https://jetgoback.onrender.com/api')
+const ENV_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL)
+const LOCAL_CANDIDATE = normalizeBaseUrl(import.meta.env.VITE_LOCAL_API_BASE_URL) || normalizeBaseUrl('http://localhost:8000/api')
+
+const INITIAL_API_BASE_URL = ENV_BASE_URL || REMOTE_API_BASE_URL
+
+export const api = axios.create({ baseURL: INITIAL_API_BASE_URL })
+export const apiPublic = axios.create({ baseURL: INITIAL_API_BASE_URL })
+
+let resolvedApiBaseUrl = INITIAL_API_BASE_URL
+
+function applyBaseUrl(baseUrl) {
+  if (!baseUrl || baseUrl === resolvedApiBaseUrl) return
+  resolvedApiBaseUrl = baseUrl
+  api.defaults.baseURL = baseUrl
+  apiPublic.defaults.baseURL = baseUrl
+  console.info(`[api] Base URL set to ${baseUrl}`)
+}
+
+function isBrowserEnvironment() {
+  return typeof window !== 'undefined' && typeof window.fetch === 'function'
+}
+
+async function isBackendReachable(baseUrl) {
+  if (!isBrowserEnvironment()) return false
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), 2500)
+  try {
+    const response = await fetch(`${baseUrl}/test/`, {
+      method: 'GET',
+      signal: controller.signal,
+      credentials: 'omit',
+    })
+    return response.ok
+  } catch (_error) {
+    return false
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
+export async function initializeApiBaseUrl() {
+  if (ENV_BASE_URL || !isBrowserEnvironment()) {
+    return resolvedApiBaseUrl
+  }
+
+  const host = window.location.hostname
+  const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(host)
+  if (!isLocalHost || !LOCAL_CANDIDATE) {
+    return resolvedApiBaseUrl
+  }
+
+  if (resolvedApiBaseUrl === LOCAL_CANDIDATE) {
+    return resolvedApiBaseUrl
+  }
+
+  const reachable = await isBackendReachable(LOCAL_CANDIDATE)
+  if (reachable) {
+    applyBaseUrl(LOCAL_CANDIDATE)
+  }
+
+  return resolvedApiBaseUrl
+}
+
+export function getApiBaseUrl() {
+  return resolvedApiBaseUrl
+}
 
 export function setAuthToken(token) {
   if (token) {
