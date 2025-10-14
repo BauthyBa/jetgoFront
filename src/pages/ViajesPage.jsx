@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import TarjetaViaje from '@/components/TarjetaViaje'
 import TripGrid from '@/components/TripGrid'
+import TripListHorizontal from '@/components/TripListHorizontal'
 import ApplyToTripModal from '@/components/ApplyToTripModal'
 
 export default function ViajesPage() {
@@ -582,28 +583,11 @@ export default function ViajesPage() {
             </div>
 
             {/* Lista de viajes */}
-            <div className="flex-1">
-              <div className="mb-6 flex items-center justify-between">
+            <div className="flex-1 max-w-4xl">
+              <div className="mb-6">
                 <h2 className="text-xl font-semibold text-white">
                   {showMineOnly ? 'Mis Viajes' : 'Viajes Disponibles'} ({filteredTrips.length})
                 </h2>
-                {profile && (
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="secondary" 
-                      onClick={() => setFiltersOpen(true)}
-                    >
-                      <SlidersHorizontal className="w-4 h-4 mr-2" />
-                      Filtros
-                    </Button>
-                    <Button 
-                      onClick={() => navigate('/crear-viaje')}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      Crear viaje
-                    </Button>
-                  </div>
-                )}
               </div>
 
               {loading ? (
@@ -628,7 +612,7 @@ export default function ViajesPage() {
               ) : (
                 <div>
                   {profile ? (
-                    <TripGrid
+                    <TripListHorizontal
                       trips={(showMineOnly ? filteredTrips : filteredTrips.filter((t) => !(t.creatorId && t.creatorId === profile.id))).slice(0, visibleCount)}
                       joiningId={joiningId}
                       leavingId={leavingId}

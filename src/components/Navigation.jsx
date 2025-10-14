@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+
 import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { getSession, supabase } from '@/services/supabase'
@@ -56,11 +57,11 @@ export default function Navigation() {
               </Button>
             </Link>
             
-            {/* Publicar viaje button */}
+            {/* Crear Viaje button */}
             <Link to="/crear-viaje">
               <Button className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-medium px-4 py-2 flex items-center gap-2">
                 <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Publicar viaje</span>
+                <span className="hidden sm:inline">Crear Viaje</span>
                 <span className="sm:hidden">+</span>
               </Button>
             </Link>
