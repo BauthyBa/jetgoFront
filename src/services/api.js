@@ -47,26 +47,41 @@ async function isBackendReachable(baseUrl) {
   }
 }
 
+function uniqueUrls(urls) {
+  return urls.filter((url, index) => url && urls.indexOf(url) === index)
+}
+
 export async function initializeApiBaseUrl() {
-  if (ENV_BASE_URL || !isBrowserEnvironment()) {
+  if (!isBrowserEnvironment()) {
     return resolvedApiBaseUrl
   }
 
   const host = window.location.hostname
   const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(host)
-  if (!isLocalHost || !LOCAL_CANDIDATE) {
-    return resolvedApiBaseUrl
+
+  const candidateOrder = uniqueUrls([
+    isLocalHost ? LOCAL_CANDIDATE : null,
+    resolvedApiBaseUrl,
+    REMOTE_API_BASE_URL,
+  ])
+
+  for (const candidate of candidateOrder) {
+    if (!candidate) continue
+    if (resolvedApiBaseUrl === candidate) {
+      const alreadyReachable = await isBackendReachable(candidate)
+      if (alreadyReachable) {
+        return resolvedApiBaseUrl
+      }
+    } else {
+      const reachable = await isBackendReachable(candidate)
+      if (reachable) {
+        applyBaseUrl(candidate)
+        return resolvedApiBaseUrl
+      }
+    }
   }
 
-  if (resolvedApiBaseUrl === LOCAL_CANDIDATE) {
-    return resolvedApiBaseUrl
-  }
-
-  const reachable = await isBackendReachable(LOCAL_CANDIDATE)
-  if (reachable) {
-    applyBaseUrl(LOCAL_CANDIDATE)
-  }
-
+  // Si ninguno respondió, mantener la URL actual (probablemente REMOTE_API_BASE_URL).
   return resolvedApiBaseUrl
 }
 
