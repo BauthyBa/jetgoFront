@@ -73,10 +73,10 @@ export default function TarjetaViaje({ viaje, creadorNombre }) {
       to={`/trip/${viaje.id}`}
       className="block group"
     >
-      <div className={`bg-white/10 backdrop-blur-sm rounded-xl border transition-all duration-200 hover:shadow-lg hover:bg-white/20 ${
+      <div className={`bg-slate-700/30 backdrop-blur-sm rounded-xl border transition-all duration-200 hover:shadow-lg hover:bg-slate-600/30 ${
         isAvailable 
-          ? 'border-white/20 hover:border-white/30' 
-          : 'border-white/10 opacity-60'
+          ? 'border-white/10 hover:border-white/20' 
+          : 'border-white/5 opacity-60'
       }`}>
         <div className="p-6">
           <div className="flex items-start justify-between">

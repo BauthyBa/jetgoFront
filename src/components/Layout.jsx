@@ -18,7 +18,7 @@ export default function Layout() {
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
   const isRoot = location.pathname === '/'
-  const hideHeaderOn = ['/verify-dni', '/dashboard', '/login', '/signup', '/u/', '/trip']
+  const hideHeaderOn = ['/verify-dni', '/dashboard', '/login', '/signup', '/u/', '/trip', '/viajes']
   const hideHeader = hideHeaderOn.some((p) => location.pathname.startsWith(p))
   return (
     <div>
@@ -41,7 +41,7 @@ export default function Layout() {
           </div>
         </header>
       )}
-      {isRoot && <Navigation />}
+      {(isRoot || location.pathname === '/viajes') && <Navigation />}
       {/* Compact back bar for views without main header and not dashboard */}
       {!isRoot && hideHeader && !location.pathname.startsWith('/dashboard') && (
         <div className="sticky top-0 z-30" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
