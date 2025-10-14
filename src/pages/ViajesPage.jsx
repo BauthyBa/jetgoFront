@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { listTrips, joinTrip, leaveTrip } from '@/services/trips'
 import { applyToTrip, getUserApplications } from '@/services/applications'
 import { listRoomsForUser } from '@/services/chat'
@@ -27,6 +27,7 @@ import ApplyToTripModal from '@/components/ApplyToTripModal'
 
 export default function ViajesPage() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [trips, setTrips] = useState([])
   const [tripsBase, setTripsBase] = useState([])
   const [loading, setLoading] = useState(true)
@@ -596,7 +597,7 @@ export default function ViajesPage() {
                       Filtros
                     </Button>
                     <Button 
-                      onClick={() => {/* TODO: Implementar modal de crear viaje */}}
+                      onClick={() => navigate('/crear-viaje')}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       Crear viaje

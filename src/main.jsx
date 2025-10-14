@@ -14,6 +14,8 @@ import TripDetails from './pages/TripDetails.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
 import ViajesPage from './pages/ViajesPage.jsx'
+import CreateTripLanding from './pages/CreateTripLanding.jsx'
+import CreateTripForm from './pages/CreateTripForm.jsx'
 
 const router = createBrowserRouter([
   {
@@ -27,6 +29,8 @@ const router = createBrowserRouter([
       { path: 'verify-dni', element: <VerifyDni /> },
       { path: 'dashboard', element: <Dashboard /> },
       { path: 'viajes', element: <ViajesPage /> },
+      { path: 'crear-viaje', element: <CreateTripLanding /> },
+      { path: 'crear-viaje/formulario', element: <CreateTripForm /> },
       { path: 'u/:userId', element: <PublicProfile /> },
       { path: 'trip/:tripId', element: <TripDetails /> },
     ],

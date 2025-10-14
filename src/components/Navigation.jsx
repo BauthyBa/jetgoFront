@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { getSession, supabase } from '@/services/supabase'
 import ColorBar from '@/components/ColorBar'
 import ProfileMenu from '@/components/ProfileMenu'
-import { Plus } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 
 export default function Navigation() {
   const [loggedIn, setLoggedIn] = useState(false)
@@ -41,6 +41,15 @@ export default function Navigation() {
             <a href="#testimonios" className="text-slate-200 hover:text-emerald-400 transition-colors font-medium">Testimonios</a>
           </div>
           <div className="flex items-center space-x-3 flex-shrink-0 ml-auto">
+            {/* Buscar viajes button */}
+            <Link to="/viajes">
+              <Button variant="secondary" className="bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 flex items-center gap-2">
+                <Search className="w-4 h-4" />
+                <span className="hidden sm:inline">Buscar viajes</span>
+                <span className="sm:hidden">🔍</span>
+              </Button>
+            </Link>
+            
             {/* Publicar viaje button */}
             <Link to="/">
               <Button className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-medium px-4 py-2 flex items-center gap-2">
