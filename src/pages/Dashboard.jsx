@@ -20,6 +20,7 @@ import { useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import CurrencySelect from '@/components/CurrencySelect'
+import ChatExpenses from '@/components/ChatExpenses'
 
 export default function Dashboard() {
   const [profile, setProfile] = useState(null)
@@ -64,25 +65,13 @@ export default function Dashboard() {
   const section = (location.hash || '#inicio').replace('#', '')
   const [showCreate, setShowCreate] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  // Expenses state (local, per user)
-  const [expensesTripId, setExpensesTripId] = useState('')
-  const storageKey = (suffix) => `exp_${suffix}_${expensesTripId || 'global'}`
-  const [participants, setParticipants] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(storageKey('participants')) || '[]') } catch { return [] }
-  })
-  const [expenses, setExpenses] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(storageKey('expenses')) || '[]') } catch { return [] }
-  })
-  const [participantsMode, setParticipantsMode] = useState('manual')
-  const [participantsTripId, setParticipantsTripId] = useState('')
-  const [splitMode, setSplitMode] = useState('all')
-  const [splitSelected, setSplitSelected] = useState([])
   const [joinDialog, setJoinDialog] = useState({ open: false, title: '', message: '' })
   const [applyModal, setApplyModal] = useState({ open: false, trip: null })
   const [applicationStatuses, setApplicationStatuses] = useState({})
   const [applicationOrganizer, setApplicationOrganizer] = useState({})
   const [userApplications, setUserApplications] = useState([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showExpenses, setShowExpenses] = useState(false)
 
   // Autocomplete state for country and cities
   const [isoCountry, setIsoCountry] = useState('')
@@ -237,32 +226,6 @@ export default function Dashboard() {
     loadUserApplications()
   }, [])
 
-  useEffect(() => {
-    try { localStorage.setItem(storageKey('participants'), JSON.stringify(participants)) } catch {}
-  }, [participants, expensesTripId])
-  useEffect(() => {
-    try { localStorage.setItem(storageKey('expenses'), JSON.stringify(expenses)) } catch {}
-  }, [expenses, expensesTripId])
-  useEffect(() => {
-    // Load persisted when changing selected expenses trip
-    try {
-      const p = JSON.parse(localStorage.getItem(storageKey('participants')) || '[]')
-      setParticipants(Array.isArray(p) ? p : [])
-    } catch { setParticipants([]) }
-    try {
-      const e = JSON.parse(localStorage.getItem(storageKey('expenses')) || '[]')
-      setExpenses(Array.isArray(e) ? e : [])
-    } catch { setExpenses([]) }
-  }, [expensesTripId])
-
-  // Keep split selection in sync with participants and mode
-  useEffect(() => {
-    if (splitMode === 'all') {
-      setSplitSelected(participants)
-    } else {
-      setSplitSelected((prev) => prev.filter((p) => participants.includes(p)))
-    }
-  }, [participants, splitMode])
 
   useEffect(() => {
     // Scroll when the hash changes via router navigation
@@ -342,6 +305,7 @@ export default function Dashboard() {
       if (!roomId) return
       setActiveRoomId(roomId)
       setActiveRoom(room || null)
+      setShowExpenses(false) // Reset expenses view when opening a new chat
       window.location.hash = '#chats'
       const initial = await fetchMessages(roomId)
       setMessages(initial)
@@ -443,34 +407,6 @@ export default function Dashboard() {
     return map
   }
 
-  async function loadParticipantsFromTrip() {
-    try {
-      const tripId = participantsTripId
-      if (!tripId) return
-      // Load from backend to avoid RLS/view issues and ensure full list
-      const res = await api.get('/trips/members/', { params: { trip_id: tripId } })
-      const members = Array.isArray(res?.data?.members) ? res.data.members : []
-      const ids = members.map((x) => x.user_id)
-      if (ids.length === 0) {
-        alert('Este viaje no tiene participantes aún')
-        return
-      }
-      // 3) Resolve names
-      const map = await fetchNamesForUserIds(ids)
-      const names = members.map((m) => {
-        const id = m.user_id
-        if (profile?.user_id && id === profile.user_id) {
-          if (profile?.meta?.first_name && profile?.meta?.last_name) return `${profile.meta.first_name} ${profile.meta.last_name}`
-          return 'Tú'
-        }
-        return m.name || map[id] || id
-      })
-      setParticipants(Array.from(new Set(names)))
-      setExpensesTripId(tripId)
-    } catch (e) {
-      alert('No se pudieron cargar participantes del viaje')
-    }
-  }
 
   return (
     <DashboardLayout>
@@ -497,10 +433,6 @@ export default function Dashboard() {
                       <div className="glass-card" style={{ padding: 16, minHeight: 88, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <div style={{ fontSize: 12, color: '#94a3b8' }}>Chats</div>
                     <div style={{ fontSize: 28, fontWeight: 800 }}>{rooms.length}</div>
-                  </div>
-                      <div className="glass-card" style={{ padding: 16, minHeight: 88, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Gastos guardados</div>
-                    <div style={{ fontSize: 28, fontWeight: 800 }}>{expenses.length}</div>
                   </div>
                 </div>
                 <div style={{ marginTop: 16 }}>
@@ -535,8 +467,8 @@ export default function Dashboard() {
 
             {section === 'chats' && (
               <section id="chats" style={{ marginTop: 16 }}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="glass-card md:col-span-1" style={{ padding: 12, display: 'grid', gap: 12 }}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="glass-card lg:col-span-1" style={{ padding: 12, display: 'grid', gap: 12 }}>
                     <div>
                       <h3 className="page-title" style={{ color: '#60a5fa', marginBottom: 8 }}>Chats de Viajes</h3>
                       <ChatsCard
@@ -554,14 +486,36 @@ export default function Dashboard() {
                       />
                     </div>
                   </div>
-                  <div className="glass-card md:col-span-2" style={{ padding: 12, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
+                  <div className="glass-card lg:col-span-2" style={{ padding: 12, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
                     {!activeRoomId && (
                       <p className="muted">Seleccioná un chat para comenzar</p>
                     )}
                     {activeRoomId && (
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 4px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 8 }}>
-                          <div style={{ fontWeight: 700, fontSize: 16 }}>{activeRoom?.display_name || activeRoom?.name || 'Chat'}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div 
+                              style={{ 
+                                fontWeight: 700, 
+                                fontSize: 16, 
+                                cursor: activeRoom?.trip_id ? 'pointer' : 'default',
+                                color: showExpenses ? '#60a5fa' : 'white',
+                                textDecoration: showExpenses ? 'underline' : 'none'
+                              }}
+                              onClick={() => activeRoom?.trip_id && setShowExpenses(false)}
+                            >
+                              {activeRoom?.display_name || activeRoom?.name || 'Chat'}
+                            </div>
+                            {activeRoom?.trip_id && (
+                              <button
+                                className={`btn ${showExpenses ? 'btn' : 'btn secondary'}`}
+                                style={{ height: 28, padding: '0 10px', fontSize: 12 }}
+                                onClick={() => setShowExpenses(true)}
+                              >
+                                💰 Gastos
+                              </button>
+                            )}
+                          </div>
                           <button
                               className="btn secondary"
                               style={{ height: 28, padding: '0 10px' }}
@@ -625,9 +579,19 @@ export default function Dashboard() {
                               Ver información
                             </button>
                         </div>
-                        <div style={{ flex: 1, overflow: 'auto', paddingRight: 8 }}>
-                          <div style={{ display: 'grid', gap: 8 }}>
-                            {messages.map((m) => {
+                        {showExpenses ? (
+                          <div style={{ flex: 1, overflow: 'auto', paddingRight: 8 }}>
+                            <ChatExpenses
+                              tripId={activeRoom?.trip_id}
+                              roomId={activeRoomId}
+                              userId={profile?.user_id}
+                              userNames={userNames}
+                            />
+                          </div>
+                        ) : (
+                          <div style={{ flex: 1, overflow: 'auto', paddingRight: 8 }}>
+                            <div style={{ display: 'grid', gap: 8 }}>
+                              {messages.map((m) => {
                               const isApp = typeof m?.content === 'string' && m.content.startsWith('APP|')
                               const isAppStatus = typeof m?.content === 'string' && m.content.startsWith('APP_STATUS|')
                               let applicationId = null
@@ -742,10 +706,12 @@ export default function Dashboard() {
                               </div>
                               )
                             })}
-                            {messages.length === 0 && <p className="muted">No hay mensajes aún.</p>}
+                              {messages.length === 0 && <p className="muted">No hay mensajes aún.</p>}
+                            </div>
                           </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', position: 'relative' }}>
+                        )}
+                        {!showExpenses && (
+                          <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', position: 'relative' }}>
                           <input
                             type="file"
                             id="chat-file-input"
@@ -873,7 +839,8 @@ export default function Dashboard() {
                               setShowEmojiPicker(false)
                             }}
                           />
-                        </div>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -979,219 +946,6 @@ export default function Dashboard() {
               </section>
             )}
 
-            {section === 'expenses' && (
-              <section id="expenses" className="glass-card" style={{ marginTop: 16 }}>
-                <h3 className="page-title" style={{ color: '#60a5fa' }}>Gastos</h3>
-                <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-                  <div className="glass-card" style={{ padding: 12 }}>
-                    <h4 style={{ fontWeight: 700, marginBottom: 8 }}>Participantes</h4>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                      <label style={{ fontSize: 14 }}>Origen:</label>
-                      <select value={participantsMode} onChange={(e) => setParticipantsMode(e.target.value)}>
-                        <option value="manual">Manual</option>
-                        <option value="trip">Desde viaje</option>
-                      </select>
-                      {participantsMode === 'trip' && (
-                        <>
-                          <select value={participantsTripId} onChange={(e) => setParticipantsTripId(e.target.value)}>
-                            <option value="">Seleccioná un viaje</option>
-                            {(tripsBase || []).map((t) => (
-                              <option key={t.id} value={t.id}>{t.name || t.destination}</option>
-                            ))}
-                          </select>
-                          <Button onClick={loadParticipantsFromTrip}>Cargar</Button>
-                        </>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {participants.map((p, idx) => (
-                        <span key={idx} className="btn" style={{ height: 32, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          {p}
-                          <button
-                            type="button"
-                            aria-label={`Quitar ${p}`}
-                            className="btn secondary"
-                            style={{ height: 24, padding: '0 8px' }}
-                            onClick={() => setParticipants((prev) => prev.filter((x) => x !== p))}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      <Input id="new_participant" placeholder="Nombre" className="flex-1 bg-slate-700 border-slate-600 text-white placeholder-slate-400" />
-                      <Button onClick={() => {
-                        const input = document.getElementById('new_participant')
-                        const v = (input?.value || '').trim()
-                        if (!v) return
-                        setParticipants((prev) => Array.from(new Set([...prev, v])))
-                        if (input) input.value = ''
-                      }}>Agregar</Button>
-                    </div>
-                  </div>
-
-                  <div className="glass-card" style={{ padding: 12 }}>
-                    <h4 style={{ fontWeight: 700, marginBottom: 8 }}>Nuevo gasto</h4>
-                    <div className="form" style={{ gridTemplateColumns: '2fr 1fr 1fr', gap: 8 }}>
-                      <div className="field">
-                        <label>Descripción</label>
-                        <input id="exp_desc" placeholder="Ej: Cena" />
-                      </div>
-                      <div className="field">
-                        <label>Monto</label>
-                        <input id="exp_amount" type="number" inputMode="numeric" placeholder="0" />
-                      </div>
-                      <div className="field">
-                        <label>Pagado por</label>
-                        <select id="exp_paid_by" defaultValue="">
-                          <option value="">Seleccioná</option>
-                          {participants.map((p) => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="field" style={{ marginTop: 8 }}>
-                      <label>Dividir entre</label>
-                      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <input
-                            type="radio"
-                            name="split_mode"
-                            checked={splitMode === 'all'}
-                            onChange={() => setSplitMode('all')}
-                          />
-                          Todos
-                        </label>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <input
-                            type="radio"
-                            name="split_mode"
-                            checked={splitMode === 'custom'}
-                            onChange={() => setSplitMode('custom')}
-                          />
-                          Personalizado
-                        </label>
-                        {splitMode === 'all' && participants.length > 0 && (
-                          <button type="button" className="btn secondary" style={{ height: 32 }} onClick={() => setSplitSelected(participants)}>Marcar todos</button>
-                        )}
-                      </div>
-                      {splitMode === 'custom' && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, marginTop: 8 }}>
-                          {participants.map((p) => (
-                            <label key={p} className="glass-card" style={{ padding: 8, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                              <input
-                                type="checkbox"
-                                checked={splitSelected.includes(p)}
-                                onChange={(e) => {
-                                  if (e.target.checked) setSplitSelected((prev) => Array.from(new Set([...prev, p])))
-                                  else setSplitSelected((prev) => prev.filter((x) => x !== p))
-                                }}
-                              />
-                              <span>{p}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="actions">
-                      <Button onClick={() => {
-                        const desc = document.getElementById('exp_desc')?.value || ''
-                        const amount = Number(document.getElementById('exp_amount')?.value || '0')
-                        const paidBy = document.getElementById('exp_paid_by')?.value || ''
-                        if (!desc.trim() || !amount || !paidBy) return alert('Completá descripción, monto y pagador')
-                        const people = splitMode === 'all' ? participants : splitSelected
-                        if (!people || people.length === 0) return alert('Agregá participantes')
-                        setExpenses((prev) => [...prev, { id: Date.now(), desc, amount, paidBy, between: people }])
-                        try { document.getElementById('exp_desc').value = '' } catch {}
-                        try { document.getElementById('exp_amount').value = '' } catch {}
-                        try { document.getElementById('exp_paid_by').value = '' } catch {}
-                        setSplitMode('all')
-                      }}>Agregar gasto</Button>
-                    </div>
-                  </div>
-
-                  <div className="glass-card" style={{ padding: 12 }}>
-                    <h4 style={{ fontWeight: 700, marginBottom: 8 }}>Gastos</h4>
-                    {(expenses || []).length === 0 && <p className="muted">Sin gastos aún</p>}
-                    {(expenses || []).length > 0 && (
-                      <div style={{ display: 'grid', gap: 8 }}>
-                        {expenses.map((e) => (
-                          <div key={e.id} className="glass-card" style={{ padding: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <div style={{ fontWeight: 600 }}>{e.desc}</div>
-                              <div className="muted" style={{ fontSize: 12 }}>Pagó {e.paidBy} · dividido entre {e.between.length}</div>
-                            </div>
-                            <div style={{ fontWeight: 700 }}>${e.amount}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="glass-card" style={{ padding: 12 }}>
-                    <h4 style={{ fontWeight: 700, marginBottom: 8 }}>Balances</h4>
-                    {(() => {
-                      const balances = {}
-                      for (const p of participants) balances[p] = 0
-                      for (const e of expenses) {
-                        const share = e.amount / (e.between.length || 1)
-                        for (const p of e.between) balances[p] -= share
-                        balances[e.paidBy] = (balances[e.paidBy] || 0) + e.amount
-                      }
-                      const entries = Object.entries(balances)
-                      if (entries.length === 0) return <p className="muted">Sin balances</p>
-                      return (
-                        <div style={{ display: 'grid', gap: 4 }}>
-                          {entries.map(([p, v]) => (
-                            <div key={p} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span>{p}</span>
-                              <span style={{ color: v >= 0 ? '#22c55e' : '#ef4444' }}>{v >= 0 ? '+' : ''}${v.toFixed(2)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    })()}
-                  </div>
-
-                  <div className="glass-card" style={{ padding: 12 }}>
-                    <h4 style={{ fontWeight: 700, marginBottom: 8 }}>Sugerencias de saldos</h4>
-                    {(() => {
-                      const balances = {}
-                      for (const p of participants) balances[p] = 0
-                      for (const e of expenses) {
-                        const share = e.amount / (e.between.length || 1)
-                        for (const p of e.between) balances[p] -= share
-                        balances[e.paidBy] = (balances[e.paidBy] || 0) + e.amount
-                      }
-                      const debtors = Object.entries(balances).filter(([, v]) => v < 0).map(([p, v]) => ({ p, v }))
-                      const creditors = Object.entries(balances).filter(([, v]) => v > 0).map(([p, v]) => ({ p, v }))
-                      debtors.sort((a, b) => a.v - b.v)
-                      creditors.sort((a, b) => b.v - a.v)
-                      const transfers = []
-                      let i = 0, j = 0
-                      while (i < debtors.length && j < creditors.length) {
-                        const need = -debtors[i].v
-                        const avail = creditors[j].v
-                        const pay = Math.min(need, avail)
-                        if (pay > 0.005) transfers.push(`${debtors[i].p} → ${creditors[j].p}: $${pay.toFixed(2)}`)
-                        debtors[i].v += pay
-                        creditors[j].v -= pay
-                        if (Math.abs(debtors[i].v) < 0.005) i++
-                        if (Math.abs(creditors[j].v) < 0.005) j++
-                      }
-                      if (transfers.length === 0) return <p className="muted">No hay deudas pendientes</p>
-                      return (
-                        <div style={{ display: 'grid', gap: 4 }}>
-                          {transfers.map((t, idx) => (
-                            <div key={idx}>{t}</div>
-                          ))}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                </div>
-              </section>
-            )}
           </>
         )}
       </div>
