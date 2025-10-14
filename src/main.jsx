@@ -11,6 +11,7 @@ import VerifyDni from './pages/VerifyDni.jsx'
 import Layout from './components/Layout.jsx'
 import PublicProfile from './pages/PublicProfile.jsx'
 import TripDetails from './pages/TripDetails.jsx'
+import TripReviews from './pages/TripReviews.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
 import ViajesPage from './pages/ViajesPage.jsx'
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
       { path: 'viajes', element: <ViajesPage /> },
       { path: 'u/:userId', element: <PublicProfile /> },
       { path: 'trip/:tripId', element: <TripDetails /> },
+      { path: 'trip/:tripId/reviews', element: <TripReviews /> },
     ],
   },
   // Rutas de autenticación sin Layout (sin navbar)
