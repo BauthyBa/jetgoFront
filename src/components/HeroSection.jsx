@@ -405,13 +405,12 @@ export default function HeroSection() {
                   message: 'Abrimos un chat privado con el organizador.' 
                 })
                 
-                // Si hay roomId, redirigir al dashboard con el chat abierto
+                // Si hay roomId, redirigir a la vista de chats con la sala específica
                 if (roomId) {
-                  // Redirigir al dashboard con el chat específico
-                  navigate(`/dashboard?room=${roomId}`)
+                  navigate(`/chats?room=${roomId}`)
                 } else {
-                  // Redirigir al dashboard en la sección de chats
-                  navigate('/dashboard#chats')
+                  // Redirigir a la vista general de chats
+                  navigate('/chats')
                 }
               }
             } catch (error) {
@@ -453,7 +452,7 @@ export default function HeroSection() {
               <Button 
                 onClick={() => {
                   setJoinDialog({ open: false, title: '', message: '' })
-                  navigate('/dashboard#chats')
+                  navigate('/chats')
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded"
               >

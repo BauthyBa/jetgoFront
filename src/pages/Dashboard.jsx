@@ -300,40 +300,15 @@ export default function Dashboard() {
 
   // Open a room and load/subscribe messages
   const openRoom = async (room) => {
+    const roomId = room?.id
+    if (!roomId) return
     try {
-      const roomId = room?.id
-      if (!roomId) return
-      setActiveRoomId(roomId)
-      setActiveRoom(room || null)
-      setShowExpenses(false) // Reset expenses view when opening a new chat
-      window.location.hash = '#chats'
-      const initial = await fetchMessages(roomId)
-      setMessages(initial)
-      await updateApplicationStatusesFromMessages(initial)
-      await resolveNamesForMessages(initial)
-      // Pre-resolve organizer permission for application actions
-      try {
-        if (room?.application_id) {
-          const { data: appRows } = await supabase.from('applications').select('trip_id').eq('id', room.application_id).limit(1)
-          const tripId = (appRows || [])[0]?.trip_id
-          if (tripId) {
-            const { data: tripRows } = await supabase.from('trips').select('creator_id').eq('id', tripId).limit(1)
-            const organizerId = (tripRows || [])[0]?.creator_id
-            setApplicationOrganizer((prev) => ({ ...prev, [room.application_id]: String(organizerId) === String(profile?.user_id) }))
-          }
-        }
-      } catch {}
-      if (unsub) {
-        try { unsub() } catch {}
-      }
-      const unsubscribe = subscribeToRoomMessages(roomId, (msg) => {
-        setMessages((prev) => [...prev, msg])
-        updateApplicationStatusesFromMessages([msg])
-        resolveNamesForMessages([msg])
-      })
-      setUnsub(() => unsubscribe)
+      const params = new URLSearchParams()
+      params.set('room', roomId)
+      if (room?.trip_id) params.set('trip', room.trip_id)
+      navigate(`/chats?${params.toString()}`)
     } catch (e) {
-      alert(e?.message || 'No se pudieron cargar los mensajes')
+      console.warn('No se pudo redirigir a chats:', e?.message || e)
     }
   }
 
@@ -1752,7 +1727,7 @@ export default function Dashboard() {
             <h3 id="joinDialogTitle" style={{ margin: '12px 0 4px 0', fontWeight: 800 }}> {joinDialog.title} </h3>
             <p className="muted" style={{ marginBottom: 12 }}>{joinDialog.message}</p>
             <div className="actions" style={{ justifyContent: 'center' }}>
-              <Button onClick={() => { window.location.hash = '#chats'; setJoinDialog({ open: false, title: '', message: '' }) }}>Ir a chats</Button>
+              <Button onClick={() => { navigate('/chats'); setJoinDialog({ open: false, title: '', message: '' }) }}>Ir a chats</Button>
               <Button variant="secondary" onClick={() => setJoinDialog({ open: false, title: '', message: '' })}>Cerrar</Button>
             </div>
           </div>
