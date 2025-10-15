@@ -6,6 +6,8 @@ import EmojiPicker from '@/components/EmojiPicker'
 import ChatExpenses from '@/components/ChatExpenses'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import Navigation from '@/components/Navigation'
+import AudioRecorder from '@/components/AudioRecorder'
+import AudioTranscriber from '@/components/AudioTranscriber'
 import { getSession, supabase, updateUserMetadata } from '@/services/supabase'
 import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages } from '@/services/chat'
 import { listTrips as fetchTrips, leaveTrip } from '@/services/trips'
@@ -40,6 +42,8 @@ export default function ModernChatPage() {
   const [roomQuery, setRoomQuery] = useState('')
   const [leavingId, setLeavingId] = useState(null)
   const [typingUsers, setTypingUsers] = useState(new Set())
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false)
+  const [showAudioTranscriber, setShowAudioTranscriber] = useState(false)
   const fileInputRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
@@ -401,6 +405,71 @@ export default function ModernChatPage() {
     }
   }
 
+  const handleAudioRecorded = async (audioBlob) => {
+    try {
+      if (!activeRoomId || !profile?.user_id) return
+
+      console.log('🎤 Uploading audio:', {
+        blobSize: audioBlob.size,
+        blobType: audioBlob.type,
+        roomId: activeRoomId,
+        userId: profile.user_id
+      })
+
+      const formData = new FormData()
+      formData.append('file', audioBlob, 'audio.webm')
+      formData.append('room_id', activeRoomId)
+      formData.append('user_id', profile.user_id)
+
+      const response = await fetch('https://jetgoback.onrender.com/api/chat/upload-file/', {
+        method: 'POST',
+        body: formData,
+        mode: 'cors',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error subiendo audio')
+      }
+
+      const data = await response.json()
+      if (data.status === 'success') {
+        const updatedMessages = await fetchMessages(activeRoomId)
+        setMessages(updatedMessages)
+        setShowAudioRecorder(false)
+      }
+    } catch (audioError) {
+      console.error('Error uploading audio:', audioError)
+      alert('Error subiendo audio. Intenta nuevamente.')
+    }
+  }
+
+  const handleAudioCancel = () => {
+    setShowAudioRecorder(false)
+  }
+
+  const handleTranscriptionComplete = async (transcript) => {
+    try {
+      if (!activeRoomId || !transcript.trim()) return
+      
+      console.log('📝 Sending transcription:', transcript)
+      const saved = await sendMessage(activeRoomId, transcript)
+      if (saved) {
+        setShowAudioTranscriber(false)
+        // Recargar mensajes para mostrar el nuevo mensaje
+        const updatedMessages = await fetchMessages(activeRoomId)
+        setMessages(updatedMessages)
+      }
+    } catch (transcriptionError) {
+      console.error('Error sending transcription:', transcriptionError)
+      alert('Error enviando transcripción. Intenta nuevamente.')
+    }
+  }
+
+  const handleTranscriptionCancel = () => {
+    setShowAudioTranscriber(false)
+  }
+
   const getSenderLabel = (message) => {
     const uid = message?.user_id || ''
     if (profile?.user_id && uid === profile.user_id) return 'Tú'
@@ -421,6 +490,7 @@ export default function ModernChatPage() {
     if (fileType?.startsWith('image/')) return '🖼️'
     if (fileType === 'application/pdf') return '📄'
     if (fileType?.includes('word') || fileType?.includes('document')) return '📝'
+    if (fileType?.startsWith('audio/')) return '🎵'
     return '📎'
   }
 
@@ -792,6 +862,29 @@ export default function ModernChatPage() {
                                           className="max-h-64 w-full object-cover"
                                         />
                                       </a>
+                                    ) : message.file_type?.startsWith('audio/') ? (
+                                      <div className="space-y-2">
+                                        <audio
+                                          controls
+                                          className="w-full"
+                                          style={{ 
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            borderRadius: '8px',
+                                            padding: '8px'
+                                          }}
+                                        >
+                                          <source src={message.file_url} type={message.file_type} />
+                                          Tu navegador no soporta el elemento de audio.
+                                        </audio>
+                                        <a
+                                          href={message.file_url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-2 text-sm text-emerald-300 hover:text-emerald-200"
+                                        >
+                                          Descargar audio
+                                        </a>
+                                      </div>
                                     ) : (
                                       <a
                                         href={message.file_url}
@@ -920,6 +1013,22 @@ export default function ModernChatPage() {
                     {/* Message Input */}
                     <div className="bg-slate-900/80 backdrop-blur-xl border-t border-slate-700/50 p-4 flex-shrink-0">
                       <div className="max-w-4xl mx-auto">
+                        {showAudioRecorder && (
+                          <div className="mb-4">
+                            <AudioRecorder
+                              onAudioRecorded={handleAudioRecorded}
+                              onCancel={handleAudioCancel}
+                            />
+                          </div>
+                        )}
+                        {showAudioTranscriber && (
+                          <div className="mb-4">
+                            <AudioTranscriber
+                              onTranscriptionComplete={handleTranscriptionComplete}
+                              onCancel={handleTranscriptionCancel}
+                            />
+                          </div>
+                        )}
                         <div className="flex items-end gap-3">
                           <input
                             ref={fileInputRef}
@@ -935,6 +1044,22 @@ export default function ModernChatPage() {
                             className="shrink-0"
                           >
                             📎
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setShowAudioRecorder(!showAudioRecorder)}
+                            className="shrink-0"
+                          >
+                            🎤
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setShowAudioTranscriber(!showAudioTranscriber)}
+                            className="shrink-0"
+                          >
+                            🎙️
                           </Button>
                           
                           <div className="flex-1 relative">
