@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Bell, MessageCircle, Users, CheckCircle, AlertCircle, X, Sparkles, Zap } from 'lucide-react'
-import { getUserNotifications, markNotificationRead } from '@/services/api'
+import { supabase } from '@/services/supabase'
 import ParticleSystem from './ParticleSystem'
 import SoundWaves from './SoundWaves'
 
@@ -9,32 +9,224 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showEffects, setShowEffects] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
   const panelRef = useRef(null)
 
-  // Cargar notificaciones
+  // Cargar usuario actual
   useEffect(() => {
-    if (!isOpen) return
-
-    const loadNotifications = async () => {
+    async function getCurrentUser() {
       try {
-        setLoading(true)
-        const session = await import('@/services/supabase').then(m => m.getSession())
-        if (session?.user?.id) {
-          const response = await getUserNotifications(session.user.id, 20)
-          if (response?.ok) {
-            setNotifications(response.notifications || [])
-            setUnreadCount(response.unread_count || 0)
-          }
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setCurrentUser(user)
+        } else {
+          setLoading(false)
         }
-      } catch (error) {
-        console.error('Error loading notifications:', error)
-      } finally {
+      } catch (err) {
         setLoading(false)
       }
     }
+    
+    getCurrentUser()
+  }, [])
 
-    loadNotifications()
-  }, [isOpen])
+  // Marcar como no cargando cuando se establece el usuario
+  useEffect(() => {
+    if (currentUser) {
+      setLoading(false)
+    }
+  }, [currentUser])
+
+  // Cargar notificaciones iniciales
+  const loadInitialNotifications = async () => {
+    if (!currentUser) return
+
+    try {
+      setLoading(true)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      
+      // Primero obtener las salas donde el usuario es miembro
+      const { data: userRooms, error: roomsError } = await supabase
+        .from('chat_members')
+        .select('room_id')
+        .eq('user_id', currentUser.id)
+
+      if (roomsError) return
+
+      const roomIds = userRooms?.map(r => r.room_id) || []
+      if (roomIds.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      // Buscar mensajes solo en las salas donde el usuario es miembro
+      const { data: messages, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .gte('created_at', oneDayAgo)
+        .in('room_id', roomIds)
+        .neq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (error) return
+
+      if (messages && messages.length > 0) {
+        const notifications = await Promise.all(messages.map(async (message) => {
+          const { data: room } = await supabase
+            .from('chat_rooms')
+            .select('name, is_group')
+            .eq('id', message.room_id)
+            .single()
+          
+          const { data: sender } = await supabase
+            .from('User')
+            .select('nombre, apellido')
+            .eq('userid', message.user_id)
+            .single()
+          
+          const senderName = sender ? `${sender.nombre || ''} ${sender.apellido || ''}`.trim() : 'Usuario'
+          const isGroup = room?.is_group || false
+          const roomName = room?.name || 'Chat'
+          
+          let title, messageText
+          if (isGroup) {
+            title = `Mensaje en ${roomName}`
+            messageText = `${senderName}: ${message.content?.substring(0, 50)}...`
+          } else {
+            title = `Mensaje de ${senderName}`
+            messageText = `${message.content?.substring(0, 50)}...`
+          }
+          
+          return {
+            id: `msg_${message.id}`,
+            type: 'chat_message',
+            title: title,
+            message: messageText,
+            data: {
+              room_id: message.room_id,
+              sender_id: message.user_id,
+              message_id: message.id,
+              is_group: isGroup,
+              room_name: roomName,
+              sender_name: senderName
+            },
+            created_at: message.created_at,
+            read: false
+          }
+        }))
+
+        setNotifications(notifications)
+        setUnreadCount(notifications.filter(n => !n.read).length)
+      }
+    } catch (err) {
+      console.error('Error loading notifications:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Cargar notificaciones cuando se abre el panel
+  useEffect(() => {
+    if (isOpen && currentUser) {
+      loadInitialNotifications()
+    }
+  }, [isOpen, currentUser])
+
+  // Polling para verificar nuevos mensajes (solo para mensajes muy recientes)
+  useEffect(() => {
+    if (!currentUser || !isOpen) return
+
+    const checkForNewMessages = async () => {
+      try {
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+        
+        // Primero obtener las salas donde el usuario es miembro
+        const { data: userRooms, error: roomsError } = await supabase
+          .from('chat_members')
+          .select('room_id')
+          .eq('user_id', currentUser.id)
+
+        if (roomsError) return
+
+        const roomIds = userRooms?.map(r => r.room_id) || []
+        if (roomIds.length === 0) return
+
+        // Buscar mensajes solo en las salas donde el usuario es miembro
+        const { data: messages, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .gte('created_at', tenMinutesAgo)
+          .in('room_id', roomIds)
+          .neq('user_id', currentUser.id)
+          .order('created_at', { ascending: false })
+          .limit(10)
+
+        if (error) return
+
+        if (messages && messages.length > 0) {
+          const existingIds = notifications.map(n => n.data?.message_id).filter(Boolean)
+          const newMessages = messages.filter(m => !existingIds.includes(m.id))
+
+          if (newMessages.length > 0) {
+            const newNotifications = await Promise.all(newMessages.map(async (message) => {
+              const { data: room } = await supabase
+                .from('chat_rooms')
+                .select('name, is_group')
+                .eq('id', message.room_id)
+                .single()
+              
+              const { data: sender } = await supabase
+                .from('User')
+                .select('nombre, apellido')
+                .eq('userid', message.user_id)
+                .single()
+              
+              const senderName = sender ? `${sender.nombre || ''} ${sender.apellido || ''}`.trim() : 'Usuario'
+              const isGroup = room?.is_group || false
+              const roomName = room?.name || 'Chat'
+              
+              let title, messageText
+              if (isGroup) {
+                title = `Mensaje en ${roomName}`
+                messageText = `${senderName}: ${message.content?.substring(0, 50)}...`
+              } else {
+                title = `Mensaje de ${senderName}`
+                messageText = `${message.content?.substring(0, 50)}...`
+              }
+              
+              return {
+                id: `msg_${message.id}`,
+                type: 'chat_message',
+                title: title,
+                message: messageText,
+                data: {
+                  room_id: message.room_id,
+                  sender_id: message.user_id,
+                  message_id: message.id,
+                  is_group: isGroup,
+                  room_name: roomName,
+                  sender_name: senderName
+                },
+                created_at: message.created_at,
+                read: false
+              }
+            }))
+
+            setNotifications(prev => [...newNotifications, ...prev])
+            setUnreadCount(prev => prev + newNotifications.length)
+          }
+        }
+      } catch (err) {
+        console.error('Error en polling:', err)
+      }
+    }
+
+    checkForNewMessages()
+    const interval = setInterval(checkForNewMessages, 10000)
+
+    return () => clearInterval(interval)
+  }, [currentUser, notifications, isOpen])
 
   // Activar efectos cuando hay notificaciones nuevas
   useEffect(() => {
@@ -74,16 +266,28 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
     }
   }
 
+  // Marcar notificación como leída
+  const markAsRead = (notificationId) => {
+    setNotifications(prev => 
+      prev.map(n => 
+        n.id === notificationId ? { ...n, read: true } : n
+      )
+    )
+    setUnreadCount(prev => Math.max(0, prev - 1))
+  }
+
+  // Marcar todas como leídas
+  const markAllAsRead = () => {
+    setNotifications(prev => 
+      prev.map(n => ({ ...n, read: true }))
+    )
+    setUnreadCount(0)
+  }
+
   const handleNotificationClick = async (notification) => {
     try {
       if (!notification.read) {
-        await markNotificationRead(notification.id, notification.user_id)
-        setNotifications(prev => 
-          prev.map(n => 
-            n.id === notification.id ? { ...n, read: true } : n
-          )
-        )
-        setUnreadCount(prev => Math.max(0, prev - 1))
+        markAsRead(notification.id)
       }
 
       const data = notification.data || {}
@@ -161,7 +365,6 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
 
         {/* Header con efectos */}
         <div className="relative p-6 border-b border-white/10">
-
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -174,12 +377,14 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
               </div>
               <h3 className="text-lg font-bold text-white">Notificaciones</h3>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-full transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -246,13 +451,13 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
         </div>
 
         {/* Footer */}
-        {notifications.length > 0 && (
+        {notifications.length > 0 && unreadCount > 0 && (
           <div className="p-4 border-t border-white/10">
             <button
-              onClick={() => onNavigate('/dashboard?tab=notifications')}
+              onClick={markAllAsRead}
               className="w-full py-2 px-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-400/30 rounded-lg text-blue-400 text-sm font-medium transition-all duration-200 hover:scale-105"
             >
-              Ver todas las notificaciones
+              Marcar todas como leídas
             </button>
           </div>
         )}
