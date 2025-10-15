@@ -407,10 +407,10 @@ export default function HeroSection() {
                 
                 // Si hay roomId, redirigir a la vista de chats con la sala específica
                 if (roomId) {
-                  navigate(`/chats?room=${roomId}`)
+                  navigate(`/modern-chat?room=${roomId}`)
                 } else {
                   // Redirigir a la vista general de chats
-                  navigate('/chats')
+                  navigate('/modern-chat')
                 }
               }
             } catch (error) {
@@ -452,7 +452,7 @@ export default function HeroSection() {
               <Button 
                 onClick={() => {
                   setJoinDialog({ open: false, title: '', message: '' })
-                  navigate('/chats')
+                  navigate('/modern-chat')
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded"
               >

@@ -8,6 +8,7 @@ import Login from './pages/Login.jsx'
 import Signup from './pages/Signup.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import ChatsPage from './pages/ChatsPage.jsx'
+import ModernChatPage from './pages/ModernChatPage.jsx'
 import VerifyDni from './pages/VerifyDni.jsx'
 import Layout from './components/Layout.jsx'
 import PublicProfile from './pages/PublicProfile.jsx'
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
       { path: 'verify-dni', element: <VerifyDni /> },
       { path: 'dashboard', element: <Dashboard /> },
       { path: 'chats', element: <ChatsPage /> },
+      { path: 'modern-chat', element: <ModernChatPage /> },
       { path: 'viajes', element: <ViajesPage /> },
       { path: 'crear-viaje', element: <CreateTripLanding /> },
       { path: 'crear-viaje/formulario', element: <CreateTripForm /> },

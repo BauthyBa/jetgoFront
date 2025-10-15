@@ -32,7 +32,7 @@ export default function Navigation() {
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
   return (
-    <nav className="fixed top-0 w-full z-50 glass-nav">
+    <nav className="fixed top-0 w-full z-50 glass-nav" style={{ position: 'fixed' }}>
       <ColorBar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center h-16 relative">

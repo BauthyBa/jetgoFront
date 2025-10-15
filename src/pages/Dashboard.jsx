@@ -306,7 +306,7 @@ export default function Dashboard() {
       const params = new URLSearchParams()
       params.set('room', roomId)
       if (room?.trip_id) params.set('trip', room.trip_id)
-      navigate(`/chats?${params.toString()}`)
+      navigate(`/modern-chat?${params.toString()}`)
     } catch (e) {
       console.warn('No se pudo redirigir a chats:', e?.message || e)
     }
@@ -1727,7 +1727,7 @@ export default function Dashboard() {
             <h3 id="joinDialogTitle" style={{ margin: '12px 0 4px 0', fontWeight: 800 }}> {joinDialog.title} </h3>
             <p className="muted" style={{ marginBottom: 12 }}>{joinDialog.message}</p>
             <div className="actions" style={{ justifyContent: 'center' }}>
-              <Button onClick={() => { navigate('/chats'); setJoinDialog({ open: false, title: '', message: '' }) }}>Ir a chats</Button>
+              <Button onClick={() => { navigate('/modern-chat'); setJoinDialog({ open: false, title: '', message: '' }) }}>Ir a chats</Button>
               <Button variant="secondary" onClick={() => setJoinDialog({ open: false, title: '', message: '' })}>Cerrar</Button>
             </div>
           </div>

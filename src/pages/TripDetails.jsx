@@ -85,7 +85,7 @@ export default function TripDetails() {
                 <div className="muted">Cupos: {trip.currentParticipants ?? '?'} / {trip.maxParticipants ?? '?'}</div>
               )}
               <div style={{ marginTop: 8 }}>
-                <Button onClick={() => navigate(`/chats?trip=${encodeURIComponent(trip.id)}`)}>Ir al chat del viaje</Button>
+                <Button onClick={() => navigate(`/modern-chat?trip=${encodeURIComponent(trip.id)}`)}>Ir al chat del viaje</Button>
               </div>
             </div>
           </div>
