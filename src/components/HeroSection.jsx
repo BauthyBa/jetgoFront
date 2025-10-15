@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input'
 import { Search, MapPin, Calendar } from 'lucide-react'
 import Reveal from '@/components/Reveal'
 import ColorBar from '@/components/ColorBar'
-import { searchLocations } from '@/services/tripadvisor'
 import { getSession, supabase } from '@/services/supabase'
 import TripGrid from '@/components/TripGrid'
 import { listTrips } from '@/services/trips'
@@ -16,9 +15,6 @@ export default function HeroSection() {
   const [fromText, setFromText] = useState('')
   const [toText, setToText] = useState('')
   const [date, setDate] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [results, setResults] = useState([])
-  const [error, setError] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
   const [trips, setTrips] = useState([])
   const [allTrips, setAllTrips] = useState([])
@@ -43,20 +39,6 @@ export default function HeroSection() {
     })
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
-
-  async function handleSearch() {
-    try {
-      setLoading(true)
-      setError('')
-      setResults([])
-      const found = await searchLocations(toText, { category: 'geos', language: 'es' })
-      setResults(Array.isArray(found) ? found.slice(0, 6) : [])
-    } catch (_e) {
-      setError('No se pudieron buscar destinos ahora.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   function matchesFilter(trip) {
     const fromQ = String(fromText || '').trim().toLowerCase()
@@ -306,30 +288,6 @@ export default function HeroSection() {
               </Button>
             </div>
           </div>
-          {(error || loading || results.length > 0) && (
-            <div className="mt-6 text-left">
-              {error && <p className="text-red-300 text-sm mb-2">{error}</p>}
-              {loading && !error && (
-                <p className="text-slate-300 text-sm">Buscando destinos…</p>
-              )}
-              {!loading && !error && results.length > 0 && (
-                <div className="bg-slate-800/70 border border-slate-700/60 rounded-xl divide-y divide-slate-700/60 overflow-hidden">
-                  {results.map((r) => (
-                    <button
-                      key={r.location_id || r.id}
-                      onClick={() => setToText(r.name || '')}
-                      className="w-full text-left px-4 py-3 hover:bg-slate-700/60 focus:outline-none"
-                    >
-                      <div className="font-medium">{r.name || 'Destino'}</div>
-                      <div className="text-sm text-slate-300">
-                        {(r.address_obj && r.address_obj.address_string) || r.location_string || ''}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
         </Reveal>
         <Reveal delay={220}>

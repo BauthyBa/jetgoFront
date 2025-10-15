@@ -4,7 +4,6 @@ import Benefits from '@/components/Benefits'
 import HowItWorks from '@/components/HowItWorks'
 import Testimonials from '@/components/Testimonials'
 import CTA from '@/components/CTA'
-import TripadvisorShowcase from '@/components/TripadvisorShowcase'
 import Reveal from '@/components/Reveal'
 
 export default function Landing() {
@@ -17,9 +16,6 @@ export default function Landing() {
       </Reveal>
       <Reveal delay={100}>
         <Benefits />
-      </Reveal>
-      <Reveal delay={150}>
-        <TripadvisorShowcase />
       </Reveal>
       <Reveal delay={200}>
         <Testimonials />

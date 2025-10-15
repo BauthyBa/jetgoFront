@@ -18,8 +18,13 @@ export default function Layout() {
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
   const isRoot = location.pathname === '/'
-  const hideHeaderOn = ['/verify-dni', '/dashboard', '/chats', '/modern-chat', '/login', '/signup', '/u/', '/trip', '/viajes', '/crear-viaje', '/profile']
+  const hideHeaderOn = ['/verify-dni', '/dashboard', '/chats', '/modern-chat', '/login', '/signup', '/u/', '/trip', '/viajes', '/crear-viaje', '/profile', '/amigos']
   const hideHeader = hideHeaderOn.some((p) => location.pathname.startsWith(p))
+  const showNavigation =
+    isRoot ||
+    location.pathname === '/viajes' ||
+    location.pathname === '/amigos' ||
+    location.pathname.startsWith('/crear-viaje')
   return (
     <div>
       {!isRoot && !hideHeader && (
@@ -41,7 +46,7 @@ export default function Layout() {
           </div>
         </header>
       )}
-      {(isRoot || location.pathname === '/viajes' || location.pathname.startsWith('/crear-viaje')) && <Navigation />}
+      {showNavigation && <Navigation />}
       {/* Compact back bar for views without main header and not dashboard */}
       {!isRoot && hideHeader && !location.pathname.startsWith('/dashboard') && (
         <div className="sticky top-0 z-30" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>

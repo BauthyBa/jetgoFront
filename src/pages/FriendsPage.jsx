@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { getSession } from '@/services/supabase'
 import { getFriendRequests, respondFriendRequest, getFriends } from '@/services/friends'
 import { UserPlus, Check, X, Clock, Users, ArrowLeft } from 'lucide-react'
-import Navigation from '@/components/Navigation'
 import GlassCard from '@/components/GlassCard'
 
 export default function FriendsPage() {
@@ -158,8 +157,6 @@ export default function FriendsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-hero text-foreground">
-      <Navigation />
-      
       <div className="container mx-auto px-4 py-8 pt-24">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
