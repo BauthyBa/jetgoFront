@@ -6,12 +6,11 @@ import App from './App.jsx'
 import Register from './pages/Register.jsx'
 import Login from './pages/Login.jsx'
 import Signup from './pages/Signup.jsx'
-import Dashboard from './pages/Dashboard.jsx'
 import ChatsPage from './pages/ChatsPage.jsx'
 import ModernChatPage from './pages/ModernChatPage.jsx'
 import VerifyDni from './pages/VerifyDni.jsx'
 import Layout from './components/Layout.jsx'
-import PublicProfile from './pages/PublicProfile.jsx'
+import PublicProfilePage from './pages/PublicProfilePage.jsx'
 import TripDetails from './pages/TripDetails.jsx'
 import TripReviews from './pages/TripReviews.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
@@ -20,6 +19,9 @@ import ViajesPage from './pages/ViajesPage.jsx'
 import CreateTripLanding from './pages/CreateTripLanding.jsx'
 import CreateTripForm from './pages/CreateTripForm.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
+import ReviewsPage from './pages/ReviewsPage.jsx'
+import AccountSettingsPage from './pages/AccountSettingsPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 
 const router = createBrowserRouter([
@@ -32,16 +34,19 @@ const router = createBrowserRouter([
       { path: 'login', element: <Login /> },
       { path: 'signup', element: <Signup /> },
       { path: 'verify-dni', element: <VerifyDni /> },
-      { path: 'dashboard', element: <Dashboard /> },
+      { path: 'dashboard', element: <ModernChatPage /> },
       { path: 'chats', element: <ChatsPage /> },
       { path: 'modern-chat', element: <ModernChatPage /> },
       { path: 'viajes', element: <ViajesPage /> },
       { path: 'amigos', element: <FriendsPage /> },
       { path: 'crear-viaje', element: <CreateTripLanding /> },
       { path: 'crear-viaje/formulario', element: <CreateTripForm /> },
-      { path: 'u/:userId', element: <PublicProfile /> },
+      { path: 'u/:username', element: <PublicProfilePage /> },
       { path: 'trip/:tripId', element: <TripDetails /> },
       { path: 'trip/:tripId/reviews', element: <TripReviews /> },
+      { path: 'profile', element: <ProfilePage /> },
+      { path: 'profile/reviews', element: <ReviewsPage /> },
+      { path: 'profile/settings', element: <AccountSettingsPage /> },
     ],
   },
   // Rutas de autenticación sin Layout (sin navbar)

@@ -6,6 +6,8 @@ import EmojiPicker from '@/components/EmojiPicker'
 import ChatExpenses from '@/components/ChatExpenses'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import Navigation from '@/components/Navigation'
+import AudioRecorder from '@/components/AudioRecorder'
+import AudioTranscriber from '@/components/AudioTranscriber'
 import { getSession, supabase, updateUserMetadata } from '@/services/supabase'
 import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages } from '@/services/chat'
 import { listTrips as fetchTrips, leaveTrip } from '@/services/trips'
@@ -13,6 +15,7 @@ import { respondToApplication } from '@/services/applications'
 import { api, upsertProfileToBackend } from '@/services/api'
 import { inviteFriendToTrip } from '@/services/friends'
 import InviteFriendsModal from '@/components/InviteFriendsModal'
+import { transcriptionService } from '@/services/transcription'
 
 function normalizeRoomName(room) {
   return (room?.display_name || room?.name || '').trim()
@@ -43,6 +46,10 @@ export default function ModernChatPage() {
   const [leavingId, setLeavingId] = useState(null)
   const [typingUsers, setTypingUsers] = useState(new Set())
   const [showInviteFriends, setShowInviteFriends] = useState(false)
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false)
+  const [showAudioTranscriber, setShowAudioTranscriber] = useState(false)
+  const [transcribingAudio, setTranscribingAudio] = useState(null)
+  const [audioTranscriptions, setAudioTranscriptions] = useState({})
   const fileInputRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
@@ -404,6 +411,96 @@ export default function ModernChatPage() {
     }
   }
 
+  const handleAudioRecorded = async (audioBlob) => {
+    try {
+      if (!activeRoomId || !profile?.user_id) return
+
+      console.log('🎤 Uploading audio:', {
+        blobSize: audioBlob.size,
+        blobType: audioBlob.type,
+        roomId: activeRoomId,
+        userId: profile.user_id
+      })
+
+      const formData = new FormData()
+      formData.append('file', audioBlob, 'audio.webm')
+      formData.append('room_id', activeRoomId)
+      formData.append('user_id', profile.user_id)
+
+      const response = await fetch('https://jetgoback.onrender.com/api/chat/upload-file/', {
+        method: 'POST',
+        body: formData,
+        mode: 'cors',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error subiendo audio')
+      }
+
+      const data = await response.json()
+      if (data.status === 'success') {
+        const updatedMessages = await fetchMessages(activeRoomId)
+        setMessages(updatedMessages)
+        setShowAudioRecorder(false)
+      }
+    } catch (audioError) {
+      console.error('Error uploading audio:', audioError)
+      alert('Error subiendo audio. Intenta nuevamente.')
+    }
+  }
+
+  const handleAudioCancel = () => {
+    setShowAudioRecorder(false)
+  }
+
+  const handleTranscriptionComplete = async (transcript) => {
+    try {
+      if (!activeRoomId || !transcript.trim()) return
+      
+      console.log('📝 Sending transcription:', transcript)
+      const saved = await sendMessage(activeRoomId, transcript)
+      if (saved) {
+        setShowAudioTranscriber(false)
+        // Recargar mensajes para mostrar el nuevo mensaje
+        const updatedMessages = await fetchMessages(activeRoomId)
+        setMessages(updatedMessages)
+      }
+    } catch (transcriptionError) {
+      console.error('Error sending transcription:', transcriptionError)
+      alert('Error enviando transcripción. Intenta nuevamente.')
+    }
+  }
+
+  const handleTranscriptionCancel = () => {
+    setShowAudioTranscriber(false)
+  }
+
+  const handleTranscribeAudio = async (messageId, audioUrl) => {
+    try {
+      setTranscribingAudio(messageId)
+      console.log('🎙️ Transcribing audio:', { messageId, audioUrl })
+      
+      // Usar el servicio de transcripción moderno
+      const transcription = await transcriptionService.transcribeAudio(audioUrl, 'es')
+      
+      if (transcription && transcription.trim()) {
+        setAudioTranscriptions(prev => ({
+          ...prev,
+          [messageId]: transcription.trim()
+        }))
+        console.log('✅ Transcription completed:', transcription)
+      } else {
+        alert('No se pudo transcribir el audio. Intenta nuevamente.')
+      }
+    } catch (error) {
+      console.error('Error transcribing audio:', error)
+      alert('Error transcribiendo el audio. Intenta nuevamente.')
+    } finally {
+      setTranscribingAudio(null)
+    }
+  }
+
   const getSenderLabel = (message) => {
     const uid = message?.user_id || ''
     if (profile?.user_id && uid === profile.user_id) return 'Tú'
@@ -424,6 +521,7 @@ export default function ModernChatPage() {
     if (fileType?.startsWith('image/')) return '🖼️'
     if (fileType === 'application/pdf') return '📄'
     if (fileType?.includes('word') || fileType?.includes('document')) return '📝'
+    if (fileType?.startsWith('audio/')) return '🎵'
     return '📎'
   }
 
@@ -795,6 +893,68 @@ export default function ModernChatPage() {
                                           className="max-h-64 w-full object-cover"
                                         />
                                       </a>
+                                    ) : message.file_type?.startsWith('audio/') ? (
+                                      <div className="space-y-2">
+                                        <audio
+                                          controls
+                                          className="w-full"
+                                          style={{ 
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            borderRadius: '8px',
+                                            padding: '8px'
+                                          }}
+                                        >
+                                          <source src={message.file_url} type={message.file_type} />
+                                          Tu navegador no soporta el elemento de audio.
+                                        </audio>
+                                        
+                                        {/* Transcripción del audio */}
+                                        {audioTranscriptions[message.id] && (
+                                          <div className="mt-2 p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <span className="text-xs font-medium text-emerald-300">📝 Transcripción:</span>
+                                            </div>
+                                            <p className="text-sm text-slate-200">{audioTranscriptions[message.id]}</p>
+                                          </div>
+                                        )}
+                                        
+                                        {/* Nota informativa */}
+                                        {!audioTranscriptions[message.id] && transcribingAudio !== message.id && (
+                                          <div className="mt-1 text-xs text-slate-500">
+                                            💡 Haz clic en "Transcribir" para convertir el audio a texto automáticamente (sin sonido)
+                                          </div>
+                                        )}
+                                        
+                                        <div className="flex items-center gap-2">
+                                          <a
+                                            href={message.file_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-2 text-sm text-emerald-300 hover:text-emerald-200"
+                                          >
+                                            Descargar audio
+                                          </a>
+                                          
+                                          {!audioTranscriptions[message.id] && (
+                                            <button
+                                              onClick={() => handleTranscribeAudio(message.id, message.file_url)}
+                                              disabled={transcribingAudio === message.id}
+                                              className="inline-flex items-center gap-1 text-sm text-blue-300 hover:text-blue-200 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded border border-blue-400/30 hover:bg-blue-500/10"
+                                            >
+                                              {transcribingAudio === message.id ? (
+                                                <>
+                                                  <span className="animate-spin">⏳</span>
+                                                  Escuchando...
+                                                </>
+                                              ) : (
+                                                <>
+                                                  🎙️ Transcribir
+                                                </>
+                                              )}
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
                                     ) : (
                                       <a
                                         href={message.file_url}
@@ -923,6 +1083,22 @@ export default function ModernChatPage() {
                     {/* Message Input */}
                     <div className="bg-slate-900/80 backdrop-blur-xl border-t border-slate-700/50 p-4 flex-shrink-0">
                       <div className="max-w-4xl mx-auto">
+                        {showAudioRecorder && (
+                          <div className="mb-4">
+                            <AudioRecorder
+                              onAudioRecorded={handleAudioRecorded}
+                              onCancel={handleAudioCancel}
+                            />
+                          </div>
+                        )}
+                        {showAudioTranscriber && (
+                          <div className="mb-4">
+                            <AudioTranscriber
+                              onTranscriptionComplete={handleTranscriptionComplete}
+                              onCancel={handleTranscriptionCancel}
+                            />
+                          </div>
+                        )}
                         <div className="flex items-end gap-3">
                           <input
                             ref={fileInputRef}
@@ -939,6 +1115,14 @@ export default function ModernChatPage() {
                           >
                             📎
                           </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setShowAudioRecorder(!showAudioRecorder)}
+                            className="shrink-0"
+                          >
+                            🎤
+                          </Button>
                           
                           <div className="flex-1 relative">
                             <Input
@@ -951,8 +1135,16 @@ export default function ModernChatPage() {
                                 }
                               }}
                               placeholder="Escribí un mensaje..."
-                              className="bg-slate-800/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:border-emerald-400/50 pr-12"
+                              className="bg-slate-800/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:border-emerald-400/50 pr-24"
                             />
+                            <button
+                              type="button"
+                              className="absolute right-12 top-1/2 transform -translate-y-1/2 text-xl hover:text-emerald-400 transition-colors"
+                              onClick={() => setShowAudioTranscriber(!showAudioTranscriber)}
+                              title="Transcribir voz"
+                            >
+                              🎙️
+                            </button>
                             <button
                               type="button"
                               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xl hover:text-emerald-400 transition-colors"

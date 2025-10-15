@@ -7,7 +7,7 @@ export default function DashboardLayout({ children }) {
   const location = useLocation()
   const nav = [
     { label: 'Inicio', path: '/dashboard?tab=inicio#inicio', hash: '#inicio', matchPath: '/dashboard' },
-    { label: 'Perfil', path: '/dashboard?tab=profile#profile', hash: '#profile', matchPath: '/dashboard' },
+    { label: 'Perfil', path: '/profile', matchPath: '/profile' },
     { label: 'Chats', path: '/modern-chat', matchPath: '/modern-chat' },
     { label: 'Viajes', path: '/dashboard?tab=trips#trips', hash: '#trips', matchPath: '/dashboard' },
     { label: 'Gastos', path: '/dashboard?tab=expenses#expenses', hash: '#expenses', matchPath: '/dashboard' },
