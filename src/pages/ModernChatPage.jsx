@@ -11,6 +11,8 @@ import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages }
 import { listTrips as fetchTrips, leaveTrip } from '@/services/trips'
 import { respondToApplication } from '@/services/applications'
 import { api, upsertProfileToBackend } from '@/services/api'
+import { inviteFriendToTrip } from '@/services/friends'
+import InviteFriendsModal from '@/components/InviteFriendsModal'
 
 function normalizeRoomName(room) {
   return (room?.display_name || room?.name || '').trim()
@@ -40,6 +42,7 @@ export default function ModernChatPage() {
   const [roomQuery, setRoomQuery] = useState('')
   const [leavingId, setLeavingId] = useState(null)
   const [typingUsers, setTypingUsers] = useState(new Set())
+  const [showInviteFriends, setShowInviteFriends] = useState(false)
   const fileInputRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
@@ -1037,58 +1040,85 @@ export default function ModernChatPage() {
                 <span className="text-sm text-slate-400">
                   ¿Querés salir del viaje? Podés hacerlo desde acá.
                 </span>
-                <Button
-                  variant="destructive"
-                  onClick={async () => {
-                    try {
-                      const tripId = activeRoom?.trip_id
-                      if (!tripId || !profile?.user_id) return
-                      const isOwner = (tripsBase || []).some(
-                        (trip) => String(trip.id) === String(tripId) && trip.creatorId === profile.user_id,
-                      )
-                      const confirmMsg = isOwner
-                        ? 'Sos el organizador. Se eliminará el viaje y su chat para todos. ¿Continuar?'
-                        : '¿Seguro que querés abandonar este viaje?'
-                      if (!confirm(confirmMsg)) return
-                      setLeavingId(tripId)
-                      const result = await leaveTrip(tripId, profile.user_id)
-                      if (result?.ok !== false) {
-                        setChatInfoOpen(false)
-                        setActiveRoomId(null)
-                        setActiveRoom(null)
-                        setMessages([])
-                        try {
-                          const reloadedRooms = await listRoomsForUser(profile.user_id)
-                          setRooms(reloadedRooms)
-                        } catch (_reloadError) {}
-                      } else {
-                        alert(result?.error || 'No se pudo abandonar/eliminar el viaje')
-                      }
-                    } catch (leaveError) {
-                      alert(leaveError?.message || 'Error al abandonar/eliminar')
-                    } finally {
-                      setLeavingId(null)
-                    }
-                  }}
-                >
+                <div className="flex gap-2">
                   {(() => {
-                    const isOwner = activeRoom?.trip_id
-                      && (tripsBase || []).some(
-                        (trip) => String(trip.id) === String(activeRoom.trip_id) && trip.creatorId === profile?.user_id,
-                      )
-                    return leavingId === activeRoom?.trip_id
-                      ? isOwner
-                        ? 'Eliminando…'
-                        : 'Saliendo…'
-                      : isOwner
-                        ? 'Eliminar viaje'
-                        : 'Abandonar viaje'
+                    const isOwner = (tripsBase || []).some(
+                      (trip) => String(trip.id) === String(activeRoom.trip_id) && trip.creatorId === profile?.user_id,
+                    )
+                    return isOwner ? (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setShowInviteFriends(true)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        👥 Invitar Amigos
+                      </Button>
+                    ) : null
                   })()}
-                </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={async () => {
+                      try {
+                        const tripId = activeRoom?.trip_id
+                        if (!tripId || !profile?.user_id) return
+                        const isOwner = (tripsBase || []).some(
+                          (trip) => String(trip.id) === String(tripId) && trip.creatorId === profile.user_id,
+                        )
+                        const confirmMsg = isOwner
+                          ? 'Sos el organizador. Se eliminará el viaje y su chat para todos. ¿Continuar?'
+                          : '¿Seguro que querés abandonar este viaje?'
+                        if (!confirm(confirmMsg)) return
+                        setLeavingId(tripId)
+                        const result = await leaveTrip(tripId, profile.user_id)
+                        if (result?.ok !== false) {
+                          setChatInfoOpen(false)
+                          setActiveRoomId(null)
+                          setActiveRoom(null)
+                          setMessages([])
+                          try {
+                            const reloadedRooms = await listRoomsForUser(profile.user_id)
+                            setRooms(reloadedRooms)
+                          } catch (_reloadError) {}
+                        } else {
+                          alert(result?.error || 'No se pudo abandonar/eliminar el viaje')
+                        }
+                      } catch (leaveError) {
+                        alert(leaveError?.message || 'Error al abandonar/eliminar')
+                      } finally {
+                        setLeavingId(null)
+                      }
+                    }}
+                  >
+                    {(() => {
+                      const isOwner = activeRoom?.trip_id
+                        && (tripsBase || []).some(
+                          (trip) => String(trip.id) === String(activeRoom.trip_id) && trip.creatorId === profile?.user_id,
+                        )
+                      return leavingId === activeRoom?.trip_id
+                        ? isOwner
+                          ? 'Eliminando…'
+                          : 'Saliendo…'
+                        : isOwner
+                          ? 'Eliminar viaje'
+                          : 'Abandonar viaje'
+                    })()}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         </div>
+      )}
+
+      {/* Invite Friends Modal */}
+      {showInviteFriends && (
+        <InviteFriendsModal
+          isOpen={showInviteFriends}
+          tripId={activeRoom?.trip_id}
+          organizerId={profile?.user_id}
+          tripTitle={activeRoom?.name || 'Viaje'}
+          onClose={() => setShowInviteFriends(false)}
+        />
       )}
     </div>
   )

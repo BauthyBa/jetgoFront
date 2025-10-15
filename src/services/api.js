@@ -10,7 +10,7 @@ const REMOTE_API_BASE_URL = normalizeBaseUrl('https://jetgoback.onrender.com/api
 const ENV_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL)
 const LOCAL_CANDIDATE = normalizeBaseUrl(import.meta.env.VITE_LOCAL_API_BASE_URL) || normalizeBaseUrl('http://localhost:8000/api')
 
-const INITIAL_API_BASE_URL = ENV_BASE_URL || REMOTE_API_BASE_URL
+const INITIAL_API_BASE_URL = ENV_BASE_URL || LOCAL_CANDIDATE || REMOTE_API_BASE_URL
 
 export const api = axios.create({ baseURL: INITIAL_API_BASE_URL })
 export const apiPublic = axios.create({ baseURL: INITIAL_API_BASE_URL })

@@ -19,6 +19,7 @@ import ResetPassword from './pages/ResetPassword.jsx'
 import ViajesPage from './pages/ViajesPage.jsx'
 import CreateTripLanding from './pages/CreateTripLanding.jsx'
 import CreateTripForm from './pages/CreateTripForm.jsx'
+import FriendsPage from './pages/FriendsPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 
 const router = createBrowserRouter([
@@ -35,6 +36,7 @@ const router = createBrowserRouter([
       { path: 'chats', element: <ChatsPage /> },
       { path: 'modern-chat', element: <ModernChatPage /> },
       { path: 'viajes', element: <ViajesPage /> },
+      { path: 'amigos', element: <FriendsPage /> },
       { path: 'crear-viaje', element: <CreateTripLanding /> },
       { path: 'crear-viaje/formulario', element: <CreateTripForm /> },
       { path: 'u/:userId', element: <PublicProfile /> },

@@ -6,8 +6,11 @@ import ReviewsSection from '@/components/ReviewsSection'
 import ReportUserModal from '@/components/ReportUserModal'
 import DashboardLayout from '@/components/DashboardLayout'
 import TripHistory from '@/components/TripHistory'
+import FriendsList from '@/components/FriendsList'
 import { supabase } from '@/services/supabase'
 import { getUserAvatar } from '@/services/api'
+import { sendFriendRequest, checkFriendshipStatus } from '@/services/friends'
+import { UserPlus, Check, X, Clock } from 'lucide-react'
 
 export default function PublicProfile() {
   const { userId } = useParams()
@@ -17,6 +20,8 @@ export default function PublicProfile() {
   const [currentUser, setCurrentUser] = useState(null)
   const [isOwnProfile, setIsOwnProfile] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
+  const [friendshipStatus, setFriendshipStatus] = useState('none') // 'none', 'pending', 'friends', 'rejected'
+  const [sendingRequest, setSendingRequest] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -29,6 +34,19 @@ export default function PublicProfile() {
         if (mounted) {
           setCurrentUser(user)
           setIsOwnProfile(user?.id === userId)
+        }
+
+        // Obtener el userid de la tabla User para usar en las solicitudes de amistad
+        if (user) {
+          const { data: userData } = await supabase
+            .from('User')
+            .select('userid')
+            .eq('userid', user.id)
+            .limit(1)
+          
+          if (userData && userData.length > 0) {
+            setCurrentUser({ ...user, userid: userData[0].userid })
+          }
         }
 
         // Cargar datos públicos básicos desde la tabla User (nombre, apellido, etc.)
@@ -54,6 +72,94 @@ export default function PublicProfile() {
     if (userId) load()
     return () => { mounted = false }
   }, [userId])
+
+  // Verificar estado de amistad
+  useEffect(() => {
+    async function checkFriendship() {
+      if (!currentUser || !userId || isOwnProfile) return
+      
+      try {
+        const response = await checkFriendshipStatus(currentUser.userid || currentUser.id, userId)
+        if (response.ok) {
+          setFriendshipStatus(response.status)
+        }
+      } catch (error) {
+        console.error('Error verificando estado de amistad:', error)
+      }
+    }
+    
+    checkFriendship()
+  }, [currentUser, userId, isOwnProfile])
+
+  // Función para enviar solicitud de amistad
+  const handleSendFriendRequest = async () => {
+    if (!currentUser || !userId || sendingRequest) return
+    
+    setSendingRequest(true)
+    try {
+      const response = await sendFriendRequest(currentUser.userid || currentUser.id, userId)
+      if (response.ok) {
+        setFriendshipStatus('pending')
+        alert('Solicitud de amistad enviada')
+      } else {
+        alert(response.error || 'Error enviando solicitud')
+      }
+    } catch (error) {
+      console.error('Error enviando solicitud:', error)
+      alert('Error enviando solicitud de amistad')
+    } finally {
+      setSendingRequest(false)
+    }
+  }
+
+  // Función para obtener el botón de amistad
+  const getFriendshipButton = () => {
+    if (isOwnProfile) return null
+    
+    switch (friendshipStatus) {
+      case 'friends':
+        return (
+          <button 
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            disabled
+          >
+            <Check className="w-4 h-4" />
+            Amigos
+          </button>
+        )
+      case 'pending':
+        return (
+          <button 
+            className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg"
+            disabled
+          >
+            <Clock className="w-4 h-4" />
+            Solicitud Enviada
+          </button>
+        )
+      case 'rejected':
+        return (
+          <button 
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg"
+            disabled
+          >
+            <X className="w-4 h-4" />
+            Solicitud Rechazada
+          </button>
+        )
+      default:
+        return (
+          <button 
+            onClick={handleSendFriendRequest}
+            disabled={sendingRequest}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            <UserPlus className="w-4 h-4" />
+            {sendingRequest ? 'Enviando...' : 'Enviar Solicitud'}
+          </button>
+        )
+    }
+  }
 
   if (loading) return <div className="container"><p className="muted">Cargando…</p></div>
   if (error) return <div className="container"><pre className="error">{error}</pre></div>
@@ -107,9 +213,13 @@ export default function PublicProfile() {
             },
           }} readOnly={!isOwnProfile} />
           
-          {/* Botón de reportar usuario */}
+          {/* Botones de acción */}
           {!isOwnProfile && currentUser && (
-            <div className="absolute bottom-4 right-4">
+            <div className="absolute bottom-4 right-4 flex gap-2">
+              {/* Botón de solicitud de amistad */}
+              {getFriendshipButton()}
+              
+              {/* Botón de reportar usuario */}
               <button
                 onClick={() => setShowReportModal(true)}
                 className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-lg"
@@ -126,6 +236,11 @@ export default function PublicProfile() {
           <GlassCard>
             <TripHistory userId={userId} />
           </GlassCard>
+        </div>
+
+        {/* Sección de amigos */}
+        <div className="mt-8">
+          <FriendsList userId={userId} currentUserId={currentUser?.id} />
         </div>
         
         {/* Sección de reseñas */}

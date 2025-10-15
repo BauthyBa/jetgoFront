@@ -10,7 +10,8 @@ import {
   Bell, 
   LogOut, 
   ChevronDown,
-  Settings
+  Settings,
+  Users
 } from 'lucide-react'
 import NotificationButton from './NotificationButton'
 
@@ -188,6 +189,14 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
                 >
                   <User className="w-4 h-4" />
                   Perfil
+                </Link>
+                <Link
+                  to="/amigos"
+                  className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Users className="w-4 h-4" />
+                  Amigos
                 </Link>
                 
                 {/* Separator */}

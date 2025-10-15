@@ -13,7 +13,7 @@ export default function Navigation() {
   const location = useLocation()
   
   // Hide navigation links on specific pages
-  const hideNavLinks = location.pathname === '/viajes' || location.pathname.startsWith('/crear-viaje')
+  const hideNavLinks = location.pathname === '/viajes' || location.pathname.startsWith('/crear-viaje') || location.pathname === '/amigos'
   
   useEffect(() => {
     let mounted = true
@@ -65,6 +65,7 @@ export default function Navigation() {
                 <span className="sm:hidden">+</span>
               </Button>
             </Link>
+            
             
             {/* Profile Menu */}
             <ProfileMenu isLoggedIn={loggedIn} user={user} />
