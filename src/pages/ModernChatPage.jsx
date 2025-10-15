@@ -13,6 +13,7 @@ import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages }
 import { listTrips as fetchTrips, leaveTrip } from '@/services/trips'
 import { respondToApplication } from '@/services/applications'
 import { api, upsertProfileToBackend } from '@/services/api'
+import { transcriptionService } from '@/services/transcription'
 
 function normalizeRoomName(room) {
   return (room?.display_name || room?.name || '').trim()
@@ -44,6 +45,8 @@ export default function ModernChatPage() {
   const [typingUsers, setTypingUsers] = useState(new Set())
   const [showAudioRecorder, setShowAudioRecorder] = useState(false)
   const [showAudioTranscriber, setShowAudioTranscriber] = useState(false)
+  const [transcribingAudio, setTranscribingAudio] = useState(null)
+  const [audioTranscriptions, setAudioTranscriptions] = useState({})
   const fileInputRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
@@ -470,6 +473,31 @@ export default function ModernChatPage() {
     setShowAudioTranscriber(false)
   }
 
+  const handleTranscribeAudio = async (messageId, audioUrl) => {
+    try {
+      setTranscribingAudio(messageId)
+      console.log('🎙️ Transcribing audio:', { messageId, audioUrl })
+      
+      // Usar el servicio de transcripción moderno
+      const transcription = await transcriptionService.transcribeAudio(audioUrl, 'es')
+      
+      if (transcription && transcription.trim()) {
+        setAudioTranscriptions(prev => ({
+          ...prev,
+          [messageId]: transcription.trim()
+        }))
+        console.log('✅ Transcription completed:', transcription)
+      } else {
+        alert('No se pudo transcribir el audio. Intenta nuevamente.')
+      }
+    } catch (error) {
+      console.error('Error transcribing audio:', error)
+      alert('Error transcribiendo el audio. Intenta nuevamente.')
+    } finally {
+      setTranscribingAudio(null)
+    }
+  }
+
   const getSenderLabel = (message) => {
     const uid = message?.user_id || ''
     if (profile?.user_id && uid === profile.user_id) return 'Tú'
@@ -876,14 +904,53 @@ export default function ModernChatPage() {
                                           <source src={message.file_url} type={message.file_type} />
                                           Tu navegador no soporta el elemento de audio.
                                         </audio>
-                                        <a
-                                          href={message.file_url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="inline-flex items-center gap-2 text-sm text-emerald-300 hover:text-emerald-200"
-                                        >
-                                          Descargar audio
-                                        </a>
+                                        
+                                        {/* Transcripción del audio */}
+                                        {audioTranscriptions[message.id] && (
+                                          <div className="mt-2 p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <span className="text-xs font-medium text-emerald-300">📝 Transcripción:</span>
+                                            </div>
+                                            <p className="text-sm text-slate-200">{audioTranscriptions[message.id]}</p>
+                                          </div>
+                                        )}
+                                        
+                                        {/* Nota informativa */}
+                                        {!audioTranscriptions[message.id] && transcribingAudio !== message.id && (
+                                          <div className="mt-1 text-xs text-slate-500">
+                                            💡 Haz clic en "Transcribir" para convertir el audio a texto automáticamente (sin sonido)
+                                          </div>
+                                        )}
+                                        
+                                        <div className="flex items-center gap-2">
+                                          <a
+                                            href={message.file_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-2 text-sm text-emerald-300 hover:text-emerald-200"
+                                          >
+                                            Descargar audio
+                                          </a>
+                                          
+                                          {!audioTranscriptions[message.id] && (
+                                            <button
+                                              onClick={() => handleTranscribeAudio(message.id, message.file_url)}
+                                              disabled={transcribingAudio === message.id}
+                                              className="inline-flex items-center gap-1 text-sm text-blue-300 hover:text-blue-200 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded border border-blue-400/30 hover:bg-blue-500/10"
+                                            >
+                                              {transcribingAudio === message.id ? (
+                                                <>
+                                                  <span className="animate-spin">⏳</span>
+                                                  Escuchando...
+                                                </>
+                                              ) : (
+                                                <>
+                                                  🎙️ Transcribir
+                                                </>
+                                              )}
+                                            </button>
+                                          )}
+                                        </div>
                                       </div>
                                     ) : (
                                       <a
@@ -1053,14 +1120,6 @@ export default function ModernChatPage() {
                           >
                             🎤
                           </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setShowAudioTranscriber(!showAudioTranscriber)}
-                            className="shrink-0"
-                          >
-                            🎙️
-                          </Button>
                           
                           <div className="flex-1 relative">
                             <Input
@@ -1073,8 +1132,16 @@ export default function ModernChatPage() {
                                 }
                               }}
                               placeholder="Escribí un mensaje..."
-                              className="bg-slate-800/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:border-emerald-400/50 pr-12"
+                              className="bg-slate-800/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:border-emerald-400/50 pr-24"
                             />
+                            <button
+                              type="button"
+                              className="absolute right-12 top-1/2 transform -translate-y-1/2 text-xl hover:text-emerald-400 transition-colors"
+                              onClick={() => setShowAudioTranscriber(!showAudioTranscriber)}
+                              title="Transcribir voz"
+                            >
+                              🎙️
+                            </button>
                             <button
                               type="button"
                               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xl hover:text-emerald-400 transition-colors"
