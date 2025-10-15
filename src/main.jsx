@@ -11,7 +11,7 @@ import ChatsPage from './pages/ChatsPage.jsx'
 import ModernChatPage from './pages/ModernChatPage.jsx'
 import VerifyDni from './pages/VerifyDni.jsx'
 import Layout from './components/Layout.jsx'
-import PublicProfile from './pages/PublicProfile.jsx'
+import PublicProfilePage from './pages/PublicProfilePage.jsx'
 import TripDetails from './pages/TripDetails.jsx'
 import TripReviews from './pages/TripReviews.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
@@ -19,6 +19,9 @@ import ResetPassword from './pages/ResetPassword.jsx'
 import ViajesPage from './pages/ViajesPage.jsx'
 import CreateTripLanding from './pages/CreateTripLanding.jsx'
 import CreateTripForm from './pages/CreateTripForm.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
+import ReviewsPage from './pages/ReviewsPage.jsx'
+import AccountSettingsPage from './pages/AccountSettingsPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 
 const router = createBrowserRouter([
@@ -37,9 +40,12 @@ const router = createBrowserRouter([
       { path: 'viajes', element: <ViajesPage /> },
       { path: 'crear-viaje', element: <CreateTripLanding /> },
       { path: 'crear-viaje/formulario', element: <CreateTripForm /> },
-      { path: 'u/:userId', element: <PublicProfile /> },
+      { path: 'u/:username', element: <PublicProfilePage /> },
       { path: 'trip/:tripId', element: <TripDetails /> },
       { path: 'trip/:tripId/reviews', element: <TripReviews /> },
+      { path: 'profile', element: <ProfilePage /> },
+      { path: 'profile/reviews', element: <ReviewsPage /> },
+      { path: 'profile/settings', element: <AccountSettingsPage /> },
     ],
   },
   // Rutas de autenticación sin Layout (sin navbar)

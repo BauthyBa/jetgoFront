@@ -97,10 +97,26 @@ export default function TripDetails() {
           {(participants || []).length > 0 && (
             <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
               {participants.map((m) => (
-                <div key={m.user_id} className="glass-card" style={{ padding: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  key={m.user_id}
+                  type="button"
+                  className="glass-card"
+                  style={{ padding: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left', width: '100%' }}
+                  onClick={() => {
+                    try {
+                      if (!m?.user_id) return
+                      // Intentar navegar por username si está disponible, sino por user_id
+                      if (m.username) {
+                        navigate(`/u/${m.username}`)
+                      } else {
+                        navigate(`/u/${m.user_id}`)
+                      }
+                    } catch {}
+                  }}
+                >
                   <div style={{ fontWeight: 600 }}>{m.name || m.user_id}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>{m.user_id}</div>
-                </div>
+                  <div className="muted" style={{ fontSize: 12 }}>Ver perfil →</div>
+                </button>
               ))}
             </div>
           )}

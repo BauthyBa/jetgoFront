@@ -1466,7 +1466,13 @@ export default function Dashboard() {
                       onClick={() => {
                         try {
                           if (!m?.user_id) return
-                          navigate(`/u/${m.user_id}`)
+                          // Buscar el username del usuario
+                          const userProfile = profiles.find(p => p.id === m.user_id)
+                          if (userProfile?.username) {
+                            navigate(`/u/${userProfile.username}`)
+                          } else {
+                            navigate(`/u/${m.user_id}`)
+                          }
                         } catch {}
                       }}
                     >
