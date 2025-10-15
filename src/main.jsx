@@ -6,7 +6,6 @@ import App from './App.jsx'
 import Register from './pages/Register.jsx'
 import Login from './pages/Login.jsx'
 import Signup from './pages/Signup.jsx'
-import Dashboard from './pages/Dashboard.jsx'
 import ChatsPage from './pages/ChatsPage.jsx'
 import ModernChatPage from './pages/ModernChatPage.jsx'
 import VerifyDni from './pages/VerifyDni.jsx'
@@ -31,7 +30,7 @@ const router = createBrowserRouter([
       { path: 'login', element: <Login /> },
       { path: 'signup', element: <Signup /> },
       { path: 'verify-dni', element: <VerifyDni /> },
-      { path: 'dashboard', element: <Dashboard /> },
+      { path: 'dashboard', element: <ModernChatPage /> },
       { path: 'chats', element: <ChatsPage /> },
       { path: 'modern-chat', element: <ModernChatPage /> },
       { path: 'viajes', element: <ViajesPage /> },
