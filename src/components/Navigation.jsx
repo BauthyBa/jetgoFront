@@ -13,7 +13,7 @@ export default function Navigation() {
   const location = useLocation()
   
   // Hide navigation links on specific pages
-  const hideNavLinks = location.pathname === '/viajes' || location.pathname.startsWith('/crear-viaje') || location.pathname === '/amigos'
+  const hideNavLinks = location.pathname === '/viajes' || location.pathname.startsWith('/crear-viaje') || location.pathname === '/amigos' || location.pathname === '/chats' || location.pathname === '/modern-chat'
   
   useEffect(() => {
     let mounted = true

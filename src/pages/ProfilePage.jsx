@@ -352,7 +352,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-hero">
       <Navigation />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
         {/* Header del perfil */}
         <div className="glass-card p-6 mb-6">
           <div className="flex items-center gap-6">
