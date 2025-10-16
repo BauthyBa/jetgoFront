@@ -22,6 +22,7 @@ import FriendsPage from './pages/FriendsPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import ReviewsPage from './pages/ReviewsPage.jsx'
 import AccountSettingsPage from './pages/AccountSettingsPage.jsx'
+import SocialPage from './pages/SocialPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 
 const router = createBrowserRouter([
@@ -39,6 +40,7 @@ const router = createBrowserRouter([
       { path: 'modern-chat', element: <ModernChatPage /> },
       { path: 'viajes', element: <ViajesPage /> },
       { path: 'amigos', element: <FriendsPage /> },
+      { path: 'social', element: <SocialPage /> },
       { path: 'crear-viaje', element: <CreateTripLanding /> },
       { path: 'crear-viaje/formulario', element: <CreateTripForm /> },
       { path: 'u/:username', element: <PublicProfilePage /> },
