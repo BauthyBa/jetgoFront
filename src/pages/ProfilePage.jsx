@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getSession, updateUserMetadata, supabase } from '../services/supabase'
 import { upsertProfileToBackend } from '../services/api'
 import { updatePassword, sendPasswordResetEmail } from '../services/passwordReset'
-import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X, Download, Trash2, AlertTriangle } from 'lucide-react'
+import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X, Download, Trash2, AlertTriangle, FileText } from 'lucide-react'
 import AvatarUpload from '../components/AvatarUpload'
 import Navigation from '../components/Navigation'
 
@@ -812,6 +812,13 @@ export default function ProfilePage() {
                 >
                   <Download size={20} className="text-emerald-400" />
                   <span className="text-white">{exporting ? 'Exportando...' : 'Exportar datos'}</span>
+                </button>
+                <button 
+                  onClick={() => window.open('/terms.html', '_blank')}
+                  className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left flex items-center gap-3"
+                >
+                  <FileText size={20} className="text-blue-400" />
+                  <span className="text-white">Términos y condiciones</span>
                 </button>
                 <button 
                   onClick={() => setShowDeleteModal(true)}
