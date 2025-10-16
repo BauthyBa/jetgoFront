@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getSession, supabase } from '@/services/supabase'
 import ColorBar from '@/components/ColorBar'
 import ProfileMenu from '@/components/ProfileMenu'
-import { MapPin, MessageCircle, Plus, Search, UserRound, Users } from 'lucide-react'
+import { MapPin, MessageCircle, Plus, Search, UserRound, Users, Heart } from 'lucide-react'
 
 export default function Navigation() {
   const [loggedIn, setLoggedIn] = useState(false)
@@ -16,6 +16,7 @@ export default function Navigation() {
     location.pathname.startsWith('/crear-viaje') ||
     location.pathname === '/amigos' ||
     location.pathname === '/chats' ||
+    location.pathname === '/social' ||
     location.pathname.startsWith('/profile')
 
   useEffect(() => {
@@ -65,6 +66,12 @@ export default function Navigation() {
         path: '/amigos',
         icon: Users,
         isActive: (pathname) => pathname.startsWith('/amigos'),
+      },
+      {
+        label: 'Social',
+        path: '/social',
+        icon: Heart,
+        isActive: (pathname) => pathname.startsWith('/social'),
       },
     ],
     [],
