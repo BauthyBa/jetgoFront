@@ -352,7 +352,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-hero">
       <Navigation />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header del perfil */}
         <div className="glass-card p-6 mb-6">
           <div className="flex items-center gap-6">
@@ -664,7 +664,7 @@ export default function ProfilePage() {
                     <Star className="text-yellow-400" size={20} />
                     <span className="text-white">Ver todas las reseñas</span>
                   </div>
-                  <span className="text-slate-400">></span>
+                  <span className="text-slate-400">{'>'}</span>
                 </button>
               </div>
             </div>
@@ -684,7 +684,7 @@ export default function ProfilePage() {
                     <Settings className="text-emerald-400" size={20} />
                     <span className="text-white">Configuración de cuenta</span>
                   </div>
-                  <span className="text-slate-400">></span>
+                  <span className="text-slate-400">{'>'}</span>
                 </button>
               </div>
             </div>

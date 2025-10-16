@@ -120,7 +120,7 @@ const PublicProfilePage = () => {
     return (
       <div className="min-h-screen bg-gradient-hero">
         <Navigation />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-white text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
@@ -136,7 +136,7 @@ const PublicProfilePage = () => {
     return (
       <div className="min-h-screen bg-gradient-hero">
         <Navigation />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-white text-center">
               <div className="text-6xl mb-4">😞</div>

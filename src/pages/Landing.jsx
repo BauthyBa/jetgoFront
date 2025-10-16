@@ -10,21 +10,19 @@ export default function Landing() {
   return (
     <div className="min-h-screen text-foreground bg-gradient-hero">
       <Navigation />
-      <div className="pt-16">
-        <HeroSection />
-        <Reveal>
-          <HowItWorks />
-        </Reveal>
-        <Reveal delay={100}>
-          <Benefits />
-        </Reveal>
-        <Reveal delay={200}>
-          <Testimonials />
-        </Reveal>
-        <Reveal delay={250}>
-          <CTA />
-        </Reveal>
-      </div>
+      <HeroSection />
+      <Reveal>
+        <HowItWorks />
+      </Reveal>
+      <Reveal delay={100}>
+        <Benefits />
+      </Reveal>
+      <Reveal delay={200}>
+        <Testimonials />
+      </Reveal>
+      <Reveal delay={250}>
+        <CTA />
+      </Reveal>
     </div>
   )
 }

@@ -10,20 +10,22 @@ export default function Layout() {
 
   useEffect(() => {
     let mounted = true
-    getSession().then((s) => { if (mounted) setLoggedIn(!!s?.user) })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+    getSession().then((s) => {
+      if (mounted) setLoggedIn(!!s?.user)
+    })
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, session) => {
       if (mounted) setLoggedIn(!!session?.user)
     })
-    return () => { mounted = false; subscription.unsubscribe() }
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
   const isRoot = location.pathname === '/'
   const hideHeaderOn = ['/verify-dni', '/dashboard', '/chats', '/modern-chat', '/login', '/signup', '/u/', '/trip', '/viajes', '/crear-viaje', '/profile', '/amigos']
   const hideHeader = hideHeaderOn.some((p) => location.pathname.startsWith(p))
-  const showNavigation =
-    isRoot ||
-    location.pathname === '/viajes' ||
-    location.pathname === '/amigos' ||
-    location.pathname.startsWith('/crear-viaje')
   return (
     <div>
       {!isRoot && !hideHeader && (
@@ -45,8 +47,17 @@ export default function Layout() {
           </div>
         </header>
       )}
-      {showNavigation && <Navigation />}
-      <main className={isRoot || hideHeader ? "" : "container"} style={{ paddingTop: !isRoot && !hideHeader ? '4rem' : '0' }}>
+      {isRoot && <Navigation />}
+      {/* Compact back bar for views without main header and not dashboard */}
+      {!isRoot && hideHeader && !location.pathname.startsWith('/dashboard') && (
+        <div className="sticky top-0 z-30" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BackButton fallback="/" />
+          </div>
+          <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(148,163,184,0.25), rgba(148,163,184,0.06))' }} />
+        </div>
+      )}
+      <main className={isRoot || hideHeader ? "" : "container"}>
         <Outlet />
       </main>
     </div>

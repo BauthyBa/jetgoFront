@@ -173,7 +173,7 @@ export default function HeroSection() {
   }
 
   return (
-    <section className="relative min-h-[88vh] flex items-center bg-gradient-to-b from-slate-900 to-slate-800 pt-24 overflow-visible">
+    <section className="relative min-h-[88vh] flex items-center bg-gradient-to-b from-slate-900 to-slate-800 pt-24 overflow-hidden">
       <div aria-hidden className="absolute inset-0 z-[1] pointer-events-none">
         <img src="/hero-landmarks.jpg" alt="" className="w-full h-full object-cover opacity-60 blur-[3px] scale-105" />
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-slate-900/50 to-slate-900/80" />

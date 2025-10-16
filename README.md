@@ -53,7 +53,25 @@ npm run preview
 
 # Linter
 npm run lint
+
+# Copiar assets compilados a plataformas registradas (Capacitor)
+npm run cap:copy
+
+# Sincronizar Capacitor (config + plugins)
+npm run cap:sync
+
+# Build + copiar + abrir Android Studio
+npm run android
 ```
+
+Si ya compilaste y solo necesitás reabrir el proyecto nativo podés usar `npm run cap:open`.
+
+### Android Studio (Windows)
+- Instalá Android Studio en Windows y asegurate de descargar el SDK desde el SDK Manager (Build Tools 34+ y una imagen de emulador).
+- Desde la raíz del repo, copiá `android/local.properties.example` a `android/local.properties` y reemplazá `<usuario>` por tu usuario de Windows para que `sdk.dir` apunte a `C:\Users\<usuario>\AppData\Local\Android\Sdk`.
+- Abrí Android Studio (Windows) y elegí **Open** → seleccioná la carpeta `android/` del proyecto.
+- Podés sincronizar el código web antes de abrir con `npm run cap:sync`. Desde Windows también podés usar `capacitor` o ejecutar `gradlew.bat assembleDebug` para compilar.
+- El archivo `android/local.properties` queda fuera del control de versiones (ver `.gitignore`); cada entorno debe mantener su propia ruta al SDK.
 
 ### Estructura del proyecto
 ```text

@@ -601,7 +601,7 @@ export default function ModernChatPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_75%,rgba(168,85,247,0.1),transparent_50%)]" />
       </div>
 
-      <div className="relative z-10 flex h-screen pt-16">
+      <div className="relative z-10 flex h-screen">
         {/* Sidebar */}
         <div className="w-80 bg-slate-900/80 backdrop-blur-xl border-r border-slate-700/50 h-screen">
           <div className="h-full flex flex-col">
