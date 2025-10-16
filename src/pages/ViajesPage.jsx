@@ -595,6 +595,17 @@ export default function ViajesPage() {
                   <div className="flex items-center gap-3 text-white">
                     <Loader2 className="w-6 h-6 animate-spin" />
                     <span>Cargando viajes...</span>
+                    <br></br>
+                    <motion.img 
+                      src="/public/jetgo.png" 
+                      alt="Cargando viajes." 
+                      animate={{ opacity: [0, 1, 0] }} 
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    ></motion.img>
                   </div>
                 </div>
               ) : filteredTrips.length === 0 ? (
