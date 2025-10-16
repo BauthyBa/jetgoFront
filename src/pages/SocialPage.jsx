@@ -31,6 +31,12 @@ export default function SocialPage() {
   const [selectedFile, setSelectedFile] = useState(null)
   const [filePreview, setFilePreview] = useState(null)
   const [error, setError] = useState(null)
+  const [comments, setComments] = useState({})
+  const [showComments, setShowComments] = useState({})
+  const [newComment, setNewComment] = useState({})
+  const [likedPosts, setLikedPosts] = useState(new Set())
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [selectedPost, setSelectedPost] = useState(null)
 
   useEffect(() => {
     getCurrentUser()
@@ -167,14 +173,131 @@ export default function SocialPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ user_id: user.id }),
         mode: 'cors',
       })
       
-      if (response.ok) {
-        loadPosts()
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
+      
+      const data = await response.json()
+      console.log('Like response:', data)
+      
+      // Update liked posts state
+      if (data.action === 'liked') {
+        setLikedPosts(prev => new Set([...prev, postId]))
+      } else if (data.action === 'unliked') {
+        setLikedPosts(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(postId)
+          return newSet
+        })
+      }
+      
+      // Reload posts to update like count
+      loadPosts()
+      
     } catch (error) {
       console.error('Error liking post:', error)
+      setError(error.message)
+    }
+  }
+
+  const loadComments = async (postId) => {
+    try {
+      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/comments/`
+      console.log('Loading comments from:', url)
+      
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      setComments(prev => ({ ...prev, [postId]: data.comments || [] }))
+      
+    } catch (error) {
+      console.error('Error loading comments:', error)
+      setError(error.message)
+    }
+  }
+
+  const createComment = async (postId) => {
+    try {
+      const commentText = newComment[postId]?.trim()
+      if (!commentText) return
+      
+      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/comments/`
+      console.log('Creating comment at:', url)
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          user_id: user.id,
+          content: commentText 
+        }),
+        mode: 'cors',
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('Comment created:', data)
+      
+      // Clear comment input
+      setNewComment(prev => ({ ...prev, [postId]: '' }))
+      
+      // Reload comments
+      loadComments(postId)
+      
+    } catch (error) {
+      console.error('Error creating comment:', error)
+      setError(error.message)
+    }
+  }
+
+  const toggleComments = (postId) => {
+    setShowComments(prev => ({ ...prev, [postId]: !prev[postId] }))
+    if (!showComments[postId] && !comments[postId]) {
+      loadComments(postId)
+    }
+  }
+
+  const sharePost = async (postId) => {
+    try {
+      const post = posts.find(p => p.id === postId)
+      if (!post) return
+      
+      setSelectedPost(post)
+      setShowShareModal(true)
+    } catch (error) {
+      console.error('Error opening share modal:', error)
+      setError('Error al abrir el modal de compartir')
+    }
+  }
+
+  const shareToChat = async (chatId, chatName) => {
+    try {
+      if (!selectedPost) return
+      
+      // Aquí implementarías la lógica para enviar el post al chat
+      // Por ahora solo mostramos un mensaje
+      alert(`Post compartido en ${chatName}`)
+      setShowShareModal(false)
+      setSelectedPost(null)
+    } catch (error) {
+      console.error('Error sharing to chat:', error)
+      setError('Error al compartir en el chat')
     }
   }
 
@@ -369,24 +492,85 @@ export default function SocialPage() {
                         <button
                           onClick={() => likePost(post.id)}
                           className={`flex items-center gap-2 transition-colors ${
-                            post.is_liked 
+                            likedPosts.has(post.id) 
                               ? 'text-red-500' 
                               : 'text-slate-400 hover:text-red-500'
                           }`}
                         >
-                          <Heart className={`w-5 h-5 ${post.is_liked ? 'fill-current' : ''}`} />
+                          <Heart className={`w-5 h-5 ${likedPosts.has(post.id) ? 'fill-current' : ''}`} />
                           <span>{post.likes_count}</span>
                         </button>
-                        <button className="flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-colors">
+                        <button 
+                          onClick={() => toggleComments(post.id)}
+                          className="flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-colors"
+                        >
                           <MessageCircle className="w-5 h-5" />
                           <span>{post.comments_count}</span>
                         </button>
-                        <button className="flex items-center gap-2 text-slate-400 hover:text-green-500 transition-colors">
+                        <button 
+                          onClick={() => sharePost(post.id)}
+                          className="flex items-center gap-2 text-slate-400 hover:text-green-500 transition-colors"
+                        >
                           <Share className="w-5 h-5" />
                           <span>Compartir</span>
                         </button>
                       </div>
                     </div>
+
+                    {/* Comments Section */}
+                    {showComments[post.id] && (
+                      <div className="mt-4 pt-4 border-t border-slate-700/50">
+                        {/* Comments List */}
+                        {comments[post.id] && comments[post.id].length > 0 && (
+                          <div className="space-y-3 mb-4">
+                            {comments[post.id].map((comment) => (
+                              <div key={comment.id} className="flex gap-3">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                                  {comment.author.nombre.charAt(0)}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-white text-sm">
+                                      {comment.author.nombre} {comment.author.apellido}
+                                    </span>
+                                    <span className="text-xs text-slate-400">
+                                      {formatTimeAgo(comment.created_at)}
+                                    </span>
+                                  </div>
+                                  <p className="text-slate-300 text-sm">{comment.content}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Add Comment */}
+                        <div className="flex gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                            {user?.nombre?.charAt(0) || 'U'}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Escribe un comentario..."
+                                value={newComment[post.id] || ''}
+                                onChange={(e) => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                className="flex-1 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onKeyPress={(e) => e.key === 'Enter' && createComment(post.id)}
+                              />
+                              <button
+                                onClick={() => createComment(post.id)}
+                                disabled={!newComment[post.id]?.trim()}
+                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                Enviar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -549,6 +733,82 @@ export default function SocialPage() {
                   Publicar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {showShareModal && selectedPost && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Compartir Post</h3>
+              <button 
+                onClick={() => setShowShareModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-slate-300 text-sm mb-2">Compartir en:</p>
+              <div className="space-y-2">
+                <button 
+                  onClick={() => shareToChat('trip-chat-1', 'Chat del Viaje a París')}
+                  className="w-full text-left p-3 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm">✈️</span>
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">Chat del Viaje a París</p>
+                      <p className="text-slate-400 text-sm">Viaje grupal</p>
+                    </div>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => shareToChat('private-chat-1', 'Chat con María')}
+                  className="w-full text-left p-3 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm">👤</span>
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">Chat con María</p>
+                      <p className="text-slate-400 text-sm">Chat privado</p>
+                    </div>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => shareToChat('group-chat-1', 'Grupo de Amigos')}
+                  className="w-full text-left p-3 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm">👥</span>
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">Grupo de Amigos</p>
+                      <p className="text-slate-400 text-sm">Chat grupal</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowShareModal(false)}
+                className="flex-1 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>

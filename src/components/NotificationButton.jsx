@@ -63,7 +63,8 @@ export default function NotificationButton({ onNavigate }) {
       />
 
       {/* CSS Animations */}
-      <style jsx>{`
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes shimmer {
           0% {
             transform: translateX(-100%);
@@ -72,7 +73,8 @@ export default function NotificationButton({ onNavigate }) {
             transform: translateX(100%);
           }
         }
-      `}</style>
+        `
+      }} />
     </>
   )
 }

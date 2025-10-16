@@ -464,7 +464,8 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
       </div>
 
       {/* CSS Animations */}
-      <style jsx>{`
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes slideInRight {
           from {
             transform: translateX(100%);
@@ -493,7 +494,8 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
-      `}</style>
+      `
+      }} />
     </>
   )
 }

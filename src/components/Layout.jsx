@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { getSession, supabase } from '../services/supabase'
 import Navigation from '@/components/Navigation'
 import ThemeToggle from '@/components/ThemeToggle'
+import BackButton from '@/components/BackButton'
 
 export default function Layout() {
   const [loggedIn, setLoggedIn] = useState(false)
