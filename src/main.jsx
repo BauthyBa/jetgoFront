@@ -22,6 +22,7 @@ import FriendsPage from './pages/FriendsPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import ReviewsPage from './pages/ReviewsPage.jsx'
 import AccountSettingsPage from './pages/AccountSettingsPage.jsx'
+import SocialPage from './pages/SocialPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 
 const router = createBrowserRouter([
@@ -47,6 +48,7 @@ const router = createBrowserRouter([
       { path: 'profile', element: <ProfilePage /> },
       { path: 'profile/reviews', element: <ReviewsPage /> },
       { path: 'profile/settings', element: <AccountSettingsPage /> },
+      { path: 'social', element: <SocialPage /> },
     ],
   },
   // Rutas de autenticación sin Layout (sin navbar)
