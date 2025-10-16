@@ -37,12 +37,19 @@ export default function SocialPage() {
   const [likedPosts, setLikedPosts] = useState(new Set())
   const [showShareModal, setShowShareModal] = useState(false)
   const [selectedPost, setSelectedPost] = useState(null)
+  const [userChats, setUserChats] = useState([])
 
   useEffect(() => {
     getCurrentUser()
     loadPosts()
     loadStories()
   }, [])
+
+  useEffect(() => {
+    if (user) {
+      loadUserChats()
+    }
+  }, [user])
 
   const getCurrentUser = async () => {
     try {
@@ -228,6 +235,11 @@ export default function SocialPage() {
 
   const createComment = async (postId) => {
     try {
+      if (!user || !user.id) {
+        setError('Debes iniciar sesión para comentar')
+        return
+      }
+      
       const commentText = newComment[postId]?.trim()
       if (!commentText) return
       
@@ -286,15 +298,178 @@ export default function SocialPage() {
     }
   }
 
+  const loadUserChats = async () => {
+    try {
+      if (!user) return
+      
+      // Primero obtener los room_ids donde el usuario es miembro
+      const { data: memberData, error: memberError } = await supabase
+        .from('chat_members')
+        .select('room_id')
+        .eq('user_id', user.id)
+      
+      if (memberError) {
+        console.error('Error loading chat members:', memberError)
+        return
+      }
+      
+      const roomIds = memberData.map(m => m.room_id)
+      if (roomIds.length === 0) {
+        setUserChats([])
+        return
+      }
+      
+      // Cargar chats de viajes
+      const { data: tripsData, error: tripsError } = await supabase
+        .from('chat_rooms')
+        .select(`
+          id,
+          name,
+          trip_id,
+          is_private,
+          trips(name, destination)
+        `)
+        .in('id', roomIds)
+        .not('trip_id', 'is', null)
+      
+      // Cargar chats privados
+      const { data: privateData, error: privateError } = await supabase
+        .from('chat_rooms')
+        .select(`
+          id,
+          name,
+          is_private
+        `)
+        .in('id', roomIds)
+        .eq('is_private', true)
+      
+      const allChats = []
+      
+      // Procesar chats de viajes
+      if (tripsData && !tripsError) {
+        tripsData.forEach(chat => {
+          // Usar solo el destino principal, no toda la dirección
+          let chatName = 'Viaje'
+          if (chat.trips) {
+            if (chat.trips.destination) {
+              // Extraer solo la ciudad (primera parte antes de coma o guión)
+              const destination = chat.trips.destination.split(/[,-]/)[0].trim()
+              chatName = destination
+            } else if (chat.trips.name) {
+              chatName = chat.trips.name
+            }
+          } else if (chat.name) {
+            chatName = chat.name
+          }
+          
+          allChats.push({
+            id: chat.id,
+            name: chatName,
+            type: 'trip',
+            icon: '✈️',
+            color: 'blue'
+          })
+        })
+      }
+      
+      // Procesar chats privados - necesitamos obtener info del otro usuario
+      if (privateData && !privateError) {
+        for (const chat of privateData) {
+          // Obtener miembros del chat
+          const { data: membersData } = await supabase
+            .from('chat_members')
+            .select('user_id')
+            .eq('room_id', chat.id)
+          
+          if (membersData && membersData.length > 0) {
+            const otherUserId = membersData.find(m => m.user_id !== user.id)?.user_id
+            
+            if (otherUserId) {
+              // Obtener info del otro usuario
+              const { data: userData } = await supabase
+                .from('User')
+                .select('nombre, apellido, avatar_url')
+                .eq('userid', otherUserId)
+                .single()
+              
+              // Usar SIEMPRE el nombre del usuario, no el nombre del chat
+              const userName = userData ? `${userData.nombre} ${userData.apellido}`.trim() : 'Usuario'
+              allChats.push({
+                id: chat.id,
+                name: userName, // Directamente el nombre del usuario
+                type: 'private',
+                icon: '👤',
+                color: 'green',
+                avatar: userData?.avatar_url
+              })
+            }
+          }
+        }
+      }
+      
+      console.log('Loaded chats:', allChats)
+      setUserChats(allChats)
+    } catch (error) {
+      console.error('Error loading user chats:', error)
+    }
+  }
+
   const shareToChat = async (chatId, chatName) => {
     try {
-      if (!selectedPost) return
+      if (!selectedPost || !user) return
       
-      // Aquí implementarías la lógica para enviar el post al chat
-      // Por ahora solo mostramos un mensaje
-      alert(`Post compartido en ${chatName}`)
+      // Construir el mensaje con metadata del post
+      const postUrl = `${window.location.origin}/social?post=${selectedPost.id}`
+      const postPreview = selectedPost.content ? selectedPost.content.substring(0, 150) : 'Post compartido'
+      
+      // Crear metadata JSON para el post compartido
+      const sharedPostData = {
+        type: 'shared_post',
+        post_id: selectedPost.id,
+        post_url: postUrl,
+        content: postPreview,
+        author: {
+          nombre: selectedPost.author?.nombre || 'Usuario',
+          apellido: selectedPost.author?.apellido || '',
+          avatar_url: selectedPost.author?.avatar_url || null
+        },
+        media: {
+          image_url: selectedPost.image_url,
+          video_url: selectedPost.video_url
+        },
+        likes_count: selectedPost.likes_count,
+        comments_count: selectedPost.comments_count
+      }
+      
+      // Mensaje de texto simple como fallback
+      const messageContent = `📱 Post compartido de ${selectedPost.author?.nombre || 'Usuario'} ${selectedPost.author?.apellido || ''}`
+      
+      // Enviar mensaje al chat con metadata en formato JSON
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .insert({
+          id: crypto.randomUUID(),
+          room_id: chatId,
+          user_id: user.id,
+          content: messageContent,
+          created_at: new Date().toISOString(),
+          // Guardar metadata del post compartido como JSON
+          file_url: JSON.stringify(sharedPostData),
+          file_type: 'shared_post',
+          is_file: false
+        })
+      
+      if (error) {
+        console.error('Error sending message:', error)
+        setError('Error al compartir en el chat')
+        return
+      }
+      
+      // Cerrar modal y mostrar confirmación
       setShowShareModal(false)
       setSelectedPost(null)
+      alert(`✅ Post compartido en ${chatName}`)
+      
     } catch (error) {
       console.error('Error sharing to chat:', error)
       setError('Error al compartir en el chat')
@@ -525,8 +700,18 @@ export default function SocialPage() {
                           <div className="space-y-3 mb-4">
                             {comments[post.id].map((comment) => (
                               <div key={comment.id} className="flex gap-3">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                                  {comment.author.nombre.charAt(0)}
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium overflow-hidden">
+                                  {comment.author.avatar_url ? (
+                                    <img 
+                                      src={comment.author.avatar_url} 
+                                      alt={`${comment.author.nombre} ${comment.author.apellido}`}
+                                      className="w-8 h-8 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                                      {comment.author.nombre.charAt(0)}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
@@ -754,51 +939,40 @@ export default function SocialPage() {
             
             <div className="mb-4">
               <p className="text-slate-300 text-sm mb-2">Compartir en:</p>
-              <div className="space-y-2">
-                <button 
-                  onClick={() => shareToChat('trip-chat-1', 'Chat del Viaje a París')}
-                  className="w-full text-left p-3 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm">✈️</span>
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">Chat del Viaje a París</p>
-                      <p className="text-slate-400 text-sm">Viaje grupal</p>
-                    </div>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {userChats.length > 0 ? (
+                  userChats.map((chat) => (
+                    <button 
+                      key={chat.id}
+                      onClick={() => shareToChat(chat.id, chat.name)}
+                      className="w-full text-left p-3 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 ${chat.color === 'blue' ? 'bg-blue-500' : chat.color === 'green' ? 'bg-green-500' : 'bg-purple-500'} rounded-full flex items-center justify-center`}>
+                          {chat.avatar ? (
+                            <img 
+                              src={chat.avatar} 
+                              alt={chat.name}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-white text-sm">{chat.icon}</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{chat.name}</p>
+                          <p className="text-slate-400 text-sm">
+                            {chat.type === 'trip' ? 'Viaje grupal' : 'Chat privado'}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-slate-400">No tienes chats disponibles</p>
                   </div>
-                </button>
-                
-                <button 
-                  onClick={() => shareToChat('private-chat-1', 'Chat con María')}
-                  className="w-full text-left p-3 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm">👤</span>
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">Chat con María</p>
-                      <p className="text-slate-400 text-sm">Chat privado</p>
-                    </div>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => shareToChat('group-chat-1', 'Grupo de Amigos')}
-                  className="w-full text-left p-3 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm">👥</span>
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">Grupo de Amigos</p>
-                      <p className="text-slate-400 text-sm">Chat grupal</p>
-                    </div>
-                  </div>
-                </button>
+                )}
               </div>
             </div>
             

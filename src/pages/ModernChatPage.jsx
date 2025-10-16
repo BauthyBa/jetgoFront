@@ -8,6 +8,7 @@ import ConnectionStatus from '@/components/ConnectionStatus'
 import Navigation from '@/components/Navigation'
 import AudioRecorder from '@/components/AudioRecorder'
 import AudioTranscriber from '@/components/AudioTranscriber'
+import SharedPostPreview from '@/components/SharedPostPreview'
 import { getSession, supabase, updateUserMetadata } from '@/services/supabase'
 import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages } from '@/services/chat'
 import { listTrips as fetchTrips, leaveTrip } from '@/services/trips'
@@ -893,6 +894,23 @@ export default function ModernChatPage() {
                                           className="max-h-64 w-full object-cover"
                                         />
                                       </a>
+                                    ) : message.file_type === 'shared_post' ? (
+                                      // Preview de post compartido
+                                      <div className="my-2">
+                                        {(() => {
+                                          try {
+                                            const sharedPostData = JSON.parse(message.file_url)
+                                            return <SharedPostPreview sharedPostData={sharedPostData} />
+                                          } catch (e) {
+                                            console.error('Error parsing shared post:', e)
+                                            return (
+                                              <div className="p-3 bg-slate-700/50 rounded-lg text-slate-300 text-sm">
+                                                📱 Post compartido (error al cargar preview)
+                                              </div>
+                                            )
+                                          }
+                                        })()}
+                                      </div>
                                     ) : message.file_type?.startsWith('audio/') ? (
                                       <div className="space-y-2">
                                         <audio
