@@ -69,7 +69,7 @@ export default function DashboardLayout({ children }) {
         </div>
       </nav>
 
-      <main style={{ flex: 1, overflow: 'auto', scrollBehavior: 'smooth' }}>
+      <main style={{ flex: 1, overflow: 'auto', scrollBehavior: 'smooth', paddingTop: '4rem' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-8">
           {children}
         </div>

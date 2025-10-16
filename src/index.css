@@ -163,7 +163,7 @@ a { color: hsl(var(--primary)); text-decoration: none; }
 a:hover { color: hsl(var(--primary-glow)); }
 
 /* Prevent fixed navbar from covering anchor targets */
-[id] { scroll-margin-top: 96px; }
+[id] { scroll-margin-top: 4rem; }
 
 button { @apply rounded-lg; }
 

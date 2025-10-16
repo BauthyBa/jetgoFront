@@ -46,7 +46,7 @@ export default function Layout() {
         </header>
       )}
       {showNavigation && <Navigation />}
-      <main className={isRoot || hideHeader ? "" : "container"}>
+      <main className={isRoot || hideHeader ? "" : "container"} style={{ paddingTop: !isRoot && !hideHeader ? '4rem' : '0' }}>
         <Outlet />
       </main>
     </div>

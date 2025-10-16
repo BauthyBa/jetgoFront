@@ -32,10 +32,11 @@ export default function Navigation() {
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
   return (
-    <nav className="fixed top-0 w-full z-50 glass-nav" style={{ position: 'fixed' }}>
-      <ColorBar />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center h-16 relative">
+    <>
+      <nav className="fixed top-0 w-full z-50 glass-nav" style={{ position: 'fixed' }}>
+        <ColorBar />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-16 relative">
           <div className="flex items-center gap-2 flex-shrink-0">
             <img src="/jetgo.png?v=2" alt="JetGo" width="44" height="44" />
             <Link to="/" className="text-3xl font-extrabold text-white hover:text-emerald-400 transition-colors">JetGo</Link>
@@ -73,6 +74,9 @@ export default function Navigation() {
         </div>
       </div>
     </nav>
+    {/* Spacer para compensar la navbar fija */}
+    <div className="h-16"></div>
+    </>
   )
 }
 
