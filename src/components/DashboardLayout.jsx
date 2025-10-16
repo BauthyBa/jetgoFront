@@ -6,14 +6,20 @@ import ColorBar from '@/components/ColorBar'
 export default function DashboardLayout({ children }) {
   const location = useLocation()
   const nav = [
-    { label: 'Inicio', path: '/dashboard#inicio', hash: '#inicio' },
-    { label: 'Perfil', path: '/dashboard#profile', hash: '#profile' },
-    { label: 'Chats', path: '/dashboard#chats', hash: '#chats' },
-    { label: 'Viajes', path: '/dashboard#trips', hash: '#trips' },
-    { label: 'Gastos', path: '/dashboard#expenses', hash: '#expenses' },
+    { label: 'Inicio', path: '/dashboard?tab=inicio#inicio', hash: '#inicio', matchPath: '/dashboard' },
+    { label: 'Perfil', path: '/profile', matchPath: '/profile' },
+    { label: 'Chats', path: '/modern-chat', matchPath: '/modern-chat' },
+    { label: 'Viajes', path: '/dashboard?tab=trips#trips', hash: '#trips', matchPath: '/dashboard' },
+    { label: 'Gastos', path: '/dashboard?tab=expenses#expenses', hash: '#expenses', matchPath: '/dashboard' },
   ]
   const isActive = (item) => {
     const currentHash = location.hash || '#inicio'
+    if (item.hash && item.matchPath) {
+      return location.pathname === item.matchPath && currentHash === item.hash
+    }
+    if (item.matchPath) {
+      return location.pathname === item.matchPath
+    }
     return currentHash === (item.hash || '')
   }
   return (

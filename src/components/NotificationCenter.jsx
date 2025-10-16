@@ -1,89 +1,39 @@
-import { useState, useEffect } from 'react'
-import GlassCard from './GlassCard'
-import { getUserNotifications, markNotificationRead, markAllNotificationsRead } from '@/services/api'
-import { supabase } from '@/services/supabase'
+import { useState } from 'react'
+import { useNotifications } from '@/hooks/useNotifications'
 
-export default function NotificationCenter() {
-  const [notifications, setNotifications] = useState([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+export default function NotificationCenter({ onNavigate }) {
   const [error, setError] = useState('')
-  const [currentUser, setCurrentUser] = useState(null)
+  
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead
+  } = useNotifications()
 
-  // Cargar usuario actual
-  useEffect(() => {
-    async function getCurrentUser() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        setCurrentUser(user)
-      } catch (err) {
-        console.error('Error getting current user:', err)
-      }
-    }
-    getCurrentUser()
-  }, [])
-
-  // Cargar notificaciones
-  const loadNotifications = async () => {
-    if (!currentUser) return
-
+  // Manejar clic en notificación
+  const handleNotificationClick = async (notification) => {
     try {
-      setLoading(true)
-      setError('')
+      if (!notification.read) {
+        markAsRead(notification.id)
+      }
+
+      const data = notification.data || {}
       
-      const response = await getUserNotifications(currentUser.id)
-      
-      if (response.ok) {
-        setNotifications(response.notifications || [])
-        setUnreadCount(response.unread_count || 0)
-      } else {
-        setError(response.error || 'Error al cargar notificaciones')
+      if (onNavigate) {
+        switch (notification.type) {
+          case 'chat_message':
+            if (data.room_id) {
+              onNavigate(`/dashboard?tab=chats&room=${data.room_id}`)
+            }
+            break
+          default:
+            onNavigate('/dashboard')
+        }
       }
     } catch (err) {
-      setError(err.message || 'Error al cargar notificaciones')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (currentUser) {
-      loadNotifications()
-    }
-  }, [currentUser])
-
-  // Marcar notificación como leída
-  const handleMarkAsRead = async (notificationId) => {
-    try {
-      const response = await markNotificationRead(notificationId, currentUser.id)
-      if (response.ok) {
-        // Actualizar estado local
-        setNotifications(prev => 
-          prev.map(notif => 
-            notif.id === notificationId 
-              ? { ...notif, read: true }
-              : notif
-          )
-        )
-        setUnreadCount(prev => Math.max(0, prev - 1))
-      }
-    } catch (err) {
-      console.error('Error marking notification as read:', err)
-    }
-  }
-
-  // Marcar todas como leídas
-  const handleMarkAllAsRead = async () => {
-    try {
-      const response = await markAllNotificationsRead(currentUser.id)
-      if (response.ok) {
-        setNotifications(prev => 
-          prev.map(notif => ({ ...notif, read: true }))
-        )
-        setUnreadCount(0)
-      }
-    } catch (err) {
-      console.error('Error marking all notifications as read:', err)
+      console.error('Error handling notification click:', err)
     }
   }
 
@@ -91,176 +41,121 @@ export default function NotificationCenter() {
     try {
       const date = new Date(dateString)
       const now = new Date()
-      const diffInHours = (now - date) / (1000 * 60 * 60)
-      
-      if (diffInHours < 1) {
-        const diffInMinutes = Math.floor((now - date) / (1000 * 60))
-        return `Hace ${diffInMinutes} min`
-      } else if (diffInHours < 24) {
-        return `Hace ${Math.floor(diffInHours)} h`
-      } else {
-        const diffInDays = Math.floor(diffInHours / 24)
-        return `Hace ${diffInDays} día${diffInDays !== 1 ? 's' : ''}`
-      }
+      const diffMs = now - date
+      const diffMins = Math.floor(diffMs / 60000)
+      const diffHours = Math.floor(diffMs / 3600000)
+      const diffDays = Math.floor(diffMs / 86400000)
+
+      if (diffMins < 1) return 'Ahora'
+      if (diffMins < 60) return `Hace ${diffMins}m`
+      if (diffHours < 24) return `Hace ${diffHours}h`
+      if (diffDays < 7) return `Hace ${diffDays}d`
+      return date.toLocaleDateString('es-ES')
     } catch {
-      return 'Fecha no disponible'
+      return 'Fecha desconocida'
     }
   }
 
-  const formatFullDate = (dateString) => {
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    } catch {
-      return 'Fecha no disponible'
+  const getNotificationIcon = (notification) => {
+    if (notification.type === 'chat_message') {
+      return notification.data?.is_group ? '👥' : '💬'
     }
+    return '🔔'
   }
 
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'new_review':
-        return '⭐'
-      case 'trip_join':
-        return '✈️'
-      case 'trip_update':
-        return '📝'
-      case 'message':
-        return '💬'
-      default:
-        return '🔔'
-    }
-  }
-
-  if (!currentUser) {
-    return null
+  if (loading) {
+    return (
+      <div className="glass-card p-4">
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <span className="ml-2">Cargando notificaciones...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="w-80">
-      {/* Container de Notificaciones */}
-      <div className="bg-slate-800/60 backdrop-blur-sm border border-slate-600/50 rounded-lg p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-blue-500/20 rounded-md flex items-center justify-center text-sm">
-              🔔
-            </div>
-            <h3 className="text-sm font-semibold text-white">
-              Notificaciones
-            </h3>
-            {unreadCount > 0 && (
-              <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full text-[10px]">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </div>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-white">Notificaciones</h3>
+          <div className="w-2 h-2 rounded-full bg-blue-500" title="Polling activo"></div>
+        </div>
+        <div className="flex items-center gap-2">
           {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllAsRead}
-              className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              Leer todas
-            </button>
+            <>
+              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                {unreadCount} sin leer
+              </span>
+              <button
+                onClick={markAllAsRead}
+                className="text-blue-400 hover:text-blue-300 text-sm"
+              >
+                Marcar todas como leídas
+              </button>
+            </>
           )}
         </div>
+      </div>
 
-        {/* Loading */}
-        {loading && (
-          <div className="text-center py-4">
-            <p className="text-gray-400">Cargando notificaciones...</p>
+      {/* Lista de notificaciones */}
+      <div className="space-y-2 max-h-96 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <div className="text-4xl mb-2">🔔</div>
+            <p>No hay notificaciones</p>
           </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="text-red-400 text-sm mb-4">
-            {error}
-          </div>
-        )}
-
-        {/* Lista de notificaciones */}
-        {!loading && notifications.length > 0 && (
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {notifications.slice(0, 3).map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-2 rounded-md border cursor-pointer transition-all duration-200 hover:bg-opacity-80 ${
-                  notification.read 
-                    ? 'bg-gray-800/20 border-gray-700/30' 
-                    : 'bg-blue-900/15 border-blue-600/30'
-                }`}
-                onClick={() => !notification.read && handleMarkAsRead(notification.id)}
-              >
-                <div className="flex items-start gap-2">
-                  <div className={`w-6 h-6 rounded-md flex items-center justify-center text-sm ${
-                    notification.read ? 'bg-gray-700/30' : 'bg-blue-500/15'
-                  }`}>
-                    {getNotificationIcon(notification.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-1">
-                      <h4 className={`text-xs font-medium leading-tight ${
-                        notification.read ? 'text-gray-300' : 'text-white'
-                      }`}>
-                        {notification.title}
-                      </h4>
-                      {!notification.read && (
-                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
+        ) : (
+          notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:bg-opacity-80 ${
+                notification.read 
+                  ? 'bg-gray-800/20 border-gray-700/30' 
+                  : 'bg-blue-900/15 border-blue-600/30'
+              }`}
+              onClick={() => handleNotificationClick(notification)}
+            >
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">{getNotificationIcon(notification)}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h4 className={`font-medium ${notification.read ? 'text-gray-300' : 'text-white'}`}>
+                      {notification.data?.is_group ? (
+                        <span className="flex items-center gap-2">
+                          <span className="text-blue-400">👥</span>
+                          <span>{notification.title}</span>
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <span className="text-green-400">💬</span>
+                          <span>{notification.title}</span>
+                        </span>
                       )}
-                    </div>
-                    <p className={`text-[10px] mt-0.5 leading-relaxed ${
-                      notification.read ? 'text-gray-400' : 'text-gray-300'
-                    }`}>
-                      {notification.message}
-                    </p>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-[9px] text-gray-500">
-                        {formatDate(notification.created_at)}
-                      </p>
-                      <p className="text-[9px] text-gray-500 font-mono">
-                        {formatFullDate(notification.created_at)}
-                      </p>
-                    </div>
+                    </h4>
+                    <span className="text-xs text-gray-400">
+                      {formatDate(notification.created_at)}
+                    </span>
                   </div>
+                  <p className={`text-sm mt-1 ${notification.read ? 'text-gray-400' : 'text-gray-300'}`}>
+                    {notification.message}
+                  </p>
+                  {!notification.read && (
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                  )}
                 </div>
               </div>
-            ))}
-            {notifications.length > 3 && (
-              <div className="text-center py-1">
-                <p className="text-[10px] text-gray-400">
-                  +{notifications.length - 3} más
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Estado vacío */}
-        {!loading && notifications.length === 0 && (
-          <div className="text-center py-4">
-            <div className="w-8 h-8 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-2">
-              <span className="text-sm">🔔</span>
             </div>
-            <p className="text-gray-400 text-xs">No tienes notificaciones</p>
-            <p className="text-gray-500 text-[10px] mt-0.5">Las nuevas aparecerán aquí</p>
-          </div>
+          ))
         )}
-
-        {/* Footer */}
-        <div className="mt-2 pt-2 border-t border-gray-600/30 flex justify-center">
-          <button
-            onClick={loadNotifications}
-            className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors px-2 py-1 rounded hover:bg-blue-500/10"
-          >
-            🔄 Actualizar
-          </button>
-        </div>
       </div>
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-600/30 rounded-lg p-3 text-red-300">
+          {error}
+        </div>
+      )}
     </div>
   )
 }

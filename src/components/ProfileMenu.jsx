@@ -10,8 +10,10 @@ import {
   Bell, 
   LogOut, 
   ChevronDown,
-  Settings
+  Settings,
+  Users
 } from 'lucide-react'
+import NotificationButton from './NotificationButton'
 
 export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -132,6 +134,13 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
             </div>
           )}
 
+          {/* Notifications Section - Solo para usuarios logueados */}
+          {isLoggedIn && (
+            <div className="border-b border-slate-200 dark:border-slate-600">
+              <NotificationButton onNavigate={(path) => navigate(path)} />
+            </div>
+          )}
+
           {/* Menu Items */}
           <div className="py-2">
             {!isLoggedIn ? (
@@ -158,7 +167,7 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
               // Logged in menu
               <>
                 <Link
-                  to="/"
+                  to="/dashboard?tab=trips#trips"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
@@ -166,7 +175,7 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
                   Mis viajes
                 </Link>
                 <Link
-                  to="/"
+                  to="/modern-chat"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
@@ -174,7 +183,7 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
                   Chats
                 </Link>
                 <Link
-                  to="/"
+                  to="/profile"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
@@ -182,12 +191,12 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
                   Perfil
                 </Link>
                 <Link
-                  to="/"
+                  to="/amigos"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
-                  <Bell className="w-4 h-4" />
-                  Notificaciones
+                  <Users className="w-4 h-4" />
+                  Amigos
                 </Link>
                 
                 {/* Separator */}

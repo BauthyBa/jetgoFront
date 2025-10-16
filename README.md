@@ -32,8 +32,11 @@ VITE_SUPABASE_ANON_KEY=tu_anon_key
 VITE_API_BASE_URL=https://tu-backend.com/api
 ```
 Si no defines variables, el proyecto usa valores por defecto de desarrollo:
-- `VITE_API_BASE_URL` -> `http://localhost:8000/api`
+- `VITE_API_BASE_URL` -> `https://jetgoback.onrender.com/api`
+- `VITE_LOCAL_API_BASE_URL` (opcional) -> `http://localhost:8000/api`
 - En `src/services/supabase.js` hay valores de ejemplo para URL/KEY (recomendado sobrescribir con env).
+
+Cuando la app corre en `http://localhost` intenta detectar automáticamente si el backend local (`VITE_LOCAL_API_BASE_URL`) está disponible; si no lo encuentra o no responde al ping, vuelve a la API deployada en Render. En producción/páginas públicas siempre se mantiene la URL remota.
 
 Importante: Nunca subas claves reales a git. Usa variables de entorno.
 
@@ -50,7 +53,25 @@ npm run preview
 
 # Linter
 npm run lint
+
+# Copiar assets compilados a plataformas registradas (Capacitor)
+npm run cap:copy
+
+# Sincronizar Capacitor (config + plugins)
+npm run cap:sync
+
+# Build + copiar + abrir Android Studio
+npm run android
 ```
+
+Si ya compilaste y solo necesitás reabrir el proyecto nativo podés usar `npm run cap:open`.
+
+### Android Studio (Windows)
+- Instalá Android Studio en Windows y asegurate de descargar el SDK desde el SDK Manager (Build Tools 34+ y una imagen de emulador).
+- Desde la raíz del repo, copiá `android/local.properties.example` a `android/local.properties` y reemplazá `<usuario>` por tu usuario de Windows para que `sdk.dir` apunte a `C:\Users\<usuario>\AppData\Local\Android\Sdk`.
+- Abrí Android Studio (Windows) y elegí **Open** → seleccioná la carpeta `android/` del proyecto.
+- Podés sincronizar el código web antes de abrir con `npm run cap:sync`. Desde Windows también podés usar `capacitor` o ejecutar `gradlew.bat assembleDebug` para compilar.
+- El archivo `android/local.properties` queda fuera del control de versiones (ver `.gitignore`); cada entorno debe mantener su propia ruta al SDK.
 
 ### Estructura del proyecto
 ```text
@@ -99,7 +120,7 @@ La navegación principal se basa en React Router (v7). Rutas destacadas:
   - Lee `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
   - `signInWithGoogle`, `getSession`, `updateUserMetadata`.
 - API backend (`src/services/api.js`):
-  - Base URL desde `VITE_API_BASE_URL`.
+  - Base URL desde `VITE_API_BASE_URL`, con detección automática de backend local en desarrollo (`VITE_LOCAL_API_BASE_URL`).
   - Manejador de token JWT en `localStorage` y expiración.
   - Endpoints usados: `/auth/register/`, `/auth/login/`, `/auth/upsert_profile/`.
 - Viajes (`src/services/trips.js`):
@@ -146,4 +167,3 @@ Pasos recomendados:
 
 ### Licencia
 Propietario del proyecto. Todos los derechos reservados, salvo acuerdo en contrario.
-

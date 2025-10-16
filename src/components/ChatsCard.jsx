@@ -17,6 +17,8 @@ export default function ChatsCard({ title = 'Chats', rooms = [], onOpen }) {
                   {r.display_name || r.name}
                   {r.is_private === true || r.application_id ? (
                     <span className="muted" style={{ marginLeft: 8, fontWeight: 400, fontSize: 12 }}>(Privado)</span>
+                  ) : r.trip_id ? (
+                    <span className="muted" style={{ marginLeft: 8, fontWeight: 400, fontSize: 12 }}>💰 Gastos</span>
                   ) : null}
                 </div>
               </div>

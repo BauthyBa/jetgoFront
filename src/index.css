@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Animación de carga para TripAdvisor preview */
+/* Animación de carga genérica (spinner) */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -10,28 +10,30 @@
 
 :root {
   /* Design tokens HSL traídos de go-together-spot */
-  --background: 220 15% 97%;
-  --foreground: 222 47% 11%;
-  --text-primary: 222 47% 11%;
-  --text-secondary: 215 16% 47%;
+  /* Paleta suave: fondos cálidos, textos fríos, acentos moderados */
+  --background: 210 40% 99%; /* casi blanco con leve tinte frío */
+  --foreground: 222 32% 16%; /* menos duro que 47%/11% */
+  --text-primary: 222 32% 16%;
+  --text-secondary: 220 14% 38%; /* gris más legible, menor saturación */
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 222 32% 16%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --primary: 213 94% 68%;
+  --popover-foreground: 222 32% 16%;
+  --primary: 213 80% 54%; /* azul más calmado */
   --primary-foreground: 0 0% 100%;
-  --primary-glow: 213 94% 90%;
-  --secondary: 142 76% 36%;
+  --primary-glow: 213 92% 86%;
+  --secondary: 158 55% 36%; /* verde más natural, menos neón */
   --secondary-foreground: 0 0% 100%;
-  --secondary-glow: 142 76% 55%;
-  --muted: 220 13% 91%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 217 91% 98%;
-  --accent-foreground: 217 91% 35%;
+  --secondary-glow: 158 55% 56%;
+  --muted: 210 20% 95%;
+  --muted-foreground: 220 14% 38%;
+  --accent: 210 60% 97%;
+  --accent-foreground: 210 60% 34%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
+  /* Bordes sutiles pero definidos */
+  --border: 214 20% 86%;
+  --input: 214 20% 86%;
   --ring: 217 91% 60%;
   --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, rgba(255,255,255,1) 100%);
   --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)) 0%, hsl(var(--secondary-glow)) 100%);
@@ -95,6 +97,7 @@ body { @apply bg-background text-foreground; }
 .dark .glass-card, .dark .glass-card * { color: var(--text-primary); }
 
 /* Floating liquid blob for subtle motion */
+/* Versión suave para modo claro */
 body::before {
   content: "";
   position: fixed;
@@ -102,10 +105,20 @@ body::before {
   z-index: 0;
   border-radius: 50%;
   background:
+    radial-gradient(closest-side, rgba(73, 211, 255, 0.10), rgba(73, 211, 255, 0) 65%),
+    radial-gradient(closest-side at 70% 40%, rgba(124, 231, 255, 0.08), rgba(124, 231, 255, 0) 70%);
+  filter: blur(60px) saturate(120%);
+  animation: float-blob 18s ease-in-out infinite alternate;
+  /* En claro, evitamos mezclar demasiado para no lavar el contenido */
+  mix-blend-mode: normal;
+}
+
+/* Versión más viva para modo oscuro */
+.dark body::before {
+  background:
     radial-gradient(closest-side, rgba(73, 211, 255, 0.18), rgba(73, 211, 255, 0) 65%),
     radial-gradient(closest-side at 70% 40%, rgba(124, 231, 255, 0.12), rgba(124, 231, 255, 0) 70%);
   filter: blur(60px) saturate(130%);
-  animation: float-blob 18s ease-in-out infinite alternate;
   mix-blend-mode: screen;
 }
 
@@ -212,14 +225,14 @@ h1 {
     box-shadow: 0 8px 24px rgba(2, 6, 23, 0.06);
   }
   .glass-card {
-    /* Light mode: stronger contrast */
-    background: rgba(255, 255, 255, 0.88);
-    -webkit-backdrop-filter: blur(12px) saturate(160%);
-    backdrop-filter: blur(12px) saturate(160%);
-    border: 1px solid rgba(2, 6, 23, 0.10);
-    box-shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+    /* Light: menos brillo, menos saturación, mejor lectura */
+    background: rgba(255, 255, 255, 0.96);
+    -webkit-backdrop-filter: blur(10px) saturate(130%);
+    backdrop-filter: blur(10px) saturate(130%);
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 8px 20px hsl(220 20% 50% / 0.10);
     border-radius: 1rem; /* rounded-2xl */
-    padding: 12px; /* default padding so cards don't appear cramped */
+    padding: 12px;
   }
   .dark .glass-card {
     /* Dark mode: keep subtle glass look */

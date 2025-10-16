@@ -1,10 +1,93 @@
 import axios from 'axios'
 import { supabase } from './supabase'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://jetgoback.onrender.com/api'
+function normalizeBaseUrl(url) {
+  if (!url) return null
+  return url.replace(/\/+$/, '')
+}
 
-export const api = axios.create({ baseURL: API_BASE_URL })
-export const apiPublic = axios.create({ baseURL: API_BASE_URL })
+const REMOTE_API_BASE_URL = normalizeBaseUrl('https://jetgoback.onrender.com/api')
+const ENV_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL)
+const LOCAL_CANDIDATE = normalizeBaseUrl(import.meta.env.VITE_LOCAL_API_BASE_URL) || normalizeBaseUrl('http://localhost:8000/api')
+
+const INITIAL_API_BASE_URL = ENV_BASE_URL || LOCAL_CANDIDATE || REMOTE_API_BASE_URL
+
+export const api = axios.create({ baseURL: INITIAL_API_BASE_URL })
+export const apiPublic = axios.create({ baseURL: INITIAL_API_BASE_URL })
+
+let resolvedApiBaseUrl = INITIAL_API_BASE_URL
+
+function applyBaseUrl(baseUrl) {
+  if (!baseUrl || baseUrl === resolvedApiBaseUrl) return
+  resolvedApiBaseUrl = baseUrl
+  api.defaults.baseURL = baseUrl
+  apiPublic.defaults.baseURL = baseUrl
+  console.info(`[api] Base URL set to ${baseUrl}`)
+}
+
+function isBrowserEnvironment() {
+  return typeof window !== 'undefined' && typeof window.fetch === 'function'
+}
+
+async function isBackendReachable(baseUrl) {
+  if (!isBrowserEnvironment()) return false
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), 2500)
+  try {
+    const response = await fetch(`${baseUrl}/test/`, {
+      method: 'GET',
+      signal: controller.signal,
+      credentials: 'omit',
+    })
+    return response.ok
+  } catch (_error) {
+    return false
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
+function uniqueUrls(urls) {
+  return urls.filter((url, index) => url && urls.indexOf(url) === index)
+}
+
+export async function initializeApiBaseUrl() {
+  if (!isBrowserEnvironment()) {
+    return resolvedApiBaseUrl
+  }
+
+  const host = window.location.hostname
+  const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(host)
+
+  const candidateOrder = uniqueUrls([
+    isLocalHost ? LOCAL_CANDIDATE : null,
+    resolvedApiBaseUrl,
+    REMOTE_API_BASE_URL,
+  ])
+
+  for (const candidate of candidateOrder) {
+    if (!candidate) continue
+    if (resolvedApiBaseUrl === candidate) {
+      const alreadyReachable = await isBackendReachable(candidate)
+      if (alreadyReachable) {
+        return resolvedApiBaseUrl
+      }
+    } else {
+      const reachable = await isBackendReachable(candidate)
+      if (reachable) {
+        applyBaseUrl(candidate)
+        return resolvedApiBaseUrl
+      }
+    }
+  }
+
+  // Si ninguno respondió, mantener la URL actual (probablemente REMOTE_API_BASE_URL).
+  return resolvedApiBaseUrl
+}
+
+export function getApiBaseUrl() {
+  return resolvedApiBaseUrl
+}
 
 export function setAuthToken(token) {
   if (token) {
@@ -112,8 +195,16 @@ export async function getUserProfile(userId) {
 
 // Funciones para notificaciones
 export async function getUserNotifications(userId, limit = 20) {
-  const { data } = await apiPublic.get(`/supabase/notifications/?user_id=${userId}&limit=${limit}`)
-  return data
+  try {
+    console.log('🔔 Llamando a getUserNotifications con userId:', userId)
+    const response = await apiPublic.get(`/supabase/notifications/?user_id=${userId}&limit=${limit}`)
+    console.log('🔔 Respuesta completa:', response)
+    return response.data
+  } catch (error) {
+    console.error('🔔 Error fetching notifications:', error)
+    console.error('🔔 Error response:', error.response?.data)
+    throw error
+  }
 }
 
 export async function markNotificationRead(notificationId, userId) {
