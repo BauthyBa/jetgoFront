@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '@/services/supabase'
+import API_CONFIG from '@/config/api'
 import { 
   Heart, 
   MessageCircle, 
@@ -29,6 +30,7 @@ export default function SocialPage() {
   const [showCreatePost, setShowCreatePost] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const [filePreview, setFilePreview] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     getCurrentUser()
@@ -48,15 +50,28 @@ export default function SocialPage() {
   const loadPosts = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/social/posts', {
+      setError(null)
+      const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
+      console.log('Loading posts from:', url)
+      
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        }
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors',
       })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
       setPosts(data.posts || [])
     } catch (error) {
       console.error('Error loading posts:', error)
+      setError(error.message)
     } finally {
       setLoading(false)
     }
@@ -64,15 +79,27 @@ export default function SocialPage() {
 
   const loadStories = async () => {
     try {
-      const response = await fetch('/api/social/stories', {
+      const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.STORIES)
+      console.log('Loading stories from:', url)
+      
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        }
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors',
       })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
       setStories(data.stories || [])
     } catch (error) {
       console.error('Error loading stories:', error)
+      setError(error.message)
     }
   }
 
@@ -88,7 +115,14 @@ export default function SocialPage() {
 
   const createPost = async () => {
     try {
+      if (!user?.id) {
+        alert('Debes estar logueado para crear posts')
+        return
+      }
+      
+      setError(null)
       const formData = new FormData()
+      formData.append('user_id', user.id)
       formData.append('content', newPostContent)
       formData.append('location', newPostLocation)
       formData.append('is_public', 'true')
@@ -97,12 +131,13 @@ export default function SocialPage() {
         formData.append('file', selectedFile)
       }
 
-      const response = await fetch('/api/social/posts', {
+      const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
+      console.log('Creating post at:', url)
+      
+      const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: formData
+        body: formData,
+        mode: 'cors',
       })
 
       if (response.ok) {
@@ -112,19 +147,27 @@ export default function SocialPage() {
         setFilePreview(null)
         setShowCreatePost(false)
         loadPosts()
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
     } catch (error) {
       console.error('Error creating post:', error)
+      setError(error.message)
     }
   }
 
   const likePost = async (postId) => {
     try {
-      const response = await fetch(`/api/social/posts/${postId}/like`, {
+      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/like/`
+      console.log('Liking post at:', url)
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        }
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors',
       })
       
       if (response.ok) {
@@ -199,6 +242,23 @@ export default function SocialPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <div className="flex items-center gap-2 text-red-400">
+              <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+              <span className="font-medium">Error:</span>
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="mt-2 text-sm text-red-300 hover:text-red-200"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+
         {activeTab === 'feed' && (
           <div className="space-y-6">
             {/* Stories Bar */}
@@ -244,7 +304,7 @@ export default function SocialPage() {
                   </div>
                 ))}
               </div>
-            ) : (
+            ) : posts.length > 0 ? (
               <div className="space-y-4">
                 {posts.map((post) => (
                   <div key={post.id} className="glass-card p-6">
@@ -330,20 +390,75 @@ export default function SocialPage() {
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className="glass-card p-8 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
+                  <MessageCircle className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">Nada nuevo por acá</h3>
+                <p className="text-slate-400 mb-6">
+                  No hay posts nuevos en tu feed. ¡Sé el primero en compartir algo!
+                </p>
+                <button
+                  onClick={() => setShowCreatePost(true)}
+                  className="px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+                >
+                  Crear primer post
+                </button>
+              </div>
             )}
           </div>
         )}
 
         {activeTab === 'stories' && (
-          <div className="glass-card p-6 text-center">
-            <Camera className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">Stories</h3>
-            <p className="text-slate-400 mb-6">
-              Comparte momentos que duran 24 horas
-            </p>
-            <button className="px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors">
-              Crear Story
-            </button>
+          <div className="space-y-6">
+            {stories.length > 0 ? (
+              <div className="glass-card p-6">
+                <h3 className="text-xl font-semibold text-white mb-4">Stories Activas</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {stories.map((story) => (
+                    <div key={story.id} className="relative">
+                      <div className="aspect-[9/16] rounded-lg overflow-hidden bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center">
+                        {story.media_type === 'image' ? (
+                          <img
+                            src={story.media_url}
+                            alt="Story"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <video
+                            src={story.media_url}
+                            className="w-full h-full object-cover"
+                            muted
+                          />
+                        )}
+                      </div>
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <div className="flex items-center gap-2 text-white text-sm">
+                          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                            {story.author.nombre.charAt(0)}
+                          </div>
+                          <span className="truncate">{story.author.nombre}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="glass-card p-8 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
+                  <Camera className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">Nada nuevo por acá</h3>
+                <p className="text-slate-400 mb-6">
+                  No hay stories activas. ¡Comparte un momento que dure 24 horas!
+                </p>
+                <button className="px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors">
+                  Crear Story
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
