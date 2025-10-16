@@ -48,6 +48,7 @@
   /* Glass tokens for dashboard look */
   --glass-bg: rgba(255, 255, 255, 0.06);
   --glass-stroke: rgba(255, 255, 255, 0.18);
+  --navbar-height: 0px;
 }
 
 .dark {
@@ -163,7 +164,7 @@ a { color: hsl(var(--primary)); text-decoration: none; }
 a:hover { color: hsl(var(--primary-glow)); }
 
 /* Prevent fixed navbar from covering anchor targets */
-[id] { scroll-margin-top: 96px; }
+[id] { scroll-margin-top: var(--navbar-height); }
 
 button { @apply rounded-lg; }
 
@@ -247,6 +248,14 @@ h1 {
   }
   .glass-nav {
     @apply bg-white/10 backdrop-blur-md border-b border-white/20 shadow-soft;
+  }
+  /* Light mode: force readable foreground inside glass nav */
+  .glass-nav, .glass-nav * {
+    color: hsl(var(--foreground));
+  }
+  /* Dark mode keeps light readable text */
+  .dark .glass-nav, .dark .glass-nav * {
+    color: var(--text-primary);
   }
   .dashboard-sky {
     background:

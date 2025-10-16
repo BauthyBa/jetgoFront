@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import DashboardLayout from '@/components/DashboardLayout'
 import GlassCard from '@/components/GlassCard'
 import { api } from '@/services/api'
+import { supabase } from '@/services/supabase'
 import { listTrips, normalizeTrip } from '@/services/trips'
 import { Button } from '@/components/ui/button'
 
@@ -13,6 +14,7 @@ export default function TripDetails() {
   const [error, setError] = useState('')
   const [trip, setTrip] = useState(null)
   const [participants, setParticipants] = useState([])
+  const [creatorName, setCreatorName] = useState('')
 
   useEffect(() => {
     let mounted = true
@@ -35,6 +37,22 @@ export default function TripDetails() {
         }
         if (!found) throw new Error('No se encontró el viaje')
         if (mounted) setTrip(found)
+
+        // Load creator display name if present
+        try {
+          const creatorId = found?.creatorId
+          if (creatorId) {
+            const { data, error } = await supabase
+              .from('User')
+              .select('nombre, apellido')
+              .eq('userid', creatorId)
+              .limit(1)
+            if (!error && Array.isArray(data) && data[0]) {
+              const full = [data[0].nombre, data[0].apellido].filter(Boolean).join(' ') || ''
+              if (mounted) setCreatorName(full)
+            }
+          }
+        } catch {}
 
         // Load participants
         try {
@@ -75,6 +93,7 @@ export default function TripDetails() {
             )}
             <div style={{ display: 'grid', gap: 6 }}>
               <h2 className="page-title" style={{ margin: 0 }}>{trip.name}</h2>
+              <div className="muted">Creado por: {creatorName || 'Usuario desconocido'}</div>
               <div className="muted">{trip.origin || 'Origen ?'} → {trip.destination || 'Destino ?'}</div>
               {dateRange && <div className="muted">{dateRange}</div>}
               {trip.country && <div className="muted">{trip.country}</div>}

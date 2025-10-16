@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 
 import { Link, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getSession, supabase } from '@/services/supabase'
 import ColorBar from '@/components/ColorBar'
 import ProfileMenu from '@/components/ProfileMenu'
@@ -11,6 +11,7 @@ export default function Navigation() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [user, setUser] = useState(null)
   const location = useLocation()
+  const navRef = useRef(null)
   
   // Hide navigation links on specific pages
   const hideNavLinks = location.pathname === '/viajes' || location.pathname.startsWith('/crear-viaje') || location.pathname === '/amigos'
@@ -29,10 +30,24 @@ export default function Navigation() {
         setUser(session?.user || null)
       }
     })
-    return () => { mounted = false; subscription.unsubscribe() }
+    // Set CSS var for navbar height
+    const applyNavbarHeight = () => {
+      const el = navRef.current
+      if (!el) return
+      const h = el.clientHeight || 0
+      document.documentElement.style.setProperty('--navbar-height', `${h}px`)
+    }
+    applyNavbarHeight()
+    window.addEventListener('resize', applyNavbarHeight)
+
+    return () => { 
+      mounted = false; 
+      subscription.unsubscribe()
+      window.removeEventListener('resize', applyNavbarHeight)
+    }
   }, [])
   return (
-    <nav className="fixed top-0 w-full z-50 glass-nav" style={{ position: 'fixed' }}>
+    <nav ref={navRef} className="fixed top-0 w-full z-50 glass-nav" style={{ position: 'fixed' }}>
       <ColorBar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center h-16 relative">
@@ -54,6 +69,14 @@ export default function Navigation() {
                 <Search className="w-4 h-4" />
                 <span className="hidden sm:inline">Buscar viajes</span>
                 <span className="sm:hidden">🔍</span>
+              </Button>
+            </Link>
+
+            {/* Mis viajes link */}
+            <Link to="/viajes?mine=1">
+              <Button variant="secondary" className={`bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 ${location.search.includes('mine=1') ? 'ring-2 ring-emerald-400' : ''}`}>
+                <span className="hidden sm:inline">Mis viajes</span>
+                <span className="sm:hidden">🧭</span>
               </Button>
             </Link>
             

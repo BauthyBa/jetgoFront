@@ -8,10 +8,12 @@ import { api } from './api'
 export async function createTripExpense(expenseData) {
   try {
     const response = await api.post('/trip-expenses/', expenseData)
-    return response.data
+    const data = response?.data
+    if (data && typeof data.ok === 'boolean') return data
+    return { ok: true, data: data?.expense ? [data.expense] : data?.expenses || [], expense: data?.expense }
   } catch (error) {
     console.error('Error creating trip expense:', error)
-    throw error
+    return { ok: false, error: error?.response?.data?.error || error.message }
   }
 }
 
@@ -28,10 +30,12 @@ export async function getTripExpenses(filters = {}) {
     if (filters.offset) params.append('offset', filters.offset)
 
     const response = await api.get(`/trip-expenses/list/?${params.toString()}`)
-    return response.data
+    const data = response?.data
+    if (data && typeof data.ok === 'boolean') return data
+    return { ok: true, data: data?.expenses || [] }
   } catch (error) {
     console.error('Error fetching trip expenses:', error)
-    throw error
+    return { ok: false, error: error?.response?.data?.error || error.message }
   }
 }
 
@@ -39,10 +43,12 @@ export async function getTripExpenses(filters = {}) {
 export async function getTripExpenseDetail(expenseId) {
   try {
     const response = await api.get(`/trip-expenses/${expenseId}/`)
-    return response.data
+    const data = response?.data
+    if (data && typeof data.ok === 'boolean') return data
+    return { ok: true, data }
   } catch (error) {
     console.error('Error fetching trip expense detail:', error)
-    throw error
+    return { ok: false, error: error?.response?.data?.error || error.message }
   }
 }
 
@@ -50,10 +56,12 @@ export async function getTripExpenseDetail(expenseId) {
 export async function updateTripExpense(expenseId, updateData) {
   try {
     const response = await api.put(`/trip-expenses/${expenseId}/update/`, updateData)
-    return response.data
+    const data = response?.data
+    if (data && typeof data.ok === 'boolean') return data
+    return { ok: true, data: data?.expense || data }
   } catch (error) {
     console.error('Error updating trip expense:', error)
-    throw error
+    return { ok: false, error: error?.response?.data?.error || error.message }
   }
 }
 
@@ -63,10 +71,12 @@ export async function deleteTripExpense(expenseId, userId) {
     const response = await api.delete(`/trip-expenses/${expenseId}/delete/`, {
       data: { user_id: userId }
     })
-    return response.data
+    const data = response?.data
+    if (data && typeof data.ok === 'boolean') return data
+    return { ok: true }
   } catch (error) {
     console.error('Error deleting trip expense:', error)
-    throw error
+    return { ok: false, error: error?.response?.data?.error || error.message }
   }
 }
 
@@ -78,10 +88,12 @@ export async function getTripExpenseSummary(tripId, userId = null) {
     if (userId) params.append('user_id', userId)
 
     const response = await api.get(`/trip-expenses/summary/?${params.toString()}`)
-    return response.data
+    const data = response?.data
+    if (data && typeof data.ok === 'boolean') return data
+    return { ok: true, data }
   } catch (error) {
     console.error('Error fetching trip expense summary:', error)
-    throw error
+    return { ok: false, error: error?.response?.data?.error || error.message }
   }
 }
 
@@ -89,10 +101,12 @@ export async function getTripExpenseSummary(tripId, userId = null) {
 export async function getExpenseCategories() {
   try {
     const response = await api.get('/trip-expenses/categories/')
-    return response.data
+    const data = response?.data
+    if (data && typeof data.ok === 'boolean') return data
+    return { ok: true, data: data?.categories || [] }
   } catch (error) {
     console.error('Error fetching expense categories:', error)
-    throw error
+    return { ok: false, error: error?.response?.data?.error || error.message }
   }
 }
 

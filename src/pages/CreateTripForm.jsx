@@ -40,7 +40,6 @@ export default function CreateTripForm() {
     startDate: '',
     endDate: '',
     budgetMin: '',
-    budgetMax: '',
     currency: 'USD',
     roomType: '',
     season: '',
@@ -53,11 +52,10 @@ export default function CreateTripForm() {
   // Estados para autocompletado
   const [originSuggestions, setOriginSuggestions] = useState([])
   const [destinationSuggestions, setDestinationSuggestions] = useState([])
-  const [countrySuggestions, setCountrySuggestions] = useState([])
+  
   const [originQuery, setOriginQuery] = useState('')
   const [destinationQuery, setDestinationQuery] = useState('')
-  const [countryQuery, setCountryQuery] = useState('')
-  const [isoCountry, setIsoCountry] = useState('')
+  
 
   // Cargar perfil
   useEffect(() => {
@@ -135,15 +133,25 @@ export default function CreateTripForm() {
         throw new Error('La fecha de fin debe ser posterior a la de inicio')
       }
 
-      // Preparar datos para envío
+      // Preparar datos para envío (map a snake_case esperado por backend)
       const tripData = {
-        ...trip,
-        creatorId: profile.id,
-        budgetMin: trip.budgetMin ? parseFloat(trip.budgetMin) : null,
-        budgetMax: trip.budgetMax ? parseFloat(trip.budgetMax) : null,
-        maxParticipants: trip.maxParticipants ? parseInt(trip.maxParticipants) : null,
-        countryCode: isoCountry
+        name: trip.name,
+        origin: trip.origin,
+        destination: trip.destination,
+        start_date: trip.startDate || null,
+        end_date: trip.endDate || null,
+        budget_min: trip.budgetMin ? parseFloat(trip.budgetMin) : null,
+        currency: trip.currency,
+        room_type: trip.roomType || null,
+        season: trip.season || null,
+        max_participants: trip.maxParticipants ? parseInt(trip.maxParticipants) : null,
+        description: trip.description || '',
+        transport_type: trip.tipo || null,
+        creator_id: profile.id
       }
+
+      // Log para depuración
+      console.log('CreateTrip payload:', tripData)
 
       // Crear el viaje
       const result = await createTrip(tripData)
@@ -157,8 +165,10 @@ export default function CreateTripForm() {
         throw new Error('Error al crear el viaje')
       }
     } catch (error) {
-      console.error('Error creando viaje:', error)
-      setError(error.message || 'Error al crear el viaje')
+      // Mejor diagnostico de errores 4xx del backend
+      const serverMsg = error?.response?.data?.error || error?.response?.data?.message
+      console.error('Error creando viaje:', { error, server: serverMsg, payload: tripData })
+      setError(serverMsg || error.message || 'Error al crear el viaje')
     } finally {
       setSubmitting(false)
     }
@@ -321,7 +331,7 @@ export default function CreateTripForm() {
                     required
                   />
                   {originSuggestions.length > 0 && (
-                    <ul className="absolute z-20 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
+                    <ul className="absolute z-[9999] w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
                       {originSuggestions.map((item, idx) => (
                         <li
                           key={`o_${idx}_${item.place_id}`}
@@ -355,7 +365,7 @@ export default function CreateTripForm() {
                     required
                   />
                   {destinationSuggestions.length > 0 && (
-                    <ul className="absolute z-20 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
+                    <ul className="absolute z-[9999] w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
                       {destinationSuggestions.map((item, idx) => (
                         <li
                           key={`d_${idx}_${item.place_id}`}
@@ -455,18 +465,7 @@ export default function CreateTripForm() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="budgetMax" className="text-slate-200">Presupuesto máximo</Label>
-                  <Input
-                    id="budgetMax"
-                    type="number"
-                    value={trip.budgetMax}
-                    onChange={(e) => setTrip({ ...trip, budgetMax: e.target.value })}
-                    placeholder="9999"
-                    min="0"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
+                
               </div>
             </div>
 
@@ -510,44 +509,7 @@ export default function CreateTripForm() {
                   </select>
                 </div>
 
-                <div className="space-y-2 relative md:col-span-2">
-                  <Label htmlFor="country" className="text-slate-200">País</Label>
-                  <Input
-                    id="country"
-                    value={trip.country}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      setTrip({ ...trip, country: v })
-                      setCountryQuery(v)
-                      setIsoCountry('')
-                      fetchCountries(v)
-                    }}
-                    placeholder="Argentina"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                  {countrySuggestions.length > 0 && (
-                    <ul className="absolute z-20 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
-                      {countrySuggestions.map((item, idx) => (
-                        <li
-                          key={`c_${idx}_${item.place_id}`}
-                          className="p-3 cursor-pointer hover:bg-slate-600 text-slate-200"
-                          onClick={() => {
-                            const label = item.display_name
-                            const code = (item.address && item.address.country_code ? String(item.address.country_code).toUpperCase() : '')
-                            setTrip({ ...trip, country: label })
-                            setIsoCountry(code)
-                            setCountrySuggestions([])
-                          }}
-                        >
-                          {item.display_name}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {isoCountry && (
-                    <p className="text-xs text-slate-400 mt-1">Código país: {isoCountry}</p>
-                  )}
-                </div>
+                
 
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="description" className="text-slate-200">Descripción del viaje</Label>

@@ -62,6 +62,7 @@ export default function ViajesPage() {
   const urlFrom = searchParams.get('desde') || ''
   const urlTo = searchParams.get('hasta') || ''
   const urlDate = searchParams.get('fecha') || ''
+  const urlMine = searchParams.get('mine') === '1'
 
   // Inicializar búsqueda con parámetros de URL
   useEffect(() => {
@@ -69,6 +70,20 @@ export default function ViajesPage() {
     if (urlTo) setSearchTo(urlTo)
     if (urlDate) setSearchDate(urlDate)
   }, [urlFrom, urlTo, urlDate])
+
+  // Aplicar filtro "Mis viajes" desde querystring
+  useEffect(() => {
+    if (!profile || tripsBase.length === 0) return
+    if (urlMine) {
+      const mine = (tripsBase || []).filter((t) => t.creatorId && t.creatorId === profile.id)
+      setTrips(mine)
+      setShowMineOnly(true)
+      setVisibleCount(6)
+    } else {
+      setShowMineOnly(false)
+      setTrips(tripsBase || [])
+    }
+  }, [urlMine, profile, tripsBase])
 
   // Cargar información de creadores
   const fetchCreatorsInfo = async (tripsData) => {
