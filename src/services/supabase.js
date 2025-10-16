@@ -4,8 +4,6 @@ export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 import { createClient } from '@supabase/supabase-js'
 
 export const supabase = createClient(SUPABASE_URL || 'https://pamidjksvzshakzkrtdy.supabase.co', SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhbWlkamtzdnpzaGFremtydGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3ODgzODMsImV4cCI6MjA2OTM2NDM4M30.sjYTaPhMNymAiJI63Ia9Z7i9ur6izKqRawpkNBSEJdw')
-
-<<<<<<< HEAD
 const SESSION_REFRESH_MARGIN = 0
 const REFRESH_BACKOFF_MS = 30_000
 let cachedSession = null
