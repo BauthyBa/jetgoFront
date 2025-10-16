@@ -85,18 +85,17 @@ export default function TripExpenseForm({
     }
 
     try {
+      // Log payload previo al envío para depurar 400/500
+      const basePayload = { ...formData, amount: parseFloat(formData.amount) }
+      console.log('💸 create/update expense payload:', basePayload)
       let response
       if (isEditMode) {
         response = await updateTripExpense(expense.id, {
           user_id: payerId,
-          ...formData,
-          amount: parseFloat(formData.amount)
+          ...basePayload,
         })
       } else {
-        response = await createTripExpense({
-          ...formData,
-          amount: parseFloat(formData.amount)
-        })
+        response = await createTripExpense(basePayload)
       }
       
       if (response.ok) {
@@ -106,6 +105,9 @@ export default function TripExpenseForm({
       }
     } catch (error) {
       console.error('Error saving expense:', error)
+      if (error?.response) {
+        console.error('Backend error response:', error.response?.status, error.response?.data)
+      }
       setErrors({ general: ['Error al guardar el gasto. Inténtalo de nuevo.'] })
     } finally {
       setLoading(false)
