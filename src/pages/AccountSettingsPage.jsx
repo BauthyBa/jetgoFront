@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSession, supabase } from '../services/supabase'
-import { ArrowLeft, Bell, Shield, CreditCard, MapPin, Key, Download, Trash2, User, Mail, Phone, Globe } from 'lucide-react'
+import { ArrowLeft, Bell, Shield, Key, Download, Trash2, User, Mail, Phone, Globe } from 'lucide-react'
 import Navigation from '../components/Navigation'
 
 export default function AccountSettingsPage() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('notifications')
+  const [downloadingTrips, setDownloadingTrips] = useState(false)
+  const [downloadingData, setDownloadingData] = useState(false)
+  const [userTrips, setUserTrips] = useState([])
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -38,6 +41,19 @@ export default function AccountSettingsPage() {
         }
 
         setProfile(info)
+        
+        // Cargar viajes del usuario
+        try {
+          const { listTrips } = await import('../services/trips')
+          const trips = await listTrips()
+          const userTripsList = trips.filter(trip => 
+            trip.creatorId === info.user_id || 
+            (trip.participants && trip.participants.includes(info.user_id))
+          )
+          setUserTrips(userTripsList)
+        } catch (e) {
+          console.warn('Error loading user trips:', e)
+        }
       } catch (e) {
         console.error('Error loading profile:', e)
         navigate('/login')
@@ -48,6 +64,104 @@ export default function AccountSettingsPage() {
 
     loadProfile()
   }, [navigate])
+
+  const handleExportData = async () => {
+    try {
+      setDownloadingData(true)
+      
+      // Recopilar todos los datos del usuario
+      const userData = {
+        profile: {
+          user_id: profile?.user_id,
+          email: profile?.email,
+          first_name: profile?.meta?.first_name,
+          last_name: profile?.meta?.last_name,
+          document_number: profile?.meta?.document_number,
+          sex: profile?.meta?.sex,
+          birth_date: profile?.meta?.birth_date,
+          country: profile?.meta?.country,
+          bio: profile?.meta?.bio,
+          interests: profile?.meta?.interests,
+          favorite_travel_styles: profile?.meta?.favorite_travel_styles,
+          avatar_url: profile?.meta?.avatar_url,
+          created_at: profile?.meta?.created_at,
+          updated_at: profile?.meta?.updated_at
+        },
+        trips: userTrips,
+        export_date: new Date().toISOString(),
+        export_version: '1.0'
+      }
+
+      // Crear y descargar el archivo JSON
+      const dataStr = JSON.stringify(userData, null, 2)
+      const dataBlob = new Blob([dataStr], { type: 'application/json' })
+      const url = URL.createObjectURL(dataBlob)
+      
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `jetgo-datos-usuario-${profile?.user_id}-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+    } catch (e) {
+      console.error('Error al exportar los datos:', e)
+      alert('Error al exportar los datos: ' + (e?.message || 'Error desconocido'))
+    } finally {
+      setDownloadingData(false)
+    }
+  }
+
+  const handleDownloadTripHistory = async () => {
+    try {
+      setDownloadingTrips(true)
+      
+      // Crear datos del historial de viajes
+      const tripHistoryData = {
+        user_id: profile?.user_id,
+        user_name: `${profile?.meta?.first_name || ''} ${profile?.meta?.last_name || ''}`.trim(),
+        trips: userTrips.map(trip => ({
+          id: trip.id,
+          title: trip.title,
+          description: trip.description,
+          from: trip.from,
+          to: trip.to,
+          departure_date: trip.departure_date,
+          return_date: trip.return_date,
+          price: trip.price,
+          available_seats: trip.available_seats,
+          current_participants: trip.current_participants,
+          is_creator: trip.creatorId === profile?.user_id,
+          status: trip.status,
+          created_at: trip.created_at,
+          updated_at: trip.updated_at
+        })),
+        total_trips: userTrips.length,
+        export_date: new Date().toISOString(),
+        export_version: '1.0'
+      }
+
+      // Crear y descargar el archivo JSON
+      const dataStr = JSON.stringify(tripHistoryData, null, 2)
+      const dataBlob = new Blob([dataStr], { type: 'application/json' })
+      const url = URL.createObjectURL(dataBlob)
+      
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `jetgo-historial-viajes-${profile?.user_id}-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+    } catch (e) {
+      console.error('Error al descargar historial de viajes:', e)
+      alert('Error al descargar historial de viajes: ' + (e?.message || 'Error desconocido'))
+    } finally {
+      setDownloadingTrips(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -95,7 +209,7 @@ export default function AccountSettingsPage() {
 
         {/* Tabs de navegación */}
         <div className="glass-card p-1 mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
             <button
               onClick={() => setActiveTab('notifications')}
               className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg transition-colors ${
@@ -117,17 +231,6 @@ export default function AccountSettingsPage() {
             >
               <Shield size={18} />
               <span className="hidden sm:inline">Privacidad</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('payment')}
-              className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg transition-colors ${
-                activeTab === 'payment' 
-                  ? 'bg-emerald-500 text-white' 
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700'
-              }`}
-            >
-              <CreditCard size={18} />
-              <span className="hidden sm:inline">Pagos</span>
             </button>
             <button
               onClick={() => setActiveTab('account')}
@@ -230,45 +333,6 @@ export default function AccountSettingsPage() {
           </div>
         )}
 
-        {activeTab === 'payment' && (
-          <div className="space-y-6">
-            <div className="glass-card p-6">
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <CreditCard size={20} />
-                Métodos de pago
-              </h2>
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-700/50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="text-emerald-400" size={20} />
-                      <span className="text-white">No hay métodos de pago agregados</span>
-                    </div>
-                    <button className="btn">Agregar método</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="glass-card p-6">
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <MapPin size={20} />
-                Dirección postal
-              </h2>
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-700/50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <MapPin className="text-blue-400" size={20} />
-                      <span className="text-white">No hay dirección registrada</span>
-                    </div>
-                    <button className="btn">Agregar dirección</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {activeTab === 'account' && (
           <div className="space-y-6">
@@ -297,11 +361,11 @@ export default function AccountSettingsPage() {
                 Seguridad
               </h2>
               <div className="space-y-3">
-                <button className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left">
+                <button 
+                  onClick={() => navigate('/profile')}
+                  className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left"
+                >
                   <span className="text-white">Cambiar contraseña</span>
-                </button>
-                <button className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left">
-                  <span className="text-white">Autenticación de dos factores</span>
                 </button>
               </div>
             </div>
@@ -312,11 +376,21 @@ export default function AccountSettingsPage() {
                 Datos
               </h2>
               <div className="space-y-3">
-                <button className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left">
-                  <span className="text-white">Exportar mis datos</span>
+                <button 
+                  onClick={handleExportData}
+                  disabled={downloadingData}
+                  className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                >
+                  <Download size={20} className="text-emerald-400" />
+                  <span className="text-white">{downloadingData ? 'Exportando...' : 'Exportar mis datos'}</span>
                 </button>
-                <button className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left">
-                  <span className="text-white">Descargar historial de viajes</span>
+                <button 
+                  onClick={handleDownloadTripHistory}
+                  disabled={downloadingTrips}
+                  className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                >
+                  <Download size={20} className="text-blue-400" />
+                  <span className="text-white">{downloadingTrips ? 'Descargando...' : 'Descargar historial de viajes'}</span>
                 </button>
               </div>
             </div>
@@ -327,7 +401,11 @@ export default function AccountSettingsPage() {
                 Zona de peligro
               </h2>
               <div className="space-y-3">
-                <button className="w-full p-4 bg-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors text-left">
+                <button 
+                  onClick={() => navigate('/profile')}
+                  className="w-full p-4 bg-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors text-left flex items-center gap-3"
+                >
+                  <Trash2 size={20} className="text-red-400" />
                   <span className="text-red-400">Eliminar cuenta</span>
                 </button>
               </div>

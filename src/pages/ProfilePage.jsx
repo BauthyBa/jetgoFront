@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getSession, updateUserMetadata, supabase } from '../services/supabase'
 import { upsertProfileToBackend } from '../services/api'
 import { updatePassword, sendPasswordResetEmail } from '../services/passwordReset'
-import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X } from 'lucide-react'
+import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X, Download, Trash2, AlertTriangle, FileText } from 'lucide-react'
 import AvatarUpload from '../components/AvatarUpload'
 import Navigation from '../components/Navigation'
 
@@ -31,6 +31,10 @@ export default function ProfilePage() {
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [sendingResetEmail, setSendingResetEmail] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -320,6 +324,108 @@ export default function ProfilePage() {
     } finally {
       setSendingResetEmail(false)
     }
+  }
+
+  const handleExportData = async () => {
+    try {
+      setExporting(true)
+      setError('')
+      
+      // Recopilar todos los datos del usuario
+      const userData = {
+        profile: {
+          user_id: profile?.user_id,
+          email: profile?.email,
+          first_name: profile?.meta?.first_name,
+          last_name: profile?.meta?.last_name,
+          document_number: profile?.meta?.document_number,
+          sex: profile?.meta?.sex,
+          birth_date: profile?.meta?.birth_date,
+          country: profile?.meta?.country,
+          bio: profile?.meta?.bio,
+          interests: profile?.meta?.interests,
+          favorite_travel_styles: profile?.meta?.favorite_travel_styles,
+          avatar_url: profile?.meta?.avatar_url,
+          created_at: profile?.meta?.created_at,
+          updated_at: profile?.meta?.updated_at
+        },
+        trips: userTrips,
+        export_date: new Date().toISOString(),
+        export_version: '1.0'
+      }
+
+      // Crear y descargar el archivo JSON
+      const dataStr = JSON.stringify(userData, null, 2)
+      const dataBlob = new Blob([dataStr], { type: 'application/json' })
+      const url = URL.createObjectURL(dataBlob)
+      
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `jetgo-datos-usuario-${profile?.user_id}-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      setSuccessMessage('Datos exportados exitosamente')
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (e) {
+      setError('Error al exportar los datos: ' + (e?.message || 'Error desconocido'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    try {
+      setDeleting(true)
+      setError('')
+      
+      if (deleteConfirmText !== 'ELIMINAR') {
+        setError('Debes escribir "ELIMINAR" para confirmar')
+        return
+      }
+
+      // Eliminar datos del backend
+      try {
+        const { data: { access_token } } = await supabase.auth.getSession()
+        if (access_token) {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/users/delete-account/`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Error al eliminar cuenta en el backend')
+          }
+        }
+      } catch (e) {
+        console.warn('Error eliminando del backend:', e)
+        throw new Error('Error al eliminar la cuenta: ' + e.message)
+      }
+
+      // Limpiar datos locales
+      localStorage.clear()
+      sessionStorage.clear()
+      
+      // Redirigir al login
+      navigate('/login')
+      alert('Tu cuenta ha sido eliminada exitosamente')
+    } catch (e) {
+      setError('Error al eliminar la cuenta: ' + (e?.message || 'Error desconocido'))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false)
+    setDeleteConfirmText('')
+    setError('')
   }
 
   if (loading) {
@@ -699,10 +805,26 @@ export default function ProfilePage() {
                 >
                   <span className="text-white">Cambiar contraseña</span>
                 </button>
-                <button className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left">
-                  <span className="text-white">Exportar datos</span>
+                <button 
+                  onClick={handleExportData}
+                  disabled={exporting}
+                  className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                >
+                  <Download size={20} className="text-emerald-400" />
+                  <span className="text-white">{exporting ? 'Exportando...' : 'Exportar datos'}</span>
                 </button>
-                <button className="w-full p-4 bg-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors text-left">
+                <button 
+                  onClick={() => window.open('/terms.html', '_blank')}
+                  className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left flex items-center gap-3"
+                >
+                  <FileText size={20} className="text-blue-400" />
+                  <span className="text-white">Términos y condiciones</span>
+                </button>
+                <button 
+                  onClick={() => setShowDeleteModal(true)}
+                  className="w-full p-4 bg-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors text-left flex items-center gap-3"
+                >
+                  <Trash2 size={20} className="text-red-400" />
                   <span className="text-red-400">Eliminar cuenta</span>
                 </button>
               </div>
@@ -805,6 +927,82 @@ export default function ProfilePage() {
                 disabled={passwordSaving}
               >
                 {passwordSaving ? 'Cambiando...' : 'Cambiar contraseña'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para eliminar cuenta */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
+                <AlertTriangle className="text-red-400" size={20} />
+              </div>
+              <h3 className="text-xl font-semibold text-white">Eliminar cuenta</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-red-400 text-sm font-medium mb-2">⚠️ Esta acción es irreversible</p>
+                <p className="text-slate-300 text-sm">
+                  Al eliminar tu cuenta se borrarán permanentemente:
+                </p>
+                <ul className="text-slate-300 text-sm mt-2 ml-4 list-disc">
+                  <li>Todos tus datos personales</li>
+                  <li>Tu historial de viajes</li>
+                  <li>Tus reseñas y calificaciones</li>
+                  <li>Tus conexiones y amigos</li>
+                  <li>Todos los archivos subidos</li>
+                </ul>
+              </div>
+
+              <div>
+                <label className="text-sm text-slate-400">
+                  Para confirmar, escribe <span className="font-mono text-red-400">ELIMINAR</span>:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-md px-3 py-2"
+                  placeholder="Escribe ELIMINAR para confirmar"
+                />
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleDeleteCancel}
+                className="flex-1 btn secondary"
+                disabled={deleting}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={deleting || deleteConfirmText !== 'ELIMINAR'}
+              >
+                {deleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Eliminar cuenta
+                  </>
+                )}
               </button>
             </div>
           </div>
