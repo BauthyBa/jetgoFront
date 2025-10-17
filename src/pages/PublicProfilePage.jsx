@@ -178,7 +178,6 @@ const PublicProfilePage = () => {
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
       console.log('🔍 Loading user posts from:', url, 'for user:', userId)
       
-      // Primero intentar sin filtro para ver qué devuelve la API
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -194,65 +193,25 @@ const PublicProfilePage = () => {
       
       const data = await response.json()
       console.log('📦 Posts received from API:', data)
-      console.log('📊 Total posts in response:', data.posts?.length || 0)
       
-      // Mostrar todos los posts para debugging
-      if (data.posts && data.posts.length > 0) {
-        console.log('🔍 First post structure:', data.posts[0])
-        console.log('👥 All posts with user info:', data.posts.map(p => ({ 
-          id: p.id, 
-          user_id: p.user_id, 
-          user: p.user,
-          content: p.content?.substring(0, 50) + '...'
-        })))
+      if (!data.posts || data.posts.length === 0) {
+        console.log('❌ No posts in API response')
+        setUserPosts([])
+        return
       }
       
-      // DEBUGGING: Mostrar información detallada
-      console.log('🚨 DEBUGGING FILTER:')
-      console.log('🎯 Target User ID:', userId, 'Type:', typeof userId)
-      
-      // Filtrar posts del usuario específico
-      const userPosts = (data.posts || []).filter(post => {
-        const postUserId = post.user_id
-        const postUserObjId = post.user?.id
-        
-        console.log('🔍 Post Analysis:', {
+      // SIMPLIFICAR: Solo mostrar posts que coincidan exactamente
+      const userPosts = data.posts.filter(post => {
+        console.log('🔍 Checking post:', {
           postId: post.id,
-          postUserId: postUserId,
-          postUserIdType: typeof postUserId,
-          postUserObjId: postUserObjId,
-          postUserObjIdType: typeof postUserObjId,
+          postUserId: post.user_id,
           targetUserId: userId,
-          targetUserIdType: typeof userId,
-          directMatch: postUserId === userId,
-          stringMatch: postUserId === userId.toString(),
-          objMatch: postUserObjId === userId,
-          objStringMatch: postUserObjId === userId.toString()
+          exactMatch: post.user_id === userId
         })
-        
-        // Verificar si el post pertenece al usuario
-        const matches = postUserId === userId || 
-               post.user?.id === userId ||
-               postUserId === userId.toString() ||
-               post.user?.id === userId.toString()
-        
-        console.log('✅ Post matches user:', matches)
-        return matches
+        return post.user_id === userId
       })
       
-      console.log('🎯 FINAL RESULT:')
-      console.log('📊 Total posts from API:', data.posts?.length || 0)
-      console.log('📊 Filtered posts for user:', userPosts.length)
-      console.log('📋 User posts details:', userPosts.map(p => ({ id: p.id, user_id: p.user_id, content: p.content?.substring(0, 30) })))
-      
-      // VERIFICACIÓN FINAL: Si no hay posts filtrados, mostrar mensaje
-      if (userPosts.length === 0) {
-        console.log('⚠️ NO POSTS FOUND FOR USER:', userId)
-        console.log('🔍 This might be correct if the user has no posts')
-      } else {
-        console.log('✅ SUCCESS: Found', userPosts.length, 'posts for user', userId)
-      }
-      
+      console.log('✅ FILTERED RESULT:', userPosts.length, 'posts for user', userId)
       setUserPosts(userPosts)
       
     } catch (error) {
