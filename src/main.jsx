@@ -47,6 +47,7 @@ const router = createBrowserRouter([
       { path: 'trip/:tripId', element: <TripDetails /> },
       { path: 'trip/:tripId/reviews', element: <TripReviews /> },
       { path: 'profile', element: <ProfilePage /> },
+      { path: 'profile/:userId', element: <PublicProfilePage /> },
       { path: 'profile/reviews', element: <ReviewsPage /> },
       { path: 'profile/settings', element: <AccountSettingsPage /> },
     ],

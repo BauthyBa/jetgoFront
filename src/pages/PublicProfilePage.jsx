@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 
 const PublicProfilePage = () => {
-  const { username } = useParams()
+  const { username, userId } = useParams()
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -49,37 +49,55 @@ const PublicProfilePage = () => {
         setLoading(true)
         setError('')
 
-        // Buscar usuario por username o por ID (fallback)
+        // Buscar usuario por userId o username
         let userData = null
         let userError = null
 
-        // Primero intentar por username
-        const { data: userByUsername, error: usernameError } = await supabase
-          .from('User')
-          .select('*')
-          .eq('username', username)
-          .single()
-
-        console.log('Buscando usuario por username:', username)
-        console.log('Resultado por username:', { userByUsername, usernameError })
-
-        if (userByUsername && !usernameError) {
-          userData = userByUsername
-        } else {
-          // Si no se encuentra por username, intentar por ID (en caso de que se pase un ID)
+        // Si tenemos userId, buscar directamente por ID
+        if (userId) {
           const { data: userById, error: idError } = await supabase
             .from('User')
             .select('*')
-            .eq('userid', username)
+            .eq('userid', userId)
             .single()
 
-          console.log('Buscando usuario por ID:', username)
-          console.log('Resultado por ID:', { userById, idError })
+          console.log('Buscando usuario por userId:', userId)
+          console.log('Resultado por userId:', { userById, idError })
 
           if (userById && !idError) {
             userData = userById
           } else {
-            userError = usernameError || idError
+            userError = idError
+          }
+        } else if (username) {
+          // Si tenemos username, buscar por username
+          const { data: userByUsername, error: usernameError } = await supabase
+            .from('User')
+            .select('*')
+            .eq('username', username)
+            .single()
+
+          console.log('Buscando usuario por username:', username)
+          console.log('Resultado por username:', { userByUsername, usernameError })
+
+          if (userByUsername && !usernameError) {
+            userData = userByUsername
+          } else {
+            // Si no se encuentra por username, intentar por ID (en caso de que se pase un ID como username)
+            const { data: userById, error: idError } = await supabase
+              .from('User')
+              .select('*')
+              .eq('userid', username)
+              .single()
+
+            console.log('Buscando usuario por ID (fallback):', username)
+            console.log('Resultado por ID:', { userById, idError })
+
+            if (userById && !idError) {
+              userData = userById
+            } else {
+              userError = usernameError || idError
+            }
           }
         }
 
@@ -96,11 +114,14 @@ const PublicProfilePage = () => {
 
         setProfile(userData)
 
-        // Cargar viajes del usuario
+        // Usar userid en lugar de id
+        const userIdToUse = userData.userid || userData.id
+
+        // Cargar viajes del usuario usando creator_id de la tabla trips
         const { data: tripsData } = await supabase
           .from('trips')
           .select('*')
-          .eq('user_id', userData.id)
+          .eq('creator_id', userIdToUse)
           .order('created_at', { ascending: false })
           .limit(5)
 
@@ -111,16 +132,16 @@ const PublicProfilePage = () => {
           .from('reviews')
           .select(`
             *,
-            reviewer:profiles!reviews_reviewer_id_fkey(*)
+            reviewer:User!reviews_reviewer_id_fkey(nombre, apellido, avatar_url)
           `)
-          .eq('reviewee_id', userData.id)
+          .eq('reviewed_user_id', userIdToUse)
           .order('created_at', { ascending: false })
           .limit(3)
 
         setReviews(reviewsData || [])
 
         // Cargar posts del usuario
-        await loadUserPosts(userData.id)
+        await loadUserPosts(userIdToUse)
 
       } catch (e) {
         setError('Error al cargar el perfil')
@@ -130,10 +151,10 @@ const PublicProfilePage = () => {
       }
     }
 
-    if (username) {
+    if (username || userId) {
       loadPublicProfile()
     }
-  }, [username])
+  }, [username, userId])
 
   const getTripLevel = (tripCount) => {
     if (tripCount >= 20) return { level: 'Maestro', color: 'text-purple-400' }
