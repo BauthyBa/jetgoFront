@@ -35,6 +35,7 @@ export default function ProfilePage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -814,7 +815,7 @@ export default function ProfilePage() {
                   <span className="text-white">{exporting ? 'Exportando...' : 'Exportar datos'}</span>
                 </button>
                 <button 
-                  onClick={() => window.open('/terms.html', '_blank')}
+                  onClick={() => setShowTermsModal(true)}
                   className="w-full p-4 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors text-left flex items-center gap-3"
                 >
                   <FileText size={20} className="text-blue-400" />
@@ -1003,6 +1004,144 @@ export default function ProfilePage() {
                     Eliminar cuenta
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de términos y condiciones */}
+      {showTermsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                <FileText size={20} />
+                Términos y Condiciones
+              </h3>
+              <button
+                onClick={() => setShowTermsModal(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="prose prose-invert max-w-none">
+                <h2 className="text-2xl font-bold text-white mb-4">Términos y Condiciones de JetGo</h2>
+                
+                <div className="space-y-6 text-slate-300">
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">1. Aceptación de los Términos</h3>
+                    <p className="mb-4">
+                      Al utilizar la aplicación JetGo, usted acepta estar sujeto a estos términos y condiciones. 
+                      Si no está de acuerdo con alguno de estos términos, no debe utilizar nuestros servicios.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">2. Descripción del Servicio</h3>
+                    <p className="mb-4">
+                      JetGo es una plataforma que conecta a viajeros para compartir viajes, reducir costos y 
+                      crear experiencias de viaje colaborativas. Nuestros servicios incluyen la creación de viajes, 
+                      búsqueda de compañeros de viaje, gestión de gastos compartidos y comunicación entre usuarios.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">3. Registro y Cuenta de Usuario</h3>
+                    <p className="mb-4">
+                      Para utilizar nuestros servicios, debe crear una cuenta proporcionando información precisa y actualizada. 
+                      Es responsable de mantener la confidencialidad de su cuenta y contraseña, y de todas las actividades 
+                      que ocurran bajo su cuenta.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">4. Uso Aceptable</h3>
+                    <p className="mb-4">
+                      Usted se compromete a utilizar JetGo de manera responsable y ética. Está prohibido:
+                    </p>
+                    <ul className="list-disc list-inside ml-4 space-y-2">
+                      <li>Proporcionar información falsa o engañosa</li>
+                      <li>Utilizar la plataforma para actividades ilegales</li>
+                      <li>Harassment, acoso o comportamiento inapropiado hacia otros usuarios</li>
+                      <li>Compartir contenido ofensivo, discriminatorio o inapropiado</li>
+                      <li>Intentar acceder a cuentas de otros usuarios</li>
+                    </ul>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">5. Responsabilidades del Usuario</h3>
+                    <p className="mb-4">
+                      Como usuario de JetGo, usted es responsable de:
+                    </p>
+                    <ul className="list-disc list-inside ml-4 space-y-2">
+                      <li>Verificar la identidad de otros usuarios antes de viajar juntos</li>
+                      <li>Cumplir con todos los acuerdos de viaje establecidos</li>
+                      <li>Pagar su parte de los gastos compartidos según lo acordado</li>
+                      <li>Comunicarse de manera respetuosa con otros usuarios</li>
+                      <li>Reportar cualquier comportamiento inapropiado</li>
+                    </ul>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">6. Limitación de Responsabilidad</h3>
+                    <p className="mb-4">
+                      JetGo actúa como intermediario entre usuarios. No somos responsables por:
+                    </p>
+                    <ul className="list-disc list-inside ml-4 space-y-2">
+                      <li>Comportamiento de otros usuarios</li>
+                      <li>Pérdidas o daños durante los viajes</li>
+                      <li>Disputas entre usuarios</li>
+                      <li>Cancelaciones o cambios de planes de viaje</li>
+                      <li>Problemas de seguridad personal</li>
+                    </ul>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">7. Privacidad y Protección de Datos</h3>
+                    <p className="mb-4">
+                      Respetamos su privacidad y protegemos sus datos personales de acuerdo con nuestra 
+                      Política de Privacidad. Sus datos se utilizan únicamente para proporcionar y mejorar 
+                      nuestros servicios.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">8. Modificaciones</h3>
+                    <p className="mb-4">
+                      Nos reservamos el derecho de modificar estos términos en cualquier momento. 
+                      Los cambios entrarán en vigor inmediatamente después de su publicación en la aplicación.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">9. Terminación</h3>
+                    <p className="mb-4">
+                      Podemos suspender o terminar su cuenta si viola estos términos o si consideramos 
+                      que su comportamiento es inapropiado o perjudicial para otros usuarios.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xl font-semibold text-white mb-3">10. Contacto</h3>
+                    <p className="mb-4">
+                      Si tiene preguntas sobre estos términos y condiciones, puede contactarnos a través 
+                      de la aplicación o enviando un email a soporte@jetgo.com
+                    </p>
+                  </section>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end p-6 border-t border-slate-700">
+              <button
+                onClick={() => setShowTermsModal(false)}
+                className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
+              >
+                Cerrar
               </button>
             </div>
           </div>
