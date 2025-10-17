@@ -120,6 +120,13 @@ const PublicProfilePage = () => {
         setReviews(reviewsData || [])
 
         // Cargar posts del usuario
+        console.log('👤 Loading posts for user:', {
+          id: userData.id,
+          userid: userData.userid,
+          username: userData.username,
+          nombre: userData.nombre
+        })
+        console.log('🔍 User ID being passed to loadUserPosts:', userData.id, 'Type:', typeof userData.id)
         await loadUserPosts(userData.id)
 
       } catch (e) {
@@ -169,9 +176,10 @@ const PublicProfilePage = () => {
     try {
       setPostsLoading(true)
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
-      console.log('Loading user posts from:', url)
+      console.log('🔍 Loading user posts from:', url, 'for user:', userId)
       
-      const response = await fetch(`${url}?user_id=${userId}`, {
+      // Primero intentar sin filtro para ver qué devuelve la API
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -185,9 +193,70 @@ const PublicProfilePage = () => {
       }
       
       const data = await response.json()
-      setUserPosts(data.posts || [])
+      console.log('📦 Posts received from API:', data)
+      console.log('📊 Total posts in response:', data.posts?.length || 0)
+      
+      // Mostrar todos los posts para debugging
+      if (data.posts && data.posts.length > 0) {
+        console.log('🔍 First post structure:', data.posts[0])
+        console.log('👥 All posts with user info:', data.posts.map(p => ({ 
+          id: p.id, 
+          user_id: p.user_id, 
+          user: p.user,
+          content: p.content?.substring(0, 50) + '...'
+        })))
+      }
+      
+      // DEBUGGING: Mostrar información detallada
+      console.log('🚨 DEBUGGING FILTER:')
+      console.log('🎯 Target User ID:', userId, 'Type:', typeof userId)
+      
+      // Filtrar posts del usuario específico
+      const userPosts = (data.posts || []).filter(post => {
+        const postUserId = post.user_id
+        const postUserObjId = post.user?.id
+        
+        console.log('🔍 Post Analysis:', {
+          postId: post.id,
+          postUserId: postUserId,
+          postUserIdType: typeof postUserId,
+          postUserObjId: postUserObjId,
+          postUserObjIdType: typeof postUserObjId,
+          targetUserId: userId,
+          targetUserIdType: typeof userId,
+          directMatch: postUserId === userId,
+          stringMatch: postUserId === userId.toString(),
+          objMatch: postUserObjId === userId,
+          objStringMatch: postUserObjId === userId.toString()
+        })
+        
+        // Verificar si el post pertenece al usuario
+        const matches = postUserId === userId || 
+               post.user?.id === userId ||
+               postUserId === userId.toString() ||
+               post.user?.id === userId.toString()
+        
+        console.log('✅ Post matches user:', matches)
+        return matches
+      })
+      
+      console.log('🎯 FINAL RESULT:')
+      console.log('📊 Total posts from API:', data.posts?.length || 0)
+      console.log('📊 Filtered posts for user:', userPosts.length)
+      console.log('📋 User posts details:', userPosts.map(p => ({ id: p.id, user_id: p.user_id, content: p.content?.substring(0, 30) })))
+      
+      // VERIFICACIÓN FINAL: Si no hay posts filtrados, mostrar mensaje
+      if (userPosts.length === 0) {
+        console.log('⚠️ NO POSTS FOUND FOR USER:', userId)
+        console.log('🔍 This might be correct if the user has no posts')
+      } else {
+        console.log('✅ SUCCESS: Found', userPosts.length, 'posts for user', userId)
+      }
+      
+      setUserPosts(userPosts)
+      
     } catch (error) {
-      console.error('Error loading user posts:', error)
+      console.error('❌ Error loading user posts:', error)
       setUserPosts([])
     } finally {
       setPostsLoading(false)
@@ -248,7 +317,24 @@ const PublicProfilePage = () => {
       }
       
       const data = await response.json()
-      setComments(prev => ({ ...prev, [postId]: data.comments || [] }))
+      console.log('Comments received:', data)
+      
+      // Procesar comentarios para obtener información del usuario
+      const processedComments = (data.comments || []).map(comment => {
+        // Si el comentario no tiene información del usuario, intentar obtenerla
+        if (!comment.user || !comment.user.name) {
+          return {
+            ...comment,
+            user: {
+              name: comment.user_name || 'Usuario',
+              id: comment.user_id || comment.user_id
+            }
+          }
+        }
+        return comment
+      })
+      
+      setComments(prev => ({ ...prev, [postId]: processedComments }))
       
     } catch (error) {
       console.error('Error loading comments:', error)
@@ -567,12 +653,17 @@ const PublicProfilePage = () => {
                                 className="w-full h-48 object-cover transition-transform group-hover:scale-105"
                                 onClick={() => setSelectedImage(post.file_url)}
                                 onError={(e) => {
+                                  console.error('Error loading image:', post.file_url)
                                   e.target.style.display = 'none'
                                   e.target.nextSibling.style.display = 'flex'
+                                }}
+                                onLoad={() => {
+                                  console.log('Image loaded successfully:', post.file_url)
                                 }}
                               />
                               <div className="w-full h-48 bg-slate-700 flex items-center justify-center hidden">
                                 <ImageIcon className="w-12 h-12 text-slate-400" />
+                                <span className="text-slate-400 text-xs ml-2">Error cargando imagen</span>
                               </div>
                               {/* Overlay de zoom */}
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
@@ -685,19 +776,26 @@ const PublicProfilePage = () => {
                             <div className="space-y-3 mb-4">
                               {comments[post.id]?.map((comment) => (
                                 <div key={comment.id} className="flex items-start gap-3">
-                                  <div className="w-6 h-6 rounded-full bg-slate-600 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-white font-semibold text-xs">
-                                      {comment.user?.name?.charAt(0) || 'U'}
+                                  <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-white font-semibold text-sm">
+                                      {comment.user?.name?.charAt(0) || comment.user_name?.charAt(0) || 'U'}
                                     </span>
                                   </div>
                                   <div className="flex-1">
-                                    <p className="text-white text-sm font-medium">
-                                      {comment.user?.name || 'Usuario'}
-                                    </p>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <p className="text-white text-sm font-medium">
+                                        {comment.user?.name || comment.user_name || 'Usuario'}
+                                      </p>
+                                      <span className="text-slate-400 text-xs">
+                                        {new Date(comment.created_at).toLocaleDateString('es-ES', {
+                                          day: 'numeric',
+                                          month: 'short',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </span>
+                                    </div>
                                     <p className="text-slate-300 text-sm">{comment.content}</p>
-                                    <p className="text-slate-400 text-xs mt-1">
-                                      {new Date(comment.created_at).toLocaleDateString('es-ES')}
-                                    </p>
                                   </div>
                                 </div>
                               ))}
