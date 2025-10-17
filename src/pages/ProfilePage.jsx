@@ -36,6 +36,8 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
+  const [userReviews, setUserReviews] = useState([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -97,6 +99,9 @@ export default function ProfilePage() {
         } catch (e) {
           console.warn('Error loading user trips:', e)
         }
+
+        // Cargar reseñas del usuario
+        await loadUserReviews(info.user_id)
       } catch (e) {
         console.error('Error loading profile:', e)
         navigate('/login')
@@ -244,6 +249,38 @@ export default function ProfilePage() {
     if (count < 3) return 'Viajero'
     if (count < 10) return 'Experto'
     return 'Maestro'
+  }
+
+  const loadUserReviews = async (userId) => {
+    try {
+      setReviewsLoading(true)
+      const { data, error } = await supabase
+        .from('reviews')
+        .select(`
+          *,
+          reviewer:profiles!reviews_reviewer_id_fkey(*)
+        `)
+        .eq('reviewed_user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (error) {
+        console.error('Error loading reviews:', error)
+        return
+      }
+
+      setUserReviews(data || [])
+    } catch (error) {
+      console.error('Error loading reviews:', error)
+    } finally {
+      setReviewsLoading(false)
+    }
+  }
+
+  const getAverageRating = () => {
+    if (!userReviews.length) return 0
+    const sum = userReviews.reduce((acc, review) => acc + review.rating, 0)
+    return (sum / userReviews.length).toFixed(1)
   }
 
   const handlePasswordChange = async () => {
@@ -730,26 +767,118 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Estadísticas */}
+            {/* Reseñas */}
             <div className="glass-card p-6">
               <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Shield size={20} />
-                Tu fiabilidad al compartir coche
+                <Star size={20} />
+                Reseñas recibidas
               </h2>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm">✓</span>
-                  </div>
-                  <span className="text-white">Nunca cancela reservas como pasajero</span>
+              
+              {reviewsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400"></div>
+                  <span className="ml-3 text-slate-300">Cargando reseñas...</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm">✓</span>
+              ) : userReviews.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Rating promedio */}
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-white">{getAverageRating()}</div>
+                      <div className="flex items-center justify-center gap-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${
+                              i < Math.floor(getAverageRating())
+                                ? 'text-yellow-400 fill-current'
+                                : 'text-slate-400'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="text-sm text-slate-400">{userReviews.length} reseñas</div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="space-y-2">
+                        {[5, 4, 3, 2, 1].map((rating) => {
+                          const count = userReviews.filter(r => r.rating === rating).length
+                          const percentage = userReviews.length > 0 ? (count / userReviews.length) * 100 : 0
+                          return (
+                            <div key={rating} className="flex items-center gap-2">
+                              <span className="text-sm text-slate-300 w-4">{rating}</span>
+                              <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                              <div className="flex-1 bg-slate-700 rounded-full h-2">
+                                <div 
+                                  className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${percentage}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm text-slate-400 w-8">{count}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-white">Perfil verificado</span>
+
+                  {/* Lista de reseñas */}
+                  <div className="space-y-4">
+                    {userReviews.slice(0, 5).map((review) => (
+                      <div key={review.id} className="bg-slate-700/50 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center flex-shrink-0">
+                            <span className="text-white font-semibold text-sm">
+                              {review.reviewer?.first_name?.charAt(0) || 'A'}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-white font-semibold">
+                                {review.reviewer?.first_name || 'Anónimo'}
+                              </span>
+                              <div className="flex">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`w-4 h-4 ${
+                                      i < review.rating
+                                        ? 'text-yellow-400 fill-current'
+                                        : 'text-slate-400'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-slate-400 text-sm">
+                                {new Date(review.created_at).toLocaleDateString('es-ES')}
+                              </span>
+                            </div>
+                            {review.comment && (
+                              <p className="text-slate-300 text-sm">{review.comment}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {userReviews.length > 5 && (
+                    <div className="text-center">
+                      <button className="text-emerald-400 hover:text-emerald-300 text-sm">
+                        Ver todas las reseñas ({userReviews.length})
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                  <h3 className="text-white font-semibold mb-2">Aún no tienes reseñas</h3>
+                  <p className="text-slate-400 text-sm">
+                    Las reseñas aparecerán aquí cuando otros usuarios te evalúen después de viajar juntos.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

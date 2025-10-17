@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getSession } from '../services/supabase'
+import { getSession, supabase } from '../services/supabase'
 import { Star, ArrowLeft, MessageSquare, User, Calendar } from 'lucide-react'
 import Navigation from '../components/Navigation'
 
@@ -8,11 +8,13 @@ export default function ReviewsPage() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('received')
+  const [userProfile, setUserProfile] = useState(null)
   const navigate = useNavigate()
 
-  // Datos de ejemplo para las reseñas
+  // Estados para reseñas reales
   const [receivedReviews, setReceivedReviews] = useState([])
   const [givenReviews, setGivenReviews] = useState([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
 
   useEffect(() => {
     async function loadProfile() {
@@ -42,6 +44,12 @@ export default function ReviewsPage() {
         }
 
         setProfile(info)
+        
+        // Cargar perfil completo del usuario
+        await loadUserProfile(info.user_id)
+        
+        // Cargar reseñas
+        await loadReviews(info.user_id)
       } catch (e) {
         console.error('Error loading profile:', e)
         navigate('/login')
@@ -52,6 +60,92 @@ export default function ReviewsPage() {
 
     loadProfile()
   }, [navigate])
+
+  const loadUserProfile = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('userid', userId)
+        .single()
+
+      if (error) {
+        console.error('Error loading user profile:', error)
+        return
+      }
+
+      setUserProfile(data)
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+    }
+  }
+
+  const loadReviews = async (userId) => {
+    try {
+      setReviewsLoading(true)
+      
+      // Cargar reseñas recibidas
+      const { data: receivedData, error: receivedError } = await supabase
+        .from('reviews')
+        .select(`
+          *,
+          reviewer:profiles!reviews_reviewer_id_fkey(*)
+        `)
+        .eq('reviewed_user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (receivedError) {
+        console.error('Error loading received reviews:', receivedError)
+      } else {
+        setReceivedReviews(receivedData || [])
+      }
+
+      // Cargar reseñas dadas
+      const { data: givenData, error: givenError } = await supabase
+        .from('reviews')
+        .select(`
+          *,
+          reviewed_user:profiles!reviews_reviewed_user_id_fkey(*)
+        `)
+        .eq('reviewer_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (givenError) {
+        console.error('Error loading given reviews:', givenError)
+      } else {
+        setGivenReviews(givenData || [])
+      }
+    } catch (error) {
+      console.error('Error loading reviews:', error)
+    } finally {
+      setReviewsLoading(false)
+    }
+  }
+
+  const getUserAvatar = () => {
+    if (userProfile?.avatar_url) return userProfile.avatar_url
+    if (profile?.meta?.avatar_url) return profile.meta.avatar_url
+    return null
+  }
+
+  const getUserDisplayName = () => {
+    if (userProfile?.nombre && userProfile?.apellido) {
+      return `${userProfile.nombre} ${userProfile.apellido}`
+    }
+    if (profile?.meta?.first_name && profile?.meta?.last_name) {
+      return `${profile.meta.first_name} ${profile.meta.last_name}`
+    }
+    if (profile?.meta?.first_name) {
+      return profile.meta.first_name
+    }
+    return profile?.email || 'Usuario'
+  }
+
+  const getAverageRating = (reviews) => {
+    if (!reviews.length) return 0
+    const sum = reviews.reduce((acc, review) => acc + review.rating, 0)
+    return (sum / reviews.length).toFixed(1)
+  }
 
   if (loading) {
     return (
@@ -87,12 +181,25 @@ export default function ReviewsPage() {
         {/* Header */}
         <div className="glass-card p-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white text-xl font-bold">
-              {profile?.meta?.first_name ? profile.meta.first_name.charAt(0).toUpperCase() : '?'}
+            {getUserAvatar() ? (
+              <img 
+                src={getUserAvatar()} 
+                alt="Avatar" 
+                className="w-16 h-16 rounded-full object-cover border-2 border-emerald-400"
+                onError={(e) => {
+                  e.target.style.display = 'none'
+                  e.target.nextSibling.style.display = 'flex'
+                }}
+              />
+            ) : null}
+            <div 
+              className={`w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white text-xl font-bold ${getUserAvatar() ? 'hidden' : 'flex'}`}
+            >
+              {getUserDisplayName().charAt(0).toUpperCase()}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">Reseñas</h1>
-              <p className="text-slate-300">Gestiona tus reseñas como conductor y pasajero</p>
+              <p className="text-slate-300">Gestiona tus reseñas de viajes</p>
             </div>
           </div>
         </div>
@@ -109,7 +216,7 @@ export default function ReviewsPage() {
               }`}
             >
               <Star size={18} />
-              Reseñas que me dieron
+              Reseñas recibidas
             </button>
             <button
               onClick={() => setActiveTab('given')}
@@ -120,7 +227,7 @@ export default function ReviewsPage() {
               }`}
             >
               <MessageSquare size={18} />
-              Reseñas que yo di
+              Reseñas que di
             </button>
           </div>
         </div>
@@ -133,16 +240,16 @@ export default function ReviewsPage() {
               <h2 className="text-xl font-semibold text-white mb-4">Reseñas recibidas</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-slate-700/50 rounded-lg">
-                  <div className="text-3xl font-bold text-emerald-400 mb-2">0</div>
+                  <div className="text-3xl font-bold text-emerald-400 mb-2">{receivedReviews.length}</div>
                   <div className="text-slate-400 text-sm">Total reseñas</div>
                 </div>
                 <div className="text-center p-4 bg-slate-700/50 rounded-lg">
-                  <div className="text-3xl font-bold text-yellow-400 mb-2">0.0</div>
+                  <div className="text-3xl font-bold text-yellow-400 mb-2">{getAverageRating(receivedReviews)}</div>
                   <div className="text-slate-400 text-sm">Promedio</div>
                 </div>
                 <div className="text-center p-4 bg-slate-700/50 rounded-lg">
-                  <div className="text-3xl font-bold text-blue-400 mb-2">0</div>
-                  <div className="text-slate-400 text-sm">Como conductor</div>
+                  <div className="text-3xl font-bold text-blue-400 mb-2">{receivedReviews.filter(r => r.rating >= 4).length}</div>
+                  <div className="text-slate-400 text-sm">Positivas (4+ estrellas)</div>
                 </div>
               </div>
             </div>
@@ -150,7 +257,12 @@ export default function ReviewsPage() {
             {/* Lista de reseñas */}
             <div className="glass-card p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Últimas reseñas</h3>
-              {receivedReviews.length === 0 ? (
+              {reviewsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400"></div>
+                  <span className="ml-3 text-slate-300">Cargando reseñas...</span>
+                </div>
+              ) : receivedReviews.length === 0 ? (
                 <div className="text-center py-12">
                   <Star className="mx-auto text-slate-400 mb-4" size={48} />
                   <p className="text-slate-400 text-lg">Aún no tienes reseñas</p>
@@ -160,15 +272,30 @@ export default function ReviewsPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {receivedReviews.map((review, index) => (
-                    <div key={index} className="p-4 bg-slate-700/50 rounded-lg">
+                  {receivedReviews.map((review) => (
+                    <div key={review.id} className="p-4 bg-slate-700/50 rounded-lg">
                       <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white font-bold">
-                          {review.userName.charAt(0).toUpperCase()}
+                        {review.reviewer?.avatar_url ? (
+                          <img 
+                            src={review.reviewer.avatar_url} 
+                            alt="Avatar" 
+                            className="w-10 h-10 rounded-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                              e.target.nextSibling.style.display = 'flex'
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className={`w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white font-bold ${review.reviewer?.avatar_url ? 'hidden' : 'flex'}`}
+                        >
+                          {(review.reviewer?.nombre || review.reviewer?.first_name || 'A').charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="text-white font-semibold">{review.userName}</span>
+                            <span className="text-white font-semibold">
+                              {review.reviewer?.nombre || review.reviewer?.first_name || 'Anónimo'}
+                            </span>
                             <div className="flex items-center gap-1">
                               {[...Array(5)].map((_, i) => (
                                 <Star 
@@ -178,14 +305,13 @@ export default function ReviewsPage() {
                                 />
                               ))}
                             </div>
-                            <span className="text-slate-400 text-sm">{review.date}</span>
+                            <span className="text-slate-400 text-sm">
+                              {new Date(review.created_at).toLocaleDateString('es-ES')}
+                            </span>
                           </div>
-                          <p className="text-slate-300">{review.comment}</p>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-slate-400">
-                            <span>Viaje: {review.tripName}</span>
-                            <span>•</span>
-                            <span>{review.role}</span>
-                          </div>
+                          {review.comment && (
+                            <p className="text-slate-300">{review.comment}</p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -203,16 +329,16 @@ export default function ReviewsPage() {
               <h2 className="text-xl font-semibold text-white mb-4">Reseñas que he dado</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-slate-700/50 rounded-lg">
-                  <div className="text-3xl font-bold text-emerald-400 mb-2">0</div>
+                  <div className="text-3xl font-bold text-emerald-400 mb-2">{givenReviews.length}</div>
                   <div className="text-slate-400 text-sm">Total reseñas</div>
                 </div>
                 <div className="text-center p-4 bg-slate-700/50 rounded-lg">
-                  <div className="text-3xl font-bold text-yellow-400 mb-2">0.0</div>
+                  <div className="text-3xl font-bold text-yellow-400 mb-2">{getAverageRating(givenReviews)}</div>
                   <div className="text-slate-400 text-sm">Promedio dado</div>
                 </div>
                 <div className="text-center p-4 bg-slate-700/50 rounded-lg">
-                  <div className="text-3xl font-bold text-blue-400 mb-2">0</div>
-                  <div className="text-slate-400 text-sm">Como pasajero</div>
+                  <div className="text-3xl font-bold text-blue-400 mb-2">{givenReviews.filter(r => r.rating >= 4).length}</div>
+                  <div className="text-slate-400 text-sm">Positivas (4+ estrellas)</div>
                 </div>
               </div>
             </div>
@@ -220,7 +346,12 @@ export default function ReviewsPage() {
             {/* Lista de reseñas */}
             <div className="glass-card p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Mis reseñas</h3>
-              {givenReviews.length === 0 ? (
+              {reviewsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400"></div>
+                  <span className="ml-3 text-slate-300">Cargando reseñas...</span>
+                </div>
+              ) : givenReviews.length === 0 ? (
                 <div className="text-center py-12">
                   <MessageSquare className="mx-auto text-slate-400 mb-4" size={48} />
                   <p className="text-slate-400 text-lg">Aún no has dado reseñas</p>
@@ -230,15 +361,30 @@ export default function ReviewsPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {givenReviews.map((review, index) => (
-                    <div key={index} className="p-4 bg-slate-700/50 rounded-lg">
+                  {givenReviews.map((review) => (
+                    <div key={review.id} className="p-4 bg-slate-700/50 rounded-lg">
                       <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white font-bold">
-                          {review.userName.charAt(0).toUpperCase()}
+                        {review.reviewed_user?.avatar_url ? (
+                          <img 
+                            src={review.reviewed_user.avatar_url} 
+                            alt="Avatar" 
+                            className="w-10 h-10 rounded-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                              e.target.nextSibling.style.display = 'flex'
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className={`w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white font-bold ${review.reviewed_user?.avatar_url ? 'hidden' : 'flex'}`}
+                        >
+                          {(review.reviewed_user?.nombre || review.reviewed_user?.first_name || 'A').charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="text-white font-semibold">{review.userName}</span>
+                            <span className="text-white font-semibold">
+                              {review.reviewed_user?.nombre || review.reviewed_user?.first_name || 'Anónimo'}
+                            </span>
                             <div className="flex items-center gap-1">
                               {[...Array(5)].map((_, i) => (
                                 <Star 
@@ -248,14 +394,13 @@ export default function ReviewsPage() {
                                 />
                               ))}
                             </div>
-                            <span className="text-slate-400 text-sm">{review.date}</span>
+                            <span className="text-slate-400 text-sm">
+                              {new Date(review.created_at).toLocaleDateString('es-ES')}
+                            </span>
                           </div>
-                          <p className="text-slate-300">{review.comment}</p>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-slate-400">
-                            <span>Viaje: {review.tripName}</span>
-                            <span>•</span>
-                            <span>{review.role}</span>
-                          </div>
+                          {review.comment && (
+                            <p className="text-slate-300">{review.comment}</p>
+                          )}
                         </div>
                       </div>
                     </div>
