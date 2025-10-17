@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin } from 'lucide-react'
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin, UserPlus, UserCheck } from 'lucide-react'
 import API_CONFIG from '@/config/api'
+import { sendFriendRequest } from '@/services/friends'
 
 export default function SocialPage() {
   const navigate = useNavigate()
@@ -28,15 +29,16 @@ export default function SocialPage() {
   const [showStoryViewer, setShowStoryViewer] = useState(false)
   const [currentStory, setCurrentStory] = useState(null)
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0)
+  const [friendshipStatuses, setFriendshipStatuses] = useState({})
 
   useEffect(() => {
     getCurrentUser()
     loadPosts()
-    loadStories()
   }, [])
 
   useEffect(() => {
-    if (user?.id) {
+    if (user?.userid) {
+      loadStories()
       loadSuggestions()
     }
   }, [user])
@@ -87,11 +89,41 @@ export default function SocialPage() {
 
   const loadStories = async () => {
     try {
+      // Cargar todas las historias
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.STORIES)
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
-        setStories(data.stories || [])
+        const allStories = data.stories || []
+        
+        // Si no hay usuario logueado, no mostrar historias
+        if (!user?.userid) {
+          setStories([])
+          return
+        }
+
+        // Obtener lista de amigos (solicitudes aceptadas)
+        const { data: friendRequests } = await supabase
+          .from('friend_requests')
+          .select('sender_id, receiver_id')
+          .or(`sender_id.eq.${user.userid},receiver_id.eq.${user.userid}`)
+          .eq('status', 'accepted')
+
+        // Crear set de IDs de amigos
+        const friendIds = new Set()
+        friendRequests?.forEach(req => {
+          const friendId = req.sender_id === user.userid ? req.receiver_id : req.sender_id
+          friendIds.add(friendId)
+        })
+
+        // Filtrar historias: solo de amigos o propias
+        const filteredStories = allStories.filter(story => {
+          const storyUserId = story.user_id || story.author?.userid || story.author?.id
+          // Mostrar si es propia o de un amigo
+          return storyUserId === user.userid || friendIds.has(storyUserId)
+        })
+
+        setStories(filteredStories)
       }
     } catch (error) {
       console.error('Error loading stories:', error)
@@ -127,6 +159,21 @@ export default function SocialPage() {
       
       const { data: users } = await query.limit(5)
       setSuggestedUsers(users || [])
+
+      // Cargar estados de amistad para usuarios sugeridos
+      if (users && users.length > 0) {
+        const statuses = {}
+        for (const suggestedUser of users) {
+          const { data: existingRequest } = await supabase
+            .from('friend_requests')
+            .select('status')
+            .or(`and(sender_id.eq.${user.userid},receiver_id.eq.${suggestedUser.userid}),and(sender_id.eq.${suggestedUser.userid},receiver_id.eq.${user.userid})`)
+            .single()
+          
+          statuses[suggestedUser.userid] = existingRequest?.status || null
+        }
+        setFriendshipStatuses(statuses)
+      }
 
       // Cargar viajes del usuario (usar trip_members, no trip_participants)
       const { data: userTripMemberships } = await supabase
@@ -480,6 +527,54 @@ export default function SocialPage() {
 
   const goToUserProfile = (userId) => {
     navigate(`/profile/${userId}`)
+  }
+
+  const handleSendFriendRequest = async (receiverId) => {
+    if (!user?.id) return
+    
+    try {
+      // Primero verificar si existe una solicitud rechazada o eliminada
+      const { data: existingRequest } = await supabase
+        .from('friend_requests')
+        .select('id, status')
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`)
+        .maybeSingle()
+
+      if (existingRequest) {
+        // Si existe y está rechazada, actualizar a pending
+        if (existingRequest.status === 'rejected') {
+          const { error: updateError } = await supabase
+            .from('friend_requests')
+            .update({ 
+              status: 'pending',
+              sender_id: user.id,
+              receiver_id: receiverId,
+              created_at: new Date().toISOString()
+            })
+            .eq('id', existingRequest.id)
+
+          if (updateError) {
+            console.error('Error actualizando solicitud:', updateError)
+            throw updateError
+          }
+        } else if (existingRequest.status === 'pending') {
+          // Ya está pendiente, no hacer nada
+          return
+        }
+      } else {
+        // No existe, crear una nueva
+        await sendFriendRequest(user.id, receiverId)
+      }
+      
+      // Actualizar el estado local
+      setFriendshipStatuses(prev => ({
+        ...prev,
+        [receiverId]: 'pending'
+      }))
+    } catch (error) {
+      console.error('Error sending friend request:', error)
+      alert('Error al enviar la solicitud de amistad')
+    }
   }
 
   const openStoryViewer = (storyIndex) => {
@@ -1047,9 +1142,29 @@ export default function SocialPage() {
                           </p>
                         </div>
                       </div>
-                      <button className="text-blue-400 hover:text-blue-300 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg">
-                        Seguir
-                      </button>
+                      {friendshipStatuses[suggestedUser.userid] === 'accepted' ? (
+                        <button 
+                          className="text-green-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-green-500/10 rounded-lg flex items-center gap-1.5 cursor-default"
+                        >
+                          <UserCheck className="w-3.5 h-3.5" />
+                          Amigos
+                        </button>
+                      ) : friendshipStatuses[suggestedUser.userid] === 'pending' ? (
+                        <button 
+                          className="text-yellow-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-yellow-500/10 rounded-lg cursor-not-allowed"
+                          disabled
+                        >
+                          Pendiente
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => handleSendFriendRequest(suggestedUser.userid)}
+                          className="text-blue-400 hover:text-blue-300 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg flex items-center gap-1.5"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          Agregar
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1298,8 +1413,23 @@ export default function SocialPage() {
           {/* Contenido de la story */}
           <div className="relative w-full max-w-md h-[90vh] bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl overflow-hidden shadow-2xl">
             {/* Header con info del usuario */}
-            <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4">
-              <div className="flex items-center gap-3">
+            <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/60 to-transparent p-4">
+              <div 
+                className="flex items-center gap-3 cursor-pointer hover:bg-white/10 rounded-lg p-2 -m-2 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  console.log('Click en perfil de usuario')
+                  console.log('Author completo:', currentStory.author)
+                  const authorId = currentStory.author?.userid || currentStory.author?.user_id || currentStory.author?.id || currentStory.user_id
+                  console.log('Author ID encontrado:', authorId)
+                  if (authorId) {
+                    closeStoryViewer()
+                    navigate(`/profile/${authorId}`)
+                  } else {
+                    console.error('No se encontró ID del autor. Story:', currentStory)
+                  }
+                }}
+              >
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 ring-2 ring-white/30">
                   {currentStory.author?.avatar_url ? (
                     <img 

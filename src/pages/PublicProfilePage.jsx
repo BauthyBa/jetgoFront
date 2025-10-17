@@ -274,8 +274,40 @@ const PublicProfilePage = () => {
 
     setLoadingFriendship(true)
     try {
-      await sendFriendRequest(currentUser.id, profile.userid)
-      alert('Solicitud de amistad enviada!')
+      // Primero verificar si existe una solicitud rechazada
+      const { data: existingRequest } = await supabase
+        .from('friend_requests')
+        .select('id, status')
+        .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${profile.userid}),and(sender_id.eq.${profile.userid},receiver_id.eq.${currentUser.id})`)
+        .maybeSingle()
+
+      if (existingRequest) {
+        // Si existe y está rechazada, actualizar a pending
+        if (existingRequest.status === 'rejected') {
+          const { error: updateError } = await supabase
+            .from('friend_requests')
+            .update({ 
+              status: 'pending',
+              sender_id: currentUser.id,
+              receiver_id: profile.userid,
+              created_at: new Date().toISOString()
+            })
+            .eq('id', existingRequest.id)
+
+          if (updateError) {
+            console.error('Error actualizando solicitud:', updateError)
+            throw updateError
+          }
+        } else if (existingRequest.status === 'pending') {
+          // Ya está pendiente, no hacer nada
+          return
+        }
+      } else {
+        // No existe, crear una nueva
+        await sendFriendRequest(currentUser.id, profile.userid)
+      }
+      
+      // Cambiar el estado sin mostrar alert
       setFriendshipStatus('pending')
     } catch (error) {
       console.error('Error sending friend request:', error)
@@ -657,51 +689,21 @@ const PublicProfilePage = () => {
                 </div>
               )}
 
-              {/* Sección de amigos */}
+              {/* Sección de amigos - Solo botón */}
               {friendsCount > 0 && (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-white font-semibold flex items-center gap-2">
-                      <Users className="w-5 h-5" />
-                      Amigos ({friendsCount})
-                    </h3>
-                    {activeTab !== 'friends' && (
-                      <button
-                        onClick={() => setActiveTab('friends')}
-                        className="text-blue-400 hover:text-blue-300 text-sm font-semibold transition-colors"
-                      >
-                        Ver todos
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {friends.slice(0, 6).map((friend) => (
-                      <div
-                        key={friend.userid}
-                        onClick={() => navigate(`/profile/${friend.userid}`)}
-                        className="cursor-pointer hover:scale-105 transition-transform"
-                      >
-                        <div className="relative">
-                          {friend.avatar_url ? (
-                            <img
-                              src={friend.avatar_url}
-                              alt={friend.nombre}
-                              className="w-full aspect-square rounded-lg object-cover border-2 border-slate-700 hover:border-blue-500 transition-colors"
-                            />
-                          ) : (
-                            <div className="w-full aspect-square rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center border-2 border-slate-700 hover:border-blue-500 transition-colors">
-                              <span className="text-white font-bold text-xl">
-                                {friend.nombre?.charAt(0) || 'U'}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-white text-xs font-semibold mt-1 truncate text-center">
-                          {friend.nombre}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => setActiveTab('friends')}
+                    className="w-full flex items-center justify-between p-4 bg-slate-800/50 hover:bg-slate-800 rounded-lg transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Users className="w-5 h-5 text-blue-400 group-hover:text-blue-300 transition-colors" />
+                      <span className="text-white font-semibold">Amigos</span>
+                    </div>
+                    <span className="text-slate-400 group-hover:text-slate-300 font-semibold transition-colors">
+                      {friendsCount}
+                    </span>
+                  </button>
                 </div>
               )}
             </div>
