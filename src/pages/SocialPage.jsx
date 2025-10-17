@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin, UserPlus, UserCheck } from 'lucide-react'
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin, UserPlus, UserCheck, Trash2 } from 'lucide-react'
 import API_CONFIG from '@/config/api'
 import { sendFriendRequest } from '@/services/friends'
 
@@ -30,6 +30,9 @@ export default function SocialPage() {
   const [currentStory, setCurrentStory] = useState(null)
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0)
   const [friendshipStatuses, setFriendshipStatuses] = useState({})
+  const [showPostMenu, setShowPostMenu] = useState(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [postToDelete, setPostToDelete] = useState(null)
 
   useEffect(() => {
     getCurrentUser()
@@ -313,6 +316,41 @@ export default function SocialPage() {
     setSelectedPost(post)
     setShowShareModal(true)
     await loadUserChats()
+  }
+
+  const confirmDeletePost = (postId) => {
+    setPostToDelete(postId)
+    setShowDeleteConfirm(true)
+    setShowPostMenu(null)
+  }
+
+  const deletePost = async () => {
+    if (!postToDelete) return
+
+    try {
+      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postToDelete}/`
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        // Eliminar del estado local
+        setPosts(prevPosts => prevPosts.filter(p => p.id !== postToDelete))
+        setShowDeleteConfirm(false)
+        setPostToDelete(null)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Error al eliminar el post')
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error)
+      alert('Error al eliminar el post')
+      setShowDeleteConfirm(false)
+      setPostToDelete(null)
+    }
   }
 
   const loadUserChats = async () => {
@@ -900,9 +938,38 @@ export default function SocialPage() {
                           )}
                         </div>
                       </div>
-                      <button className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800/50 rounded-full">
-                        <MoreHorizontal className="w-5 h-5" />
-                      </button>
+                      {/* Botón de opciones */}
+                      <div className="relative">
+                        <button 
+                          onClick={() => setShowPostMenu(showPostMenu === post.id ? null : post.id)}
+                          className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800/50 rounded-full"
+                        >
+                          <MoreHorizontal className="w-5 h-5" />
+                        </button>
+                        
+                        {/* Menú desplegable */}
+                        {showPostMenu === post.id && (
+                          <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10 min-w-[180px]">
+                            {/* Solo mostrar eliminar si es el autor */}
+                            {post.user_id === user?.id && (
+                              <button
+                                onClick={() => confirmDeletePost(post.id)}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-slate-700 transition-colors text-sm font-medium"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Eliminar post
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setShowPostMenu(null)}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-700 transition-colors text-sm font-medium border-t border-slate-700"
+                            >
+                              <X className="w-4 h-4" />
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Post Image/Video */}
@@ -1504,6 +1571,50 @@ export default function SocialPage() {
               <ChevronRight className="w-10 h-10" />
             </button>
           )}
+        </div>
+      )}
+
+      {/* Modal de confirmación para eliminar post */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 border-b border-red-500/30 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-red-500/20 p-2 rounded-full">
+                  <Trash2 className="w-6 h-6 text-red-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Eliminar Post</h3>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-6">
+              <p className="text-slate-300 text-base leading-relaxed">
+                ¿Estás seguro de que quieres eliminar este post? Esta acción no se puede deshacer.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false)
+                  setPostToDelete(null)
+                }}
+                className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={deletePost}
+                className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Eliminar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
