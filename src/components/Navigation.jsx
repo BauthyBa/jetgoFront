@@ -16,6 +16,7 @@ export default function Navigation() {
     location.pathname.startsWith('/crear-viaje') ||
     location.pathname === '/amigos' ||
     location.pathname === '/chats' ||
+    location.pathname === '/modern-chat' ||
     location.pathname === '/social' ||
     location.pathname.startsWith('/profile')
 
