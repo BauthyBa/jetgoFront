@@ -6,6 +6,7 @@ import GlassCard from '../components/GlassCard'
 import API_CONFIG from '../config/api'
 import { sendFriendRequest, checkFriendshipStatus } from '../services/friends'
 import { getOrCreateDirectRoom } from '../services/chat'
+import TripHistory from '../components/TripHistory'
 import { 
   MapPin, 
   Calendar, 
@@ -735,6 +736,16 @@ const PublicProfilePage = () => {
                 Viajes ({userTrips.length})
               </button>
               <button
+                onClick={() => setActiveTab('history')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'history'
+                    ? 'bg-emerald-500 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Historial
+              </button>
+              <button
                 onClick={() => setActiveTab('reviews')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'reviews'
@@ -1009,6 +1020,13 @@ const PublicProfilePage = () => {
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Contenido de historial de viajes */}
+          {activeTab === 'history' && (
+            <div>
+              <TripHistory userId={profile?.userid || profile?.user_id} />
             </div>
           )}
 

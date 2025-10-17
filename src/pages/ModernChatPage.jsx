@@ -754,9 +754,60 @@ export default function ModernChatPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div>
-                      <h2 className="text-xl font-semibold text-white">
-                        {normalizeRoomName(activeRoom) || 'Chat'}
-                      </h2>
+                      {isPrivateRoom(activeRoom) ? (
+                        <button
+                          onClick={async () => {
+                            try {
+                              console.log('Click en nombre del chat privado')
+                              const roomId = activeRoom?.id
+                              console.log('Room ID:', roomId)
+                              if (!roomId) {
+                                console.log('No hay room ID')
+                                return
+                              }
+                              
+                              // Para chats privados, consultar direct_conversations con las columnas correctas
+                              const { data: directConvs, error } = await supabase
+                                .from('direct_conversations')
+                                .select('user_a, user_b')
+                                .eq('room_id', roomId)
+                              
+                              console.log('Direct conversations query result:', directConvs)
+                              console.log('Query error:', error)
+                              
+                              if (directConvs && directConvs.length > 0) {
+                                const directConv = directConvs[0] // Tomar el primero
+                                console.log('Direct conversation found:', directConv)
+                                
+                                // Encontrar el ID de la otra persona
+                                const otherUserId = directConv.user_a === profile?.user_id 
+                                  ? directConv.user_b 
+                                  : directConv.user_a
+                                
+                                console.log('Other user ID:', otherUserId)
+                                
+                                if (otherUserId) {
+                                  console.log('Navegando a:', `/u/${otherUserId}`)
+                                  navigate(`/u/${otherUserId}`)
+                                } else {
+                                  console.log('No se encontró el ID de la otra persona')
+                                }
+                              } else {
+                                console.log('No se encontraron conversaciones directas')
+                              }
+                            } catch (error) {
+                              console.error('Error navigating to profile:', error)
+                            }
+                          }}
+                          className="text-xl font-semibold text-white hover:text-emerald-300 transition-colors cursor-pointer"
+                        >
+                          {normalizeRoomName(activeRoom) || 'Chat'}
+                        </button>
+                      ) : (
+                        <h2 className="text-xl font-semibold text-white">
+                          {normalizeRoomName(activeRoom) || 'Chat'}
+                        </h2>
+                      )}
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`
                           text-xs px-2 py-1 rounded-full font-medium
@@ -786,9 +837,10 @@ export default function ModernChatPage() {
                         {showExpenses ? '💬 Chat' : '💰 Gastos'}
                       </Button>
                     )}
-                    <Button
-                      variant="secondary"
-                      onClick={async () => {
+                    {!isPrivateRoom(activeRoom) && (
+                      <Button
+                        variant="secondary"
+                        onClick={async () => {
                         try {
                           if (isPrivateRoom(activeRoom)) {
                             const roomId = activeRoom?.id
@@ -804,15 +856,12 @@ export default function ModernChatPage() {
                               new Set((membersRows || []).map((m) => m.user_id).filter(Boolean)),
                             )
                             const nameMap = await fetchNamesForUserIds(ids)
-                            const members = ids.map((id) => ({
-                              user_id: id,
-                              name:
-                                profile?.user_id && id === profile.user_id
-                                  ? profile?.meta?.first_name && profile?.meta?.last_name
-                                    ? `${profile.meta.first_name} ${profile.meta.last_name}`
-                                    : 'Tú'
-                                  : nameMap[id] || 'Usuario',
-                            }))
+                            const members = ids
+                              .filter((id) => id !== profile?.user_id) // Excluir al usuario actual
+                              .map((id) => ({
+                                user_id: id,
+                                name: nameMap[id] || 'Usuario',
+                              }))
                             setChatMembers(members)
                             setChatInfoOpen(true)
                             return
@@ -846,6 +895,7 @@ export default function ModernChatPage() {
                     >
                       👥 Integrantes
                     </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1293,7 +1343,8 @@ export default function ModernChatPage() {
                     const isOwner = (tripsBase || []).some(
                       (trip) => String(trip.id) === String(activeRoom.trip_id) && trip.creatorId === profile?.user_id,
                     )
-                    return isOwner ? (
+                    const isGroupChat = activeRoom?.is_group === true
+                    return isOwner && isGroupChat ? (
                       <Button
                         variant="secondary"
                         onClick={() => setShowInviteFriends(true)}

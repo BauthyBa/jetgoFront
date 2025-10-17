@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { getSession, updateUserMetadata, supabase } from '../services/supabase'
 import { upsertProfileToBackend } from '../services/api'
 import { updatePassword, sendPasswordResetEmail } from '../services/passwordReset'
-import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X, Download, Trash2, AlertTriangle, FileText } from 'lucide-react'
+import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X, Download, Trash2, AlertTriangle, FileText, MapPin as MapPinIcon } from 'lucide-react'
 import AvatarUpload from '../components/AvatarUpload'
 import Navigation from '../components/Navigation'
+import MyTripHistory from '../components/MyTripHistory'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null)
@@ -557,6 +558,17 @@ export default function ProfilePage() {
               Información personal
             </button>
             <button
+              onClick={() => setActiveTab('trips')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg transition-colors ${
+                activeTab === 'trips' 
+                  ? 'bg-emerald-500 text-white' 
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700'
+              }`}
+            >
+              <MapPinIcon size={18} />
+              Historial de viajes
+            </button>
+            <button
               onClick={() => setActiveTab('account')}
               className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg transition-colors ${
                 activeTab === 'account' 
@@ -750,6 +762,12 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'trips' && (
+          <div className="space-y-6">
+            <MyTripHistory userId={profile?.user_id} />
           </div>
         )}
 
