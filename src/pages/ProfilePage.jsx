@@ -6,6 +6,7 @@ import { updatePassword, sendPasswordResetEmail } from '../services/passwordRese
 import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X } from 'lucide-react'
 import AvatarUpload from '../components/AvatarUpload'
 import Navigation from '../components/Navigation'
+import { listTrips } from '../services/trips'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null)
@@ -82,7 +83,6 @@ export default function ProfilePage() {
         
         // Cargar viajes del usuario
         try {
-          const { listTrips } = await import('../services/trips')
           const trips = await listTrips()
           const userTripsList = trips.filter(trip => 
             trip.creatorId === info.user_id || 
@@ -529,7 +529,7 @@ export default function ProfilePage() {
                   {editing ? (
                     <div className="mt-1">
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {interests ? interests.split(',').map((interest, index) => (
+                        {typeof interests === 'string' && interests ? interests.split(',').map((interest, index) => (
                           <span key={index} className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-sm flex items-center gap-2">
                             {interest.trim()}
                             <button
@@ -560,7 +560,7 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {interests ? (
+                      {typeof interests === 'string' && interests ? (
                         interests.split(',').map((interest, index) => (
                           <span key={index} className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-sm">
                             {interest.trim()}
@@ -577,7 +577,7 @@ export default function ProfilePage() {
                   {editing ? (
                     <div className="mt-1">
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {favoriteTrips ? favoriteTrips.split(',').map((style, index) => (
+                        {typeof favoriteTrips === 'string' && favoriteTrips ? favoriteTrips.split(',').map((style, index) => (
                           <span key={index} className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm flex items-center gap-2">
                             {style.trim()}
                             <button
@@ -608,7 +608,7 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {favoriteTrips ? (
+                      {typeof favoriteTrips === 'string' && favoriteTrips ? (
                         favoriteTrips.split(',').map((style, index) => (
                           <span key={index} className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm">
                             {style.trim()}
@@ -780,7 +780,7 @@ export default function ProfilePage() {
                       ) : (
                         <div className="w-full h-full bg-slate-600 flex items-center justify-center">
                           <span className="text-white text-xs font-semibold">
-                            {profile?.full_name?.charAt(0) || 'U'}
+                            {profile?.meta?.first_name?.charAt(0) || 'U'}
                           </span>
                         </div>
                       )}
