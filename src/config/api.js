@@ -2,8 +2,8 @@
 const API_CONFIG = {
   // Backend URLs
   BACKEND_URLS: {
-    PRODUCTION: 'https://jetgo-back.onrender.com',
-    STAGING: 'https://jetgo-back.onrender.com',
+    PRODUCTION: 'https://jetgoback.onrender.com',
+    STAGING: 'https://jetgoback.onrender.com',
     LOCAL: 'http://localhost:8000'
   },
   
