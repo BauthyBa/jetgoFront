@@ -3,7 +3,27 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import Navigation from '../components/Navigation'
 import GlassCard from '../components/GlassCard'
-import { MapPin, Calendar, Star, Users, MessageCircle, ArrowLeft } from 'lucide-react'
+import API_CONFIG from '../config/api'
+import { 
+  MapPin, 
+  Calendar, 
+  Star, 
+  Users, 
+  MessageCircle, 
+  ArrowLeft, 
+  Heart, 
+  Share2, 
+  MoreHorizontal,
+  Image as ImageIcon,
+  Video,
+  Globe,
+  Lock,
+  Camera,
+  Grid3X3,
+  List,
+  Filter,
+  X
+} from 'lucide-react'
 
 const PublicProfilePage = () => {
   const { username } = useParams()
@@ -13,6 +33,15 @@ const PublicProfilePage = () => {
   const [error, setError] = useState('')
   const [userTrips, setUserTrips] = useState([])
   const [reviews, setReviews] = useState([])
+  const [userPosts, setUserPosts] = useState([])
+  const [postsLoading, setPostsLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('posts')
+  const [viewMode, setViewMode] = useState('grid')
+  const [likedPosts, setLikedPosts] = useState(new Set())
+  const [showComments, setShowComments] = useState({})
+  const [comments, setComments] = useState({})
+  const [newComment, setNewComment] = useState({})
+  const [selectedImage, setSelectedImage] = useState(null)
 
   useEffect(() => {
     async function loadPublicProfile() {
@@ -90,6 +119,9 @@ const PublicProfilePage = () => {
 
         setReviews(reviewsData || [])
 
+        // Cargar posts del usuario
+        await loadUserPosts(userData.id)
+
       } catch (e) {
         setError('Error al cargar el perfil')
         console.error('Error loading public profile:', e)
@@ -114,6 +146,155 @@ const PublicProfilePage = () => {
     if (!reviews.length) return 0
     const sum = reviews.reduce((acc, review) => acc + review.rating, 0)
     return (sum / reviews.length).toFixed(1)
+  }
+
+  // Helper function to safely get array data
+  const getArrayData = (data) => {
+    if (!data) return []
+    if (Array.isArray(data)) return data
+    if (typeof data === 'string') {
+      try {
+        // Try to parse as JSON first
+        const parsed = JSON.parse(data)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        // If not JSON, split by comma
+        return data.split(',').map(item => item.trim()).filter(Boolean)
+      }
+    }
+    return []
+  }
+
+  const loadUserPosts = async (userId) => {
+    try {
+      setPostsLoading(true)
+      const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
+      console.log('Loading user posts from:', url)
+      
+      const response = await fetch(`${url}?user_id=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors',
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      setUserPosts(data.posts || [])
+    } catch (error) {
+      console.error('Error loading user posts:', error)
+      setUserPosts([])
+    } finally {
+      setPostsLoading(false)
+    }
+  }
+
+  const likePost = async (postId) => {
+    try {
+      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/like/`
+      console.log('Liking post at:', url)
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: profile?.id }),
+        mode: 'cors',
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('Like response:', data)
+      
+      // Update liked posts state
+      if (data.action === 'liked') {
+        setLikedPosts(prev => new Set([...prev, postId]))
+      } else if (data.action === 'unliked') {
+        setLikedPosts(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(postId)
+          return newSet
+        })
+      }
+      
+      // Reload posts to update like count
+      loadUserPosts(profile?.id)
+      
+    } catch (error) {
+      console.error('Error liking post:', error)
+    }
+  }
+
+  const loadComments = async (postId) => {
+    try {
+      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/comments/`
+      console.log('Loading comments from:', url)
+      
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      setComments(prev => ({ ...prev, [postId]: data.comments || [] }))
+      
+    } catch (error) {
+      console.error('Error loading comments:', error)
+    }
+  }
+
+  const createComment = async (postId) => {
+    try {
+      if (!newComment[postId]?.trim()) return
+      
+      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/comments/`
+      console.log('Creating comment at:', url)
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          user_id: profile?.id,
+          content: newComment[postId]
+        }),
+        mode: 'cors',
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+      
+      // Clear comment input
+      setNewComment(prev => ({ ...prev, [postId]: '' }))
+      
+      // Reload comments
+      loadComments(postId)
+      
+    } catch (error) {
+      console.error('Error creating comment:', error)
+    }
+  }
+
+  const toggleComments = (postId) => {
+    setShowComments(prev => ({ ...prev, [postId]: !prev[postId] }))
+    if (!showComments[postId] && !comments[postId]) {
+      loadComments(postId)
+    }
   }
 
   if (loading) {
@@ -263,11 +444,11 @@ const PublicProfilePage = () => {
               )}
 
               {/* Intereses */}
-              {profile.interests && profile.interests.length > 0 && (
+              {getArrayData(profile.interests).length > 0 && (
                 <div>
                   <h3 className="text-white font-semibold mb-2">Intereses</h3>
                   <div className="flex flex-wrap gap-2">
-                    {profile.interests.map((interest, index) => (
+                    {getArrayData(profile.interests).map((interest, index) => (
                       <span
                         key={index}
                         className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm"
@@ -280,11 +461,11 @@ const PublicProfilePage = () => {
               )}
 
               {/* Estilos de viaje favoritos */}
-              {profile.favorite_trips && profile.favorite_trips.length > 0 && (
+              {getArrayData(profile.favorite_trips).length > 0 && (
                 <div>
                   <h3 className="text-white font-semibold mb-2">Estilos de viaje</h3>
                   <div className="flex flex-wrap gap-2">
-                    {profile.favorite_trips.map((style, index) => (
+                    {getArrayData(profile.favorite_trips).map((style, index) => (
                       <span
                         key={index}
                         className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm"
@@ -299,15 +480,269 @@ const PublicProfilePage = () => {
           </div>
         </GlassCard>
 
-        {/* Viajes recientes */}
-        {userTrips.length > 0 && (
+        {/* Tabs de contenido */}
           <GlassCard className="mb-6">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Viajes recientes
-            </h2>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex space-x-1 bg-slate-800/50 rounded-lg p-1">
+              <button
+                onClick={() => setActiveTab('posts')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'posts'
+                    ? 'bg-emerald-500 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Posts ({userPosts.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('trips')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'trips'
+                    ? 'bg-emerald-500 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Viajes ({userTrips.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('reviews')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'reviews'
+                    ? 'bg-emerald-500 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Reseñas ({reviews.length})
+              </button>
+            </div>
+
+            {/* Controles de vista para posts */}
+            {activeTab === 'posts' && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded-lg transition-colors ${
+                    viewMode === 'grid'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Grid3X3 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-lg transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Contenido de posts */}
+          {activeTab === 'posts' && (
+            <div>
+              {postsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400 mx-auto mb-4"></div>
+                    <p className="text-slate-300">Cargando posts...</p>
+                  </div>
+                </div>
+              ) : userPosts.length > 0 ? (
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
+                  {userPosts.map((post) => (
+                    <div key={post.id} className="bg-slate-800/50 rounded-lg overflow-hidden">
+                      {post.file_url && (
+                        <div className="relative group">
+                          {post.file_type === 'image' ? (
+                            <div className="relative overflow-hidden cursor-pointer">
+                              <img
+                                src={post.file_url}
+                                alt="Post content"
+                                className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+                                onClick={() => setSelectedImage(post.file_url)}
+                                onError={(e) => {
+                                  e.target.style.display = 'none'
+                                  e.target.nextSibling.style.display = 'flex'
+                                }}
+                              />
+                              <div className="w-full h-48 bg-slate-700 flex items-center justify-center hidden">
+                                <ImageIcon className="w-12 h-12 text-slate-400" />
+                              </div>
+                              {/* Overlay de zoom */}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Camera className="w-8 h-8 text-white" />
+                                </div>
+                              </div>
+                            </div>
+                          ) : post.file_type === 'video' ? (
+                            <div className="w-full h-48 bg-slate-700 flex items-center justify-center">
+                              <Video className="w-12 h-12 text-slate-400" />
+                            </div>
+                          ) : (
+                            <div className="w-full h-48 bg-slate-700 flex items-center justify-center">
+                              <ImageIcon className="w-12 h-12 text-slate-400" />
+                            </div>
+                          )}
+                          
+                          {/* Indicador de privacidad */}
+                          <div className="absolute top-2 right-2">
+                            {post.is_public ? (
+                              <Globe className="w-4 h-4 text-green-400" />
+                            ) : (
+                              <Lock className="w-4 h-4 text-yellow-400" />
+                            )}
+                          </div>
+                          
+                          {/* Overlay con información del archivo */}
+                          <div className="absolute bottom-2 left-2 bg-black/50 rounded px-2 py-1">
+                            <span className="text-white text-xs">
+                              {post.file_type === 'image' ? '📷 Imagen' : 
+                               post.file_type === 'video' ? '🎥 Video' : 
+                               '📎 Archivo'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center">
+                              <span className="text-white font-semibold text-sm">
+                                {[profile?.nombre, profile?.apellido].filter(Boolean).join(' ').charAt(0) || 'U'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-white font-semibold text-sm">
+                                {[profile?.nombre, profile?.apellido].filter(Boolean).join(' ') || 'Usuario'}
+                              </p>
+                              <p className="text-slate-400 text-xs">
+                                {new Date(post.created_at).toLocaleDateString('es-ES', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          <button className="text-slate-400 hover:text-white">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {post.content && (
+                          <p className="text-slate-300 text-sm mb-3 whitespace-pre-wrap">
+                            {post.content}
+                          </p>
+                        )}
+
+                        {post.location && (
+                          <div className="flex items-center gap-1 text-slate-400 text-xs mb-3">
+                            <MapPin className="w-3 h-3" />
+                            <span>{post.location}</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <button
+                              onClick={() => likePost(post.id)}
+                              className={`flex items-center gap-1 text-sm transition-colors ${
+                                likedPosts.has(post.id)
+                                  ? 'text-red-400'
+                                  : 'text-slate-400 hover:text-red-400'
+                              }`}
+                            >
+                              <Heart className={`w-4 h-4 ${likedPosts.has(post.id) ? 'fill-current' : ''}`} />
+                              <span>{post.likes_count || 0}</span>
+                            </button>
+                            
+                            <button
+                              onClick={() => toggleComments(post.id)}
+                              className="flex items-center gap-1 text-slate-400 hover:text-white text-sm transition-colors"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              <span>{post.comments_count || 0}</span>
+                            </button>
+                            
+                            <button className="flex items-center gap-1 text-slate-400 hover:text-white text-sm transition-colors">
+                              <Share2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Comentarios */}
+                        {showComments[post.id] && (
+                          <div className="mt-4 border-t border-slate-700 pt-4">
+                            <div className="space-y-3 mb-4">
+                              {comments[post.id]?.map((comment) => (
+                                <div key={comment.id} className="flex items-start gap-3">
+                                  <div className="w-6 h-6 rounded-full bg-slate-600 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-white font-semibold text-xs">
+                                      {comment.user?.name?.charAt(0) || 'U'}
+                                    </span>
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-white text-sm font-medium">
+                                      {comment.user?.name || 'Usuario'}
+                                    </p>
+                                    <p className="text-slate-300 text-sm">{comment.content}</p>
+                                    <p className="text-slate-400 text-xs mt-1">
+                                      {new Date(comment.created_at).toLocaleDateString('es-ES')}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Escribe un comentario..."
+                                value={newComment[post.id] || ''}
+                                onChange={(e) => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400"
+                                onKeyPress={(e) => e.key === 'Enter' && createComment(post.id)}
+                              />
+                              <button
+                                onClick={() => createComment(post.id)}
+                                className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                              >
+                                Enviar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Camera className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                  <h3 className="text-white font-semibold mb-2">No hay posts aún</h3>
+                  <p className="text-slate-400 text-sm">
+                    {[profile?.nombre, profile?.apellido].filter(Boolean).join(' ') || 'Este usuario'} no ha compartido ningún post todavía.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contenido de viajes */}
+          {activeTab === 'trips' && (
+            <div>
+              {userTrips.length > 0 ? (
             <div className="space-y-3">
-              {userTrips.slice(0, 3).map((trip) => (
+                  {userTrips.map((trip) => (
                 <div key={trip.id} className="bg-slate-800/50 rounded-lg p-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -325,16 +760,22 @@ const PublicProfilePage = () => {
                 </div>
               ))}
             </div>
-          </GlassCard>
-        )}
+              ) : (
+                <div className="text-center py-12">
+                  <Users className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                  <h3 className="text-white font-semibold mb-2">No hay viajes</h3>
+                  <p className="text-slate-400 text-sm">
+                    {[profile?.nombre, profile?.apellido].filter(Boolean).join(' ') || 'Este usuario'} no ha creado ningún viaje todavía.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* Reseñas recientes */}
-        {reviews.length > 0 && (
-          <GlassCard>
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Star className="w-5 h-5" />
-              Reseñas recibidas
-            </h2>
+          {/* Contenido de reseñas */}
+          {activeTab === 'reviews' && (
+            <div>
+              {reviews.length > 0 ? (
             <div className="space-y-4">
               {reviews.map((review) => (
                 <div key={review.id} className="bg-slate-800/50 rounded-lg p-4">
@@ -373,8 +814,18 @@ const PublicProfilePage = () => {
                 </div>
               ))}
             </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                  <h3 className="text-white font-semibold mb-2">No hay reseñas</h3>
+                  <p className="text-slate-400 text-sm">
+                    {[profile?.nombre, profile?.apellido].filter(Boolean).join(' ') || 'Este usuario'} no ha recibido reseñas todavía.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
           </GlassCard>
-        )}
 
         {/* Botón de contacto */}
         <div className="mt-6 text-center">
@@ -384,6 +835,25 @@ const PublicProfilePage = () => {
           </button>
         </div>
       </div>
+
+      {/* Modal para ver imagen en tamaño completo */}
+      {selectedImage && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="relative max-w-4xl max-h-full">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-colors z-10"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={selectedImage}
+              alt="Imagen ampliada"
+              className="max-w-full max-h-full object-contain rounded-lg"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
