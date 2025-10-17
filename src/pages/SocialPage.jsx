@@ -1,43 +1,34 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import API_CONFIG from '@/config/api'
-import { 
-  Heart, 
-  MessageCircle, 
-  Share, 
-  MoreHorizontal, 
-  Plus, 
-  Camera,
-  Users,
-  Bell,
-  Search,
-  Send,
-  Image as ImageIcon,
-  Video,
-  MapPin,
-  Globe,
-  Lock
-} from 'lucide-react'
+import Navigation from '@/components/Navigation'
 
 export default function SocialPage() {
+  const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [posts, setPosts] = useState([])
   const [stories, setStories] = useState([])
+  const [suggestedUsers, setSuggestedUsers] = useState([])
+  const [suggestedTrips, setSuggestedTrips] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('feed')
-  const [newPostContent, setNewPostContent] = useState('')
-  const [newPostLocation, setNewPostLocation] = useState('')
-  const [showCreatePost, setShowCreatePost] = useState(false)
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [filePreview, setFilePreview] = useState(null)
-  const [error, setError] = useState(null)
+  const [likedPosts, setLikedPosts] = useState(new Set())
   const [comments, setComments] = useState({})
   const [showComments, setShowComments] = useState({})
   const [newComment, setNewComment] = useState({})
-  const [likedPosts, setLikedPosts] = useState(new Set())
   const [showShareModal, setShowShareModal] = useState(false)
   const [selectedPost, setSelectedPost] = useState(null)
   const [userChats, setUserChats] = useState([])
+  const [showStoryModal, setShowStoryModal] = useState(false)
+  const [storyFile, setStoryFile] = useState(null)
+  const [storyPreview, setStoryPreview] = useState(null)
+  const [storyContent, setStoryContent] = useState('')
+  const [showEmojiPicker, setShowEmojiPicker] = useState({})
+  const [uploadingStory, setUploadingStory] = useState(false)
+  const [showStoryViewer, setShowStoryViewer] = useState(false)
+  const [currentStory, setCurrentStory] = useState(null)
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(0)
 
   useEffect(() => {
     getCurrentUser()
@@ -46,15 +37,35 @@ export default function SocialPage() {
   }, [])
 
   useEffect(() => {
-    if (user) {
-      loadUserChats()
+    if (user?.id) {
+      loadSuggestions()
     }
   }, [user])
 
   const getCurrentUser = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (authUser) {
+        // Obtener datos completos del usuario desde la tabla User
+        const { data: userData, error } = await supabase
+          .from('User')
+          .select('userid, nombre, apellido, avatar_url, bio')
+          .eq('userid', authUser.id)
+          .single()
+        
+        if (error) {
+          console.error('Error fetching user data:', error)
+          // Si no hay datos en User, usar solo authUser
+          setUser(authUser)
+        } else {
+          // Combinar datos de auth con datos de la tabla User
+          setUser({
+            ...authUser,
+            ...userData,
+            id: authUser.id // Mantener id para compatibilidad
+          })
+        }
+      }
     } catch (error) {
       console.error('Error getting user:', error)
     }
@@ -62,29 +73,14 @@ export default function SocialPage() {
 
   const loadPosts = async () => {
     try {
-      setLoading(true)
-      setError(null)
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
-      console.log('Loading posts from:', url)
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        mode: 'cors',
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      const response = await fetch(url)
+      if (response.ok) {
+        const data = await response.json()
+        setPosts(data.posts || [])
       }
-      
-      const data = await response.json()
-      setPosts(data.posts || [])
     } catch (error) {
       console.error('Error loading posts:', error)
-      setError(error.message)
     } finally {
       setLoading(false)
     }
@@ -93,359 +89,260 @@ export default function SocialPage() {
   const loadStories = async () => {
     try {
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.STORIES)
-      console.log('Loading stories from:', url)
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        mode: 'cors',
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      const response = await fetch(url)
+      if (response.ok) {
+        const data = await response.json()
+        setStories(data.stories || [])
       }
-      
-      const data = await response.json()
-      setStories(data.stories || [])
     } catch (error) {
       console.error('Error loading stories:', error)
-      setError(error.message)
     }
   }
 
-  const handleFileSelect = (event) => {
-    const file = event.target.files[0]
-    if (file) {
-      setSelectedFile(file)
-      const reader = new FileReader()
-      reader.onload = (e) => setFilePreview(e.target.result)
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const createPost = async () => {
+  const loadSuggestions = async () => {
     try {
-      if (!user?.id) {
-        alert('Debes estar logueado para crear posts')
-        return
-      }
-      
-      setError(null)
-      const formData = new FormData()
-      formData.append('user_id', user.id)
-      formData.append('content', newPostContent)
-      formData.append('location', newPostLocation)
-      formData.append('is_public', 'true')
-      
-      if (selectedFile) {
-        formData.append('file', selectedFile)
-      }
+      if (!user?.userid) return
 
-      const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
-      console.log('Creating post at:', url)
+      // Cargar solicitudes de amistad aceptadas (usar friend_requests, no friendships)
+      const { data: acceptedRequests } = await supabase
+        .from('friend_requests')
+        .select('sender_id, receiver_id')
+        .or(`sender_id.eq.${user.userid},receiver_id.eq.${user.userid}`)
+        .eq('status', 'accepted')
       
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        mode: 'cors',
+      const friendIds = new Set()
+      acceptedRequests?.forEach(req => {
+        friendIds.add(req.sender_id === user.userid ? req.receiver_id : req.sender_id)
       })
+      friendIds.add(user.userid) // Excluirse a sí mismo
 
-      if (response.ok) {
-        setNewPostContent('')
-        setNewPostLocation('')
-        setSelectedFile(null)
-        setFilePreview(null)
-        setShowCreatePost(false)
-        loadPosts()
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      // Cargar usuarios sugeridos (no amigos)
+      let query = supabase
+        .from('User')
+        .select('userid, nombre, apellido, avatar_url, bio')
+      
+      // Solo excluir amigos si hay alguno
+      if (friendIds.size > 0) {
+        query = query.not('userid', 'in', `(${Array.from(friendIds).join(',')})`)
       }
+      
+      const { data: users } = await query.limit(5)
+      setSuggestedUsers(users || [])
+
+      // Cargar viajes del usuario (usar trip_members, no trip_participants)
+      const { data: userTripMemberships } = await supabase
+        .from('trip_members')
+        .select('trip_id')
+        .eq('user_id', user.userid)
+      
+      const userTripIds = userTripMemberships?.map(t => t.trip_id) || []
+
+      // Sugerir viajes similares o populares
+      let tripQuery = supabase
+        .from('trips')
+        .select('id, name, destination, image_url, budget_min, budget_max')
+      
+      // Solo excluir viajes del usuario si tiene alguno
+      if (userTripIds.length > 0) {
+        tripQuery = tripQuery.not('id', 'in', `(${userTripIds.join(',')})`)
+      }
+      
+      const { data: trips } = await tripQuery.limit(3)
+      setSuggestedTrips(trips || [])
     } catch (error) {
-      console.error('Error creating post:', error)
-      setError(error.message)
+      console.error('Error loading suggestions:', error)
     }
   }
 
   const likePost = async (postId) => {
     try {
       const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/like/`
-      console.log('Liking post at:', url)
-      
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: user.id }),
-        mode: 'cors',
       })
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.action === 'liked') {
+          setLikedPosts(prev => new Set([...prev, postId]))
+        } else {
+          setLikedPosts(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(postId)
+            return newSet
+          })
+        }
+        loadPosts()
       }
-      
-      const data = await response.json()
-      console.log('Like response:', data)
-      
-      // Update liked posts state
-      if (data.action === 'liked') {
-        setLikedPosts(prev => new Set([...prev, postId]))
-      } else if (data.action === 'unliked') {
-        setLikedPosts(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(postId)
-          return newSet
-        })
-      }
-      
-      // Reload posts to update like count
-      loadPosts()
-      
     } catch (error) {
       console.error('Error liking post:', error)
-      setError(error.message)
+    }
+  }
+
+  const toggleComments = async (postId) => {
+    setShowComments(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }))
+    
+    // Cargar comentarios si aún no están cargados
+    if (!comments[postId]) {
+      await loadComments(postId)
     }
   }
 
   const loadComments = async (postId) => {
     try {
       const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/comments/`
-      console.log('Loading comments from:', url)
-      
       const response = await fetch(url)
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      if (response.ok) {
+        const data = await response.json()
+        setComments(prev => ({
+          ...prev,
+          [postId]: data.comments || []
+        }))
       }
-      
-      const data = await response.json()
-      setComments(prev => ({ ...prev, [postId]: data.comments || [] }))
-      
     } catch (error) {
       console.error('Error loading comments:', error)
-      setError(error.message)
     }
   }
 
   const createComment = async (postId) => {
     try {
-      if (!user || !user.id) {
-        setError('Debes iniciar sesión para comentar')
+      if (!user?.id) {
+        alert('Debes iniciar sesión para comentar')
         return
       }
-      
+
       const commentText = newComment[postId]?.trim()
       if (!commentText) return
-      
+
       const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/comments/`
-      console.log('Creating comment at:', url)
-      
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           user_id: user.id,
-          content: commentText 
-        }),
-        mode: 'cors',
+          content: commentText
+        })
       })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+
+      if (response.ok) {
+        // Limpiar input
+        setNewComment(prev => ({
+          ...prev,
+          [postId]: ''
+        }))
+        // Recargar comentarios
+        await loadComments(postId)
       }
-      
-      const data = await response.json()
-      console.log('Comment created:', data)
-      
-      // Clear comment input
-      setNewComment(prev => ({ ...prev, [postId]: '' }))
-      
-      // Reload comments
-      loadComments(postId)
-      
     } catch (error) {
       console.error('Error creating comment:', error)
-      setError(error.message)
     }
   }
 
-  const toggleComments = (postId) => {
-    setShowComments(prev => ({ ...prev, [postId]: !prev[postId] }))
-    if (!showComments[postId] && !comments[postId]) {
-      loadComments(postId)
-    }
-  }
-
-  const sharePost = async (postId) => {
-    try {
-      const post = posts.find(p => p.id === postId)
-      if (!post) return
-      
-      setSelectedPost(post)
-      setShowShareModal(true)
-    } catch (error) {
-      console.error('Error opening share modal:', error)
-      setError('Error al abrir el modal de compartir')
-    }
+  const sharePost = async (post) => {
+    setSelectedPost(post)
+    setShowShareModal(true)
+    await loadUserChats()
   }
 
   const loadUserChats = async () => {
     try {
-      if (!user) return
-      
-      // Primero obtener los room_ids donde el usuario es miembro
-      const { data: memberData, error: memberError } = await supabase
+      if (!user?.id) return
+
+      // Obtener IDs de rooms del usuario
+      const { data: memberData } = await supabase
         .from('chat_members')
         .select('room_id')
         .eq('user_id', user.id)
-      
-      if (memberError) {
-        console.error('Error loading chat members:', memberError)
-        return
-      }
-      
-      const roomIds = memberData.map(m => m.room_id)
+
+      const roomIds = memberData?.map(m => m.room_id) || []
       if (roomIds.length === 0) {
         setUserChats([])
         return
       }
-      
-      // Cargar chats de viajes
-      const { data: tripsData, error: tripsError } = await supabase
+
+      // Obtener chats de viajes
+      const { data: tripsData } = await supabase
         .from('chat_rooms')
-        .select(`
-          id,
-          name,
-          trip_id,
-          is_private,
-          trips(name, destination)
-        `)
+        .select(`id, name, trip_id, is_private, trips(name, destination)`)
         .in('id', roomIds)
         .not('trip_id', 'is', null)
-      
-      // Cargar chats privados
-      const { data: privateData, error: privateError } = await supabase
+
+      const tripChats = (tripsData || []).map(room => ({
+        id: room.id,
+        name: room.trips?.destination ? room.trips.destination.split(',')[0].trim() : room.name,
+        type: 'trip'
+      }))
+
+      // Obtener chats privados
+      const { data: privateData } = await supabase
         .from('chat_rooms')
-        .select(`
-          id,
-          name,
-          is_private
-        `)
+        .select('id, name, is_private')
         .in('id', roomIds)
         .eq('is_private', true)
-      
-      const allChats = []
-      
-      // Procesar chats de viajes
-      if (tripsData && !tripsError) {
-        tripsData.forEach(chat => {
-          // Usar solo el destino principal, no toda la dirección
-          let chatName = 'Viaje'
-          if (chat.trips) {
-            if (chat.trips.destination) {
-              // Extraer solo la ciudad (primera parte antes de coma o guión)
-              const destination = chat.trips.destination.split(/[,-]/)[0].trim()
-              chatName = destination
-            } else if (chat.trips.name) {
-              chatName = chat.trips.name
-            }
-          } else if (chat.name) {
-            chatName = chat.name
-          }
-          
-          allChats.push({
-            id: chat.id,
-            name: chatName,
-            type: 'trip',
-            icon: '✈️',
-            color: 'blue'
-          })
-        })
-      }
-      
-      // Procesar chats privados - necesitamos obtener info del otro usuario
-      if (privateData && !privateError) {
-        for (const chat of privateData) {
-          // Obtener miembros del chat
-          const { data: membersData } = await supabase
-            .from('chat_members')
-            .select('user_id')
-            .eq('room_id', chat.id)
-          
-          if (membersData && membersData.length > 0) {
-            const otherUserId = membersData.find(m => m.user_id !== user.id)?.user_id
-            
-            if (otherUserId) {
-              // Obtener info del otro usuario
-              const { data: userData } = await supabase
-                .from('User')
-                .select('nombre, apellido, avatar_url')
-                .eq('userid', otherUserId)
-                .single()
-              
-              // Usar SIEMPRE el nombre del usuario, no el nombre del chat
-              const userName = userData ? `${userData.nombre} ${userData.apellido}`.trim() : 'Usuario'
-              allChats.push({
-                id: chat.id,
-                name: userName, // Directamente el nombre del usuario
-                type: 'private',
-                icon: '👤',
-                color: 'green',
-                avatar: userData?.avatar_url
-              })
-            }
+
+      const privateChats = []
+      for (const room of privateData || []) {
+        // Obtener el otro usuario del chat
+        const { data: members } = await supabase
+          .from('chat_members')
+          .select('user_id')
+          .eq('room_id', room.id)
+          .neq('user_id', user.id)
+
+        if (members && members.length > 0) {
+          const otherUserId = members[0].user_id
+          const { data: userData } = await supabase
+            .from('User')
+            .select('nombre, apellido, avatar_url')
+            .eq('userid', otherUserId)
+            .single()
+
+          if (userData) {
+            privateChats.push({
+              id: room.id,
+              name: `${userData.nombre} ${userData.apellido}`,
+              type: 'private',
+              avatar: userData.avatar_url
+            })
           }
         }
       }
-      
-      console.log('Loaded chats:', allChats)
-      setUserChats(allChats)
+
+      setUserChats([...tripChats, ...privateChats])
     } catch (error) {
-      console.error('Error loading user chats:', error)
+      console.error('Error loading chats:', error)
     }
   }
 
-  const shareToChat = async (chatId, chatName) => {
+  const shareToChat = async (chatId) => {
     try {
-      if (!selectedPost || !user) return
-      
-      // Construir el mensaje con metadata del post
-      const postUrl = `${window.location.origin}/social?post=${selectedPost.id}`
-      const postPreview = selectedPost.content ? selectedPost.content.substring(0, 150) : 'Post compartido'
-      
-      // Crear metadata JSON para el post compartido
+      if (!selectedPost || !user?.id) return
+
       const sharedPostData = {
-        type: 'shared_post',
         post_id: selectedPost.id,
-        post_url: postUrl,
-        content: postPreview,
+        content: selectedPost.content,
         author: {
-          nombre: selectedPost.author?.nombre || 'Usuario',
-          apellido: selectedPost.author?.apellido || '',
-          avatar_url: selectedPost.author?.avatar_url || null
+          nombre: selectedPost.author?.nombre,
+          apellido: selectedPost.author?.apellido,
+          avatar_url: selectedPost.author?.avatar_url
         },
         media: {
           image_url: selectedPost.image_url,
           video_url: selectedPost.video_url
         },
-        likes_count: selectedPost.likes_count,
-        comments_count: selectedPost.comments_count
+        likes_count: selectedPost.likes_count || 0,
+        comments_count: selectedPost.comments_count || 0
       }
-      
-      // Mensaje de texto simple como fallback
-      const messageContent = `📱 Post compartido de ${selectedPost.author?.nombre || 'Usuario'} ${selectedPost.author?.apellido || ''}`
-      
-      // Enviar mensaje al chat con metadata en formato JSON
-      const { data, error } = await supabase
+
+      const messageContent = `📱 Post compartido de ${selectedPost.author?.nombre} ${selectedPost.author?.apellido}`
+
+      const { error } = await supabase
         .from('chat_messages')
         .insert({
           id: crypto.randomUUID(),
@@ -453,538 +350,829 @@ export default function SocialPage() {
           user_id: user.id,
           content: messageContent,
           created_at: new Date().toISOString(),
-          // Guardar metadata del post compartido como JSON
           file_url: JSON.stringify(sharedPostData),
           file_type: 'shared_post',
           is_file: false
         })
-      
-      if (error) {
-        console.error('Error sending message:', error)
-        setError('Error al compartir en el chat')
-        return
+
+      if (!error) {
+        alert('Post compartido exitosamente!')
+        setShowShareModal(false)
+        setSelectedPost(null)
+      } else {
+        console.error('Error sharing post:', error)
+        alert('Error al compartir el post')
       }
-      
-      // Cerrar modal y mostrar confirmación
-      setShowShareModal(false)
-      setSelectedPost(null)
-      alert(`✅ Post compartido en ${chatName}`)
-      
     } catch (error) {
       console.error('Error sharing to chat:', error)
-      setError('Error al compartir en el chat')
+      alert('Error al compartir el post')
     }
   }
 
-  const formatTimeAgo = (dateString) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInSeconds = Math.floor((now - date) / 1000)
-    
-    if (diffInSeconds < 60) return 'hace un momento'
-    if (diffInSeconds < 3600) return `hace ${Math.floor(diffInSeconds / 60)}m`
-    if (diffInSeconds < 86400) return `hace ${Math.floor(diffInSeconds / 3600)}h`
-    if (diffInSeconds < 2592000) return `hace ${Math.floor(diffInSeconds / 86400)}d`
-    return date.toLocaleDateString()
+  const openStoryModal = () => {
+    setShowStoryModal(true)
+  }
+
+  const closeStoryModal = () => {
+    setShowStoryModal(false)
+    setStoryFile(null)
+    setStoryPreview(null)
+    setStoryContent('')
+  }
+
+  const handleStoryFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        alert('Solo se permiten imágenes y videos')
+        return
+      }
+
+      setStoryFile(file)
+      
+      // Crear preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setStoryPreview(reader.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const createStory = async () => {
+    try {
+      if (!user?.id) {
+        alert('Debes iniciar sesión para crear una historia')
+        return
+      }
+
+      if (!storyFile) {
+        alert('Debes seleccionar una imagen o video')
+        return
+      }
+
+      setUploadingStory(true)
+
+      // Crear FormData
+      const formData = new FormData()
+      formData.append('user_id', user.id)
+      formData.append('content', storyContent)
+      formData.append('file', storyFile)
+
+      // Enviar al backend
+      const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.STORIES)
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('Historia creada:', result)
+        alert('¡Historia creada exitosamente!')
+        closeStoryModal()
+        // Recargar stories después de un pequeño delay para asegurar que se guardó
+        setTimeout(() => {
+          loadStories()
+        }, 500)
+      } else {
+        const errorData = await response.json()
+        console.error('Error al crear historia:', errorData)
+        alert(`Error: ${errorData.error || 'No se pudo crear la historia'}`)
+      }
+    } catch (error) {
+      console.error('Error creating story:', error)
+      alert('Error al crear la historia')
+    } finally {
+      setUploadingStory(false)
+    }
+  }
+
+  const insertEmoji = (postId, emoji) => {
+    setNewComment(prev => ({
+      ...prev,
+      [postId]: (prev[postId] || '') + emoji
+    }))
+    setShowEmojiPicker(prev => ({
+      ...prev,
+      [postId]: false
+    }))
+  }
+
+  const goToUserProfile = (userId) => {
+    navigate(`/profile/${userId}`)
+  }
+
+  const openStoryViewer = (storyIndex) => {
+    if (stories.length > 0) {
+      setCurrentStoryIndex(storyIndex)
+      setCurrentStory(stories[storyIndex])
+      setShowStoryViewer(true)
+    }
+  }
+
+  const closeStoryViewer = () => {
+    setShowStoryViewer(false)
+    setCurrentStory(null)
+    setCurrentStoryIndex(0)
+  }
+
+  const nextStory = () => {
+    if (currentStoryIndex < stories.length - 1) {
+      const nextIndex = currentStoryIndex + 1
+      setCurrentStoryIndex(nextIndex)
+      setCurrentStory(stories[nextIndex])
+    } else {
+      closeStoryViewer()
+    }
+  }
+
+  const prevStory = () => {
+    if (currentStoryIndex > 0) {
+      const prevIndex = currentStoryIndex - 1
+      setCurrentStoryIndex(prevIndex)
+      setCurrentStory(stories[prevIndex])
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Header */}
-      <div className="sticky top-0 z-40 glass-nav border-b border-slate-700/50">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-white">Social</h1>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setActiveTab('feed')}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                    activeTab === 'feed' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'text-slate-400 hover:text-white'
-                  }`}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Navigation Component */}
+      <Navigation />
+
+      <div className="pt-20 pb-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-8">
+            {/* Feed Principal */}
+            <div className="w-full max-w-[630px] mx-auto xl:mx-0">
+              {/* Stories */}
+              <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl">
+              <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1">
+                {/* Tu Story */}
+                <div 
+                  onClick={openStoryModal}
+                  className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
                 >
-                  Feed
-                </button>
-                <button
-                  onClick={() => setActiveTab('stories')}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                    activeTab === 'stories' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Stories
-                </button>
-              </div>
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-pink-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-blue-500/30">
+                      <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
+                        <div className="w-full h-full rounded-full overflow-hidden">
+                          {user?.avatar_url ? (
+                            <img 
+                              src={user.avatar_url} 
+                              alt={user.nombre || 'Tu perfil'}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                              <span className="text-white font-bold text-xl">
+                                {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                              </span>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <button className="p-2 rounded-full bg-slate-700/50 text-slate-300 hover:bg-slate-600/50 transition-colors">
-                <Search className="w-5 h-5" />
-              </button>
-              <button className="p-2 rounded-full bg-slate-700/50 text-slate-300 hover:bg-slate-600/50 transition-colors">
-                <Bell className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setShowCreatePost(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Crear
-              </button>
-            </div>
+                          )}
           </div>
         </div>
       </div>
-
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-            <div className="flex items-center gap-2 text-red-400">
-              <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-              <span className="font-medium">Error:</span>
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="mt-2 text-sm text-red-300 hover:text-red-200"
-            >
-              Cerrar
-            </button>
-          </div>
-        )}
-
-        {activeTab === 'feed' && (
-          <div className="space-y-6">
-            {/* Stories Bar */}
-            {stories.length > 0 && (
-              <div className="glass-card p-4">
-                <div className="flex items-center gap-4 overflow-x-auto pb-2">
-                  <div className="flex-shrink-0 text-center">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg mb-1">
-                      {user?.user_metadata?.full_name?.charAt(0) || 'U'}
+                    <div className="absolute bottom-0 right-0 w-7 h-7 bg-blue-500 rounded-full border-3 border-slate-900 flex items-center justify-center shadow-lg">
+                      <Plus className="w-4 h-4 text-white" />
                     </div>
-                    <p className="text-xs text-slate-400">Tu historia</p>
                   </div>
-                  {stories.map((story) => (
-                    <div key={story.id} className="flex-shrink-0 text-center">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-white font-bold text-lg mb-1">
-                        {story.author.nombre.charAt(0)}
-                      </div>
-                      <p className="text-xs text-slate-400 truncate w-16">
-                        {story.author.nombre}
-                      </p>
-                    </div>
-                  ))}
+                  <span className="text-xs text-slate-200 font-semibold">Tu historia</span>
                 </div>
+
+                {/* Stories de otros usuarios */}
+                {stories.map((story, index) => (
+                  <div 
+                    key={story.id} 
+                    onClick={() => openStoryViewer(index)}
+                    className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-pink-500/30">
+                      <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
+                        <div className="w-full h-full rounded-full overflow-hidden">
+                          {story.author?.avatar_url ? (
+                            <img 
+                              src={story.author.avatar_url} 
+                              alt={story.author.nombre}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-pink-600 to-orange-600 flex items-center justify-center">
+                              <span className="text-white font-bold text-xl">
+                                {story.author?.nombre?.charAt(0) || 'U'}
+                              </span>
               </div>
             )}
-
-            {/* Posts */}
-            {loading ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="glass-card p-6 animate-pulse">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-full bg-slate-700"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-slate-700 rounded w-32 mb-2"></div>
-                        <div className="h-3 bg-slate-700 rounded w-24"></div>
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-slate-700 rounded w-full"></div>
-                      <div className="h-4 bg-slate-700 rounded w-3/4"></div>
-                    </div>
+                    <span className="text-xs text-slate-200 font-semibold truncate w-20 text-center">
+                      {story.author?.nombre || 'Usuario'}
+                    </span>
                   </div>
                 ))}
               </div>
-            ) : posts.length > 0 ? (
-              <div className="space-y-4">
-                {posts.map((post) => (
-                  <div key={post.id} className="glass-card p-6">
+              </div>
+
+              {/* Posts Feed */}
+              <div className="space-y-6 pb-8">
+              {loading ? (
+                <div className="text-center py-20">
+                  <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-slate-400 mt-4">Cargando posts...</p>
+                </div>
+              ) : posts.length === 0 ? (
+                <div className="text-center py-24 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
+                  <div className="text-6xl mb-4">📱</div>
+                  <p className="text-slate-200 text-xl font-bold mb-2">Nada nuevo por acá</p>
+                  <p className="text-slate-400 text-sm">¡Sé el primero en compartir algo increíble!</p>
+              </div>
+            ) : (
+                posts.map((post) => (
+                  <div key={post.id} className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden hover:border-slate-600/70 transition-all duration-300 shadow-2xl hover:shadow-blue-500/10">
                     {/* Post Header */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between p-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                          {post.author.nombre.charAt(0)}
+                        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 ring-2 ring-blue-500/30 shadow-lg">
+                          {post.author?.avatar_url ? (
+                            <img 
+                              src={post.author.avatar_url} 
+                              alt={post.author.nombre}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
+                              {post.author?.nombre?.charAt(0) || 'U'}
+                            </div>
+                          )}
                         </div>
                         <div>
-                          <p className="font-medium text-white">
-                            {post.author.nombre} {post.author.apellido}
+                          <p className="text-white font-bold text-sm">
+                            {post.author?.nombre} {post.author?.apellido}
                           </p>
-                          <div className="flex items-center gap-2 text-sm text-slate-400">
-                            <span>{formatTimeAgo(post.created_at)}</span>
                             {post.location && (
-                              <>
-                                <span>•</span>
-                                <div className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3" />
-                                  <span>{post.location}</span>
-                                </div>
-                              </>
-                            )}
-                          </div>
+                            <p className="text-slate-400 text-xs">{post.location}</p>
+                          )}
                         </div>
                       </div>
-                      <button className="p-2 rounded-full hover:bg-slate-700/50 transition-colors">
-                        <MoreHorizontal className="w-5 h-5 text-slate-400" />
+                      <button className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800/50 rounded-full">
+                        <MoreHorizontal className="w-5 h-5" />
                       </button>
                     </div>
 
-                    {/* Post Content */}
-                    {post.content && (
-                      <p className="text-white mb-4 whitespace-pre-wrap">{post.content}</p>
-                    )}
-
-                    {/* Post Media */}
+                    {/* Post Image/Video */}
                     {post.image_url && (
-                      <div className="mb-4">
+                      <div className="w-full aspect-square bg-slate-950">
                         <img
                           src={post.image_url}
-                          alt="Post content"
-                          className="w-full rounded-lg"
+                          alt="Post"
+                          className="w-full h-full object-cover"
                         />
                       </div>
                     )}
-
                     {post.video_url && (
-                      <div className="mb-4">
+                      <div className="w-full aspect-square bg-slate-950">
                         <video
                           src={post.video_url}
                           controls
-                          className="w-full rounded-lg"
+                          className="w-full h-full object-cover"
                         />
                       </div>
                     )}
 
                     {/* Post Actions */}
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
-                      <div className="flex items-center gap-6">
+                    <div className="px-5 pb-4">
+                      <div className="flex items-center justify-between mb-4 pt-2">
+                        <div className="flex items-center gap-5">
                         <button
                           onClick={() => likePost(post.id)}
-                          className={`flex items-center gap-2 transition-colors ${
-                            likedPosts.has(post.id) 
-                              ? 'text-red-500' 
-                              : 'text-slate-400 hover:text-red-500'
-                          }`}
-                        >
-                          <Heart className={`w-5 h-5 ${likedPosts.has(post.id) ? 'fill-current' : ''}`} />
-                          <span>{post.likes_count}</span>
+                            className="hover:scale-125 transition-all duration-200 active:scale-95"
+                          >
+                            <Heart 
+                              className={`w-7 h-7 ${likedPosts.has(post.id) ? 'fill-red-500 text-red-500 animate-pulse' : 'text-slate-300 hover:text-red-400'}`}
+                            />
+                          </button>
+                          <button 
+                            onClick={() => toggleComments(post.id)}
+                            className="text-slate-300 hover:text-blue-400 hover:scale-125 transition-all duration-200 active:scale-95"
+                          >
+                            <MessageCircle className="w-7 h-7" />
+                          </button>
+                          <button 
+                            onClick={() => sharePost(post)}
+                            className="text-slate-300 hover:text-emerald-400 hover:scale-125 transition-all duration-200 active:scale-95"
+                          >
+                            <Send className="w-7 h-7" />
+                          </button>
+                        </div>
+                        <button className="text-slate-300 hover:text-yellow-400 hover:scale-125 transition-all duration-200 active:scale-95">
+                          <Bookmark className="w-7 h-7" />
                         </button>
+                      </div>
+
+                      {/* Likes Count */}
+                      <p className="text-white font-bold text-sm mb-3">
+                        {post.likes_count || 0} Me gusta
+                      </p>
+
+                      {/* Post Caption */}
+                      {post.content && (
+                        <p className="text-slate-200 text-sm leading-relaxed mb-2">
+                          <span className="font-bold text-white mr-2">
+                            {post.author?.nombre}
+                          </span>
+                          {post.content}
+                        </p>
+                      )}
+
+                      {/* Comments Count */}
+                      {post.comments_count > 0 && (
                         <button 
                           onClick={() => toggleComments(post.id)}
-                          className="flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-colors"
+                          className="text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
                         >
-                          <MessageCircle className="w-5 h-5" />
-                          <span>{post.comments_count}</span>
+                          Ver los {post.comments_count} comentarios
                         </button>
+                      )}
+
+                      {/* Comments Section */}
+                      {showComments[post.id] && (
+                        <div className="mt-4 space-y-3 max-h-64 overflow-y-auto scrollbar-hide">
+                          {comments[post.id]?.map((comment, idx) => (
+                            <div key={idx} className="flex gap-3">
+                              <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
+                                {comment.author?.avatar_url ? (
+                                  <img 
+                                    src={comment.author.avatar_url} 
+                                    alt={comment.author.nombre}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-white text-xs font-bold">
+                                    {comment.author?.nombre?.charAt(0) || 'U'}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm">
+                                  <span className="font-bold text-white mr-2">
+                                    {comment.author?.nombre || 'Usuario'}
+                                  </span>
+                                  <span className="text-slate-200">{comment.content}</span>
+                                </p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  {new Date(comment.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add Comment */}
+                      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-700/50 relative">
+                        <div className="relative">
+                          <button 
+                            onClick={() => setShowEmojiPicker(prev => ({
+                              ...prev,
+                              [post.id]: !prev[post.id]
+                            }))}
+                            className="text-slate-400 hover:text-yellow-400 transition-colors"
+                          >
+                            <Smile className="w-6 h-6" />
+                          </button>
+                          
+                          {/* Emoji Picker Simple */}
+                          {showEmojiPicker[post.id] && (
+                            <div className="absolute bottom-full left-0 mb-2 bg-slate-800 border border-slate-700 rounded-xl p-3 shadow-2xl z-50 w-64">
+                              <div className="grid grid-cols-8 gap-2">
+                                {['😀', '😂', '😍', '🥰', '😎', '🤔', '😢', '😭', '😡', '👍', '👏', '🙌', '❤️', '💯', '🔥', '✨', '🎉', '🌟', '⭐', '💪', '🙏', '👌', '✌️', '🤝', '💖', '💕', '💗', '💓', '🎊', '🎈', '🌈', '☀️'].map((emoji, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => insertEmoji(post.id, emoji)}
+                                    className="text-2xl hover:scale-125 transition-transform"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <input 
+                          type="text"
+                          placeholder="Agrega un comentario..."
+                          value={newComment[post.id] || ''}
+                          onChange={(e) => setNewComment(prev => ({
+                            ...prev,
+                            [post.id]: e.target.value
+                          }))}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              createComment(post.id)
+                            }
+                          }}
+                          className="flex-1 bg-transparent text-white text-sm outline-none placeholder-slate-500 focus:placeholder-slate-400"
+                        />
                         <button 
-                          onClick={() => sharePost(post.id)}
-                          className="flex items-center gap-2 text-slate-400 hover:text-green-500 transition-colors"
+                          onClick={() => createComment(post.id)}
+                          className="text-blue-500 hover:text-blue-400 font-bold text-sm transition-colors"
                         >
-                          <Share className="w-5 h-5" />
-                          <span>Compartir</span>
+                          Publicar
                         </button>
                       </div>
                     </div>
+                  </div>
+                ))
+              )}
+              </div>
+      </div>
 
-                    {/* Comments Section */}
-                    {showComments[post.id] && (
-                      <div className="mt-4 pt-4 border-t border-slate-700/50">
-                        {/* Comments List */}
-                        {comments[post.id] && comments[post.id].length > 0 && (
-                          <div className="space-y-3 mb-4">
-                            {comments[post.id].map((comment) => (
-                              <div key={comment.id} className="flex gap-3">
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium overflow-hidden">
-                                  {comment.author.avatar_url ? (
-                                    <img 
-                                      src={comment.author.avatar_url} 
-                                      alt={`${comment.author.nombre} ${comment.author.apellido}`}
-                                      className="w-8 h-8 rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                                      {comment.author.nombre.charAt(0)}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-medium text-white text-sm">
-                                      {comment.author.nombre} {comment.author.apellido}
-                                    </span>
-                                    <span className="text-xs text-slate-400">
-                                      {formatTimeAgo(comment.created_at)}
-                                    </span>
-                                  </div>
-                                  <p className="text-slate-300 text-sm">{comment.content}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Add Comment */}
-                        <div className="flex gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                            {user?.nombre?.charAt(0) || 'U'}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                placeholder="Escribe un comentario..."
-                                value={newComment[post.id] || ''}
-                                onChange={(e) => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
-                                className="flex-1 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                onKeyPress={(e) => e.key === 'Enter' && createComment(post.id)}
-                              />
-                              <button
-                                onClick={() => createComment(post.id)}
-                                disabled={!newComment[post.id]?.trim()}
-                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              >
-                                Enviar
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+          {/* Sidebar Derecho - Sugerencias */}
+          <div className="hidden xl:block">
+            <div className="sticky top-24 space-y-5">
+              {/* Tu Perfil */}
+              <div 
+                className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl cursor-pointer hover:border-blue-500/50 transition-all duration-300 shadow-xl hover:shadow-blue-500/20 group"
+                onClick={() => navigate('/profile')}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl ring-2 ring-blue-500/30 shadow-lg group-hover:scale-110 transition-transform">
+                    {user?.avatar_url ? (
+                      <img 
+                        src={user.avatar_url} 
+                        alt={user.nombre || 'Tu perfil'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}</span>
                     )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="glass-card p-8 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
-                  <MessageCircle className="w-8 h-8 text-slate-400" />
+                  <div>
+                    <p className="text-white font-bold text-sm">
+                      {user?.nombre && user?.apellido 
+                        ? `${user.nombre} ${user.apellido}` 
+                        : user?.email?.split('@')[0] || 'Usuario'}
+                    </p>
+                    <p className="text-blue-400 text-xs font-medium">Ver perfil</p>
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">Nada nuevo por acá</h3>
-                <p className="text-slate-400 mb-6">
-                  No hay posts nuevos en tu feed. ¡Sé el primero en compartir algo!
-                </p>
-                <button
-                  onClick={() => setShowCreatePost(true)}
-                  className="px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
-                >
-                  Crear primer post
-                </button>
-              </div>
-            )}
+            </div>
+
+              {/* Sugerencias de Usuarios */}
+              <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
+                <div className="flex items-center justify-between mb-5">
+                  <p className="text-white font-bold text-sm">Sugerencias para ti</p>
+                  <button className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
+                    Ver todo
+                  </button>
+                </div>
+            <div className="space-y-4">
+                  {suggestedUsers.slice(0, 5).map((suggestedUser) => (
+                    <div key={suggestedUser.userid} className="flex items-center justify-between group">
+                      <div 
+                        onClick={() => goToUserProfile(suggestedUser.userid)}
+                        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                      >
+                        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-cyan-600 ring-2 ring-emerald-500/20 shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
+                          {suggestedUser.avatar_url ? (
+                            <img 
+                              src={suggestedUser.avatar_url} 
+                              alt={suggestedUser.nombre}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
+                              {suggestedUser.nombre?.charAt(0) || 'U'}
           </div>
         )}
-
-        {activeTab === 'stories' && (
-          <div className="space-y-6">
-            {stories.length > 0 ? (
-              <div className="glass-card p-6">
-                <h3 className="text-xl font-semibold text-white mb-4">Stories Activas</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {stories.map((story) => (
-                    <div key={story.id} className="relative">
-                      <div className="aspect-[9/16] rounded-lg overflow-hidden bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center">
-                        {story.media_type === 'image' ? (
-                          <img
-                            src={story.media_url}
-                            alt="Story"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <video
-                            src={story.media_url}
-                            className="w-full h-full object-cover"
-                            muted
-                          />
-                        )}
-                      </div>
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <div className="flex items-center gap-2 text-white text-sm">
-                          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-                            {story.author.nombre.charAt(0)}
-                          </div>
-                          <span className="truncate">{story.author.nombre}</span>
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-bold text-sm truncate">
+                            {suggestedUser.nombre} {suggestedUser.apellido}
+                          </p>
+                          <p className="text-slate-400 text-xs truncate">
+                            {suggestedUser.bio ? suggestedUser.bio.substring(0, 20) + '...' : 'Nuevo en JetGo'}
+                          </p>
+                        </div>
+                      </div>
+                      <button className="text-blue-400 hover:text-blue-300 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg">
+                        Seguir
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sugerencias de Viajes */}
+              <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
+                <div className="flex items-center justify-between mb-5">
+                  <p className="text-white font-bold text-sm">Viajes sugeridos</p>
+                  <button className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
+                    Ver todo
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {suggestedTrips.map((trip) => (
+                    <div 
+                      key={trip.id} 
+                      className="bg-slate-800/50 rounded-xl overflow-hidden cursor-pointer hover:bg-slate-800 transition-all duration-300 border border-slate-700/50 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 group"
+                      onClick={() => navigate(`/trip/${trip.id}`)}
+                    >
+                      {trip.image_url && (
+                        <div className="relative overflow-hidden">
+                          <img 
+                            src={trip.image_url} 
+                            alt={trip.name}
+                            className="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
+                        </div>
+                      )}
+                      <div className="p-3">
+                        <p className="text-white font-bold text-sm mb-1">{trip.name}</p>
+                        <p className="text-slate-400 text-xs mb-2">{trip.destination}</p>
+                        {trip.budget_min && (
+                          <div className="inline-block px-3 py-1 bg-emerald-500/20 rounded-full">
+                            <p className="text-emerald-400 text-xs font-bold">
+                              Desde ${trip.budget_min}
+                            </p>
+                </div>
+              )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-            ) : (
-              <div className="glass-card p-8 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
-                  <Camera className="w-8 h-8 text-slate-400" />
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">Nada nuevo por acá</h3>
-                <p className="text-slate-400 mb-6">
-                  No hay stories activas. ¡Comparte un momento que dure 24 horas!
-                </p>
-                <button className="px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors">
-                  Crear Story
-                </button>
-              </div>
-            )}
+            </div>
           </div>
-        )}
+        </div>
+        </div>
       </div>
 
-      {/* Create Post Modal */}
-      {showCreatePost && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="glass-card p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Crear Post</h3>
+      {/* Modal de Compartir */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-slate-700 rounded-2xl max-w-md w-full max-h-[80vh] overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
+              <h3 className="text-white font-bold text-lg">Compartir post</h3>
               <button
-                onClick={() => setShowCreatePost(false)}
-                className="text-slate-400 hover:text-white"
+                onClick={() => {
+                  setShowShareModal(false)
+                  setSelectedPost(null)
+                }}
+                className="text-slate-400 hover:text-white transition-colors"
               >
-                ×
+                ✕
               </button>
             </div>
 
-            <div className="space-y-4">
-              <textarea
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="¿Qué estás pensando?"
-                className="w-full p-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 resize-none"
-                rows={4}
-              />
-
-              <input
-                type="text"
-                value={newPostLocation}
-                onChange={(e) => setNewPostLocation(e.target.value)}
-                placeholder="Ubicación (opcional)"
-                className="w-full p-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400"
-              />
-
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-slate-400 hover:text-white cursor-pointer">
-                  <ImageIcon className="w-5 h-5" />
-                  <span>Foto</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-slate-400 hover:text-white cursor-pointer">
-                  <Video className="w-5 h-5" />
-                  <span>Video</span>
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              {filePreview && (
-                <div className="relative">
-                  <img
-                    src={filePreview}
-                    alt="Preview"
-                    className="w-full rounded-lg"
-                  />
-                  <button
-                    onClick={() => {
-                      setSelectedFile(null)
-                      setFilePreview(null)
-                    }}
-                    className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70"
-                  >
-                    ×
-                  </button>
+            {/* Lista de Chats */}
+            <div className="p-5 overflow-y-auto max-h-[60vh]">
+              {userChats.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-slate-400 text-sm">No tienes chats disponibles</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {userChats.map((chat) => (
+                    <button
+                      key={chat.id}
+                      onClick={() => shareToChat(chat.id)}
+                      className="w-full flex items-center gap-3 p-4 bg-slate-800/50 hover:bg-slate-700/50 rounded-xl transition-all duration-200 border border-slate-700/30 hover:border-blue-500/50"
+                    >
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0 flex items-center justify-center">
+                        {chat.avatar ? (
+                          <img 
+                            src={chat.avatar} 
+                            alt={chat.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-white font-bold text-lg">
+                            {chat.name.charAt(0)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-white font-semibold text-sm">
+                          {chat.name}
+                        </p>
+                        <p className="text-slate-400 text-xs">
+                          {chat.type === 'trip' ? 'Chat de viaje' : 'Chat privado'}
+                        </p>
+                      </div>
+                      <Send className="w-5 h-5 text-blue-400" />
+                    </button>
+                  ))}
                 </div>
               )}
-
-              <div className="flex items-center justify-between pt-4">
-                <div className="flex items-center gap-2 text-slate-400">
-                  <Globe className="w-4 h-4" />
-                  <span className="text-sm">Público</span>
-                </div>
-                <button
-                  onClick={createPost}
-                  disabled={!newPostContent.trim()}
-                  className="px-6 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Publicar
-                </button>
-              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Share Modal */}
-      {showShareModal && selectedPost && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Compartir Post</h3>
+      {/* Modal para crear Story */}
+      {showStoryModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
+              <h3 className="text-white font-bold text-lg">Crear historia</h3>
               <button 
-                onClick={() => setShowShareModal(false)}
-                className="text-slate-400 hover:text-white"
+                onClick={closeStoryModal}
+                className="text-slate-400 hover:text-white transition-colors"
               >
                 ✕
               </button>
             </div>
-            
-            <div className="mb-4">
-              <p className="text-slate-300 text-sm mb-2">Compartir en:</p>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {userChats.length > 0 ? (
-                  userChats.map((chat) => (
-                    <button 
-                      key={chat.id}
-                      onClick={() => shareToChat(chat.id, chat.name)}
-                      className="w-full text-left p-3 bg-slate-700/50 rounded-lg hover:bg-slate-600/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 ${chat.color === 'blue' ? 'bg-blue-500' : chat.color === 'green' ? 'bg-green-500' : 'bg-purple-500'} rounded-full flex items-center justify-center`}>
-                          {chat.avatar ? (
-                            <img 
-                              src={chat.avatar} 
-                              alt={chat.name}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-white text-sm">{chat.icon}</span>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-white font-medium">{chat.name}</p>
-                          <p className="text-slate-400 text-sm">
-                            {chat.type === 'trip' ? 'Viaje grupal' : 'Chat privado'}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-slate-400">No tienes chats disponibles</p>
+
+            {/* Content */}
+            <div className="p-5 overflow-y-auto max-h-[calc(90vh-200px)]">
+              {/* File Input */}
+              <div className="mb-5">
+                <label className="block text-white font-semibold mb-3">
+                  Selecciona una imagen o video
+                </label>
+                  <input
+                    type="file"
+                  accept="image/*,video/*"
+                  onChange={handleStoryFileChange}
+                    className="hidden"
+                  id="story-file-input"
+                />
+                <label
+                  htmlFor="story-file-input"
+                  className="block w-full p-4 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-blue-500 transition-colors text-center"
+                >
+                  <div className="text-slate-400 text-sm">
+                    {storyFile ? storyFile.name : 'Click para seleccionar archivo'}
                   </div>
-                )}
+                </label>
+              </div>
+
+              {/* Preview */}
+              {storyPreview && (
+                <div className="mb-5">
+                  <label className="block text-white font-semibold mb-3">
+                    Vista previa
+                  </label>
+                  <div className="relative w-full aspect-video bg-slate-950 rounded-xl overflow-hidden">
+                    {storyFile?.type.startsWith('image/') ? (
+                      <img 
+                        src={storyPreview} 
+                    alt="Preview"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <video 
+                        src={storyPreview}
+                        controls
+                        className="w-full h-full object-contain"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Text Content */}
+              <div className="mb-5">
+                <label className="block text-white font-semibold mb-3">
+                  Agrega un texto (opcional)
+                </label>
+                <textarea
+                  value={storyContent}
+                  onChange={(e) => setStoryContent(e.target.value)}
+                  placeholder="Escribe algo sobre tu historia..."
+                  className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                  rows="3"
+                />
               </div>
             </div>
-            
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setShowShareModal(false)}
-                className="flex-1 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors"
+
+            {/* Footer */}
+            <div className="p-5 border-t border-slate-700/50 flex gap-3">
+              <button
+                onClick={closeStoryModal}
+                className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-colors"
               >
                 Cancelar
               </button>
+              <button
+                onClick={createStory}
+                disabled={!storyFile || uploadingStory}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploadingStory ? 'Subiendo...' : 'Publicar'}
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Modal para ver Story */}
+      {showStoryViewer && currentStory && (
+        <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+          {/* Botón cerrar */}
+          <button
+            onClick={closeStoryViewer}
+            className="absolute top-6 right-6 z-50 text-white hover:text-red-400 transition-colors"
+          >
+            <X className="w-8 h-8" />
+          </button>
+
+          {/* Botón anterior */}
+          {currentStoryIndex > 0 && (
+            <button
+              onClick={prevStory}
+              className="absolute left-6 z-50 text-white hover:scale-110 transition-transform bg-black/30 rounded-full p-2"
+            >
+              <ChevronLeft className="w-10 h-10" />
+            </button>
+          )}
+
+          {/* Contenido de la story */}
+          <div className="relative w-full max-w-md h-[90vh] bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+            {/* Header con info del usuario */}
+            <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 ring-2 ring-white/30">
+                  {currentStory.author?.avatar_url ? (
+                    <img 
+                      src={currentStory.author.avatar_url} 
+                      alt={currentStory.author.nombre}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white font-bold">
+                      {currentStory.author?.nombre?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm">
+                    {currentStory.author?.nombre} {currentStory.author?.apellido}
+                  </p>
+                  <p className="text-white/70 text-xs">
+                    {new Date(currentStory.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Barra de progreso */}
+              <div className="flex gap-1 mt-3">
+                {stories.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={`h-0.5 flex-1 rounded-full ${
+                      idx === currentStoryIndex ? 'bg-white' : 
+                      idx < currentStoryIndex ? 'bg-white/80' : 'bg-white/30'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Media (imagen o video) */}
+            <div className="w-full h-full flex items-center justify-center bg-black">
+              {currentStory.media_type === 'image' ? (
+                <img 
+                  src={currentStory.media_url} 
+                  alt="Story"
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : (
+                <video 
+                  src={currentStory.media_url}
+                  controls
+                  autoPlay
+                  className="max-w-full max-h-full object-contain"
+                />
+              )}
+            </div>
+
+            {/* Texto de la story (si existe) */}
+            {currentStory.content && (
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6">
+                <p className="text-white text-lg text-center">
+                  {currentStory.content}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Botón siguiente */}
+          {currentStoryIndex < stories.length - 1 && (
+            <button
+              onClick={nextStory}
+              className="absolute right-6 z-50 text-white hover:scale-110 transition-transform bg-black/30 rounded-full p-2"
+            >
+              <ChevronRight className="w-10 h-10" />
+            </button>
+          )}
         </div>
       )}
     </div>
