@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin } from 'lucide-react'
 import API_CONFIG from '@/config/api'
-import Navigation from '@/components/Navigation'
 
 export default function SocialPage() {
   const navigate = useNavigate()
@@ -137,18 +136,37 @@ export default function SocialPage() {
       
       const userTripIds = userTripMemberships?.map(t => t.trip_id) || []
 
-      // Sugerir viajes similares o populares
+      console.log('User trip IDs:', userTripIds)
+
+      // Sugerir viajes activos y disponibles
       let tripQuery = supabase
         .from('trips')
-        .select('id, name, destination, image_url, budget_min, budget_max')
+        .select('id, name, destination, image_url, budget_min, budget_max, created_at, status')
+        .order('created_at', { ascending: false })
       
-      // Solo excluir viajes del usuario si tiene alguno
-      if (userTripIds.length > 0) {
-        tripQuery = tripQuery.not('id', 'in', `(${userTripIds.join(',')})`)
+      // Filtrar por status si existe el campo
+      // Si no existe, la query seguirá funcionando
+      try {
+        tripQuery = tripQuery.or('status.is.null,status.eq.active')
+      } catch (e) {
+        // Si falla, continuar sin el filtro de status
       }
       
-      const { data: trips } = await tripQuery.limit(3)
-      setSuggestedTrips(trips || [])
+      const { data: allTrips, error: tripsError } = await tripQuery.limit(20)
+      
+      if (tripsError) {
+        console.error('Error loading trips:', tripsError)
+      }
+
+      console.log('All trips loaded:', allTrips?.length)
+
+      // Filtrar viajes en los que el usuario NO está
+      const filteredTrips = (allTrips || []).filter(trip => !userTripIds.includes(trip.id))
+      
+      console.log('Filtered trips (not joined):', filteredTrips.length)
+
+      // Tomar los primeros 5
+      setSuggestedTrips(filteredTrips.slice(0, 5))
     } catch (error) {
       console.error('Error loading suggestions:', error)
     }
@@ -498,10 +516,181 @@ export default function SocialPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Navigation Component */}
-      <Navigation />
+      {/* Social Navigation Bar */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/50 shadow-2xl">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2 group">
+              <img src="/jetgo.png?v=2" alt="JetGo" className="w-10 h-10" />
+              <span className="text-2xl font-bold text-white group-hover:text-emerald-400 transition-colors">
+                JetGo
+              </span>
+            </Link>
 
-      <div className="pt-20 pb-12">
+            {/* Search Bar - Desktop */}
+            <div className="hidden md:flex flex-1 max-w-md mx-8">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar usuarios, viajes..."
+                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Navigation Icons */}
+            <div className="flex items-center gap-2">
+              {/* Home */}
+              <Link
+                to="/social"
+                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group"
+                title="Inicio"
+              >
+                <Home className="w-6 h-6 text-emerald-400" />
+              </Link>
+
+              {/* Trips */}
+              <Link
+                to="/viajes"
+                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group"
+                title="Mis Viajes"
+              >
+                <MapPin className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
+              </Link>
+
+              {/* Friends */}
+              <Link
+                to="/amigos"
+                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group"
+                title="Amigos"
+              >
+                <Users className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
+              </Link>
+
+              {/* Messages */}
+              <Link
+                to="/modern-chat"
+                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group relative"
+                title="Mensajes"
+              >
+                <MessageCircle className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
+              </Link>
+
+              {/* Notifications */}
+              <button
+                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group relative"
+                title="Notificaciones"
+              >
+                <Bell className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+
+              {/* Create Post */}
+              <button
+                onClick={openStoryModal}
+                className="hidden md:flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white px-4 py-2 rounded-xl font-semibold transition-all shadow-lg shadow-emerald-500/20"
+              >
+                <Plus className="w-5 h-5" />
+                Crear
+              </button>
+
+              {/* Profile Avatar */}
+              <Link
+                to="/profile"
+                className="ml-2 relative group"
+                title="Perfil"
+              >
+                <div className="w-10 h-10 rounded-full ring-2 ring-emerald-500/30 group-hover:ring-emerald-500 transition-all overflow-hidden">
+                  {user?.avatar_url ? (
+                    <img 
+                      src={user.avatar_url} 
+                      alt={user.nombre || 'Perfil'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">
+                        {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            </div>
+          </div>
+
+          {/* Search Bar - Mobile */}
+          <div className="md:hidden pb-3">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar..."
+                className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+              />
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile Bottom Navigation - Solo iconos inferiores */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800/50 bg-slate-900/95 backdrop-blur-xl md:hidden">
+        <div className="flex justify-around items-center h-16 px-2">
+          <Link
+            to="/social"
+            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-emerald-400"
+          >
+            <Home className="w-6 h-6" />
+            <span className="text-xs font-medium">Social</span>
+          </Link>
+          <Link
+            to="/viajes"
+            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
+          >
+            <MapPin className="w-6 h-6" />
+            <span className="text-xs font-medium">Viajes</span>
+          </Link>
+          <Link
+            to="/amigos"
+            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
+          >
+            <Users className="w-6 h-6" />
+            <span className="text-xs font-medium">Amigos</span>
+          </Link>
+          <Link
+            to="/modern-chat"
+            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
+          >
+            <MessageCircle className="w-6 h-6" />
+            <span className="text-xs font-medium">Chats</span>
+          </Link>
+          <Link
+            to="/profile"
+            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
+          >
+            <div className="w-6 h-6 rounded-full ring-2 ring-slate-600 overflow-hidden">
+              {user?.avatar_url ? (
+                <img 
+                  src={user.avatar_url} 
+                  alt="Perfil"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                  <span className="text-white font-bold text-xs">
+                    {user?.nombre?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
+                </div>
+              )}
+            </div>
+            <span className="text-xs font-medium">Perfil</span>
+          </Link>
+        </div>
+      </nav>
+
+      <div className="pt-20 md:pt-24 pb-20 md:pb-12">
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-8">
             {/* Feed Principal */}
@@ -875,7 +1064,18 @@ export default function SocialPage() {
                   </button>
                 </div>
                 <div className="space-y-4">
-                  {suggestedTrips.map((trip) => (
+                  {suggestedTrips.length === 0 ? (
+                    <div className="text-center py-6">
+                      <p className="text-slate-400 text-sm">No hay viajes disponibles</p>
+                      <button 
+                        onClick={() => navigate('/viajes')}
+                        className="mt-3 text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors"
+                      >
+                        Explorar viajes
+                      </button>
+                    </div>
+                  ) : (
+                    suggestedTrips.map((trip) => (
                     <div 
                       key={trip.id} 
                       className="bg-slate-800/50 rounded-xl overflow-hidden cursor-pointer hover:bg-slate-800 transition-all duration-300 border border-slate-700/50 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 group"
@@ -903,7 +1103,8 @@ export default function SocialPage() {
               )}
                       </div>
                     </div>
-                  ))}
+                  ))
+                  )}
                 </div>
               </div>
             </div>

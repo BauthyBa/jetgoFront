@@ -4,6 +4,8 @@ import { supabase } from '../services/supabase'
 import Navigation from '../components/Navigation'
 import GlassCard from '../components/GlassCard'
 import API_CONFIG from '../config/api'
+import { sendFriendRequest, checkFriendshipStatus } from '../services/friends'
+import { getOrCreateDirectRoom } from '../services/chat'
 import { 
   MapPin, 
   Calendar, 
@@ -22,7 +24,10 @@ import {
   Grid3X3,
   List,
   Filter,
-  X
+  X,
+  UserPlus,
+  UserMinus,
+  UserCheck
 } from 'lucide-react'
 
 const PublicProfilePage = () => {
@@ -42,6 +47,11 @@ const PublicProfilePage = () => {
   const [comments, setComments] = useState({})
   const [newComment, setNewComment] = useState({})
   const [selectedImage, setSelectedImage] = useState(null)
+  const [friends, setFriends] = useState([])
+  const [friendsCount, setFriendsCount] = useState(0)
+  const [friendshipStatus, setFriendshipStatus] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [loadingFriendship, setLoadingFriendship] = useState(false)
 
   useEffect(() => {
     async function loadPublicProfile() {
@@ -156,6 +166,76 @@ const PublicProfilePage = () => {
     }
   }, [username, userId])
 
+  // Cargar usuario actual
+  useEffect(() => {
+    async function loadCurrentUser() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setCurrentUser(user)
+        }
+      } catch (error) {
+        console.error('Error loading current user:', error)
+      }
+    }
+    loadCurrentUser()
+  }, [])
+
+  // Cargar amigos y estado de amistad
+  useEffect(() => {
+    async function loadFriendsAndStatus() {
+      if (!profile?.userid) return
+
+      try {
+        // Cargar amigos usando friend_requests
+        const { data: friendRequests } = await supabase
+          .from('friend_requests')
+          .select('sender_id, receiver_id')
+          .or(`sender_id.eq.${profile.userid},receiver_id.eq.${profile.userid}`)
+          .eq('status', 'accepted')
+
+        const friendIds = new Set()
+        friendRequests?.forEach(req => {
+          const friendId = req.sender_id === profile.userid ? req.receiver_id : req.sender_id
+          friendIds.add(friendId)
+        })
+
+        setFriendsCount(friendIds.size)
+
+        // Cargar datos de amigos - si estamos en el tab de amigos, cargar todos, sino solo 6
+        if (friendIds.size > 0) {
+          const limit = activeTab === 'friends' ? friendIds.size : 6
+          const { data: friendsData } = await supabase
+            .from('User')
+            .select('userid, nombre, apellido, avatar_url, bio')
+            .in('userid', Array.from(friendIds))
+            .limit(limit)
+
+          setFriends(friendsData || [])
+        }
+
+        // Verificar estado de amistad con el usuario actual
+        if (currentUser?.id && currentUser.id !== profile.userid) {
+          const { data: existingRequest } = await supabase
+            .from('friend_requests')
+            .select('*')
+            .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${profile.userid}),and(sender_id.eq.${profile.userid},receiver_id.eq.${currentUser.id})`)
+            .single()
+
+          if (existingRequest) {
+            setFriendshipStatus(existingRequest.status)
+          } else {
+            setFriendshipStatus(null)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading friends:', error)
+      }
+    }
+
+    loadFriendsAndStatus()
+  }, [profile, currentUser, activeTab])
+
   const getTripLevel = (tripCount) => {
     if (tripCount >= 20) return { level: 'Maestro', color: 'text-purple-400' }
     if (tripCount >= 10) return { level: 'Experto', color: 'text-blue-400' }
@@ -184,6 +264,44 @@ const PublicProfilePage = () => {
       }
     }
     return []
+  }
+
+  const handleFriendRequest = async () => {
+    if (!currentUser?.id || !profile?.userid) {
+      alert('Debes iniciar sesión para enviar solicitudes de amistad')
+      return
+    }
+
+    setLoadingFriendship(true)
+    try {
+      await sendFriendRequest(currentUser.id, profile.userid)
+      alert('Solicitud de amistad enviada!')
+      setFriendshipStatus('pending')
+    } catch (error) {
+      console.error('Error sending friend request:', error)
+      alert('Error al enviar la solicitud')
+    } finally {
+      setLoadingFriendship(false)
+    }
+  }
+
+  const handleOpenChat = async () => {
+    if (!currentUser?.id || !profile?.userid) {
+      alert('Debes iniciar sesión para enviar mensajes')
+      return
+    }
+
+    try {
+      console.log('Opening chat with user:', profile.userid)
+      const room = await getOrCreateDirectRoom(currentUser.id, profile.userid)
+      console.log('Room created/retrieved:', room)
+      
+      // Navegar al chat con el room ID
+      navigate(`/modern-chat?room=${room.id}`)
+    } catch (error) {
+      console.error('Error opening chat:', error)
+      alert('Error al abrir el chat. Por favor, intenta nuevamente.')
+    }
   }
 
   const loadUserPosts = async (userId) => {
@@ -497,6 +615,95 @@ const PublicProfilePage = () => {
                   </div>
                 </div>
               )}
+
+              {/* Botones de acción */}
+              {currentUser && currentUser.id !== profile.userid && (
+                <div className="flex gap-3">
+                  {/* Botón de amistad */}
+                  {friendshipStatus === 'accepted' ? (
+                    <button
+                      className="flex-1 flex items-center justify-center gap-2 bg-green-500/20 text-green-400 px-4 py-2 rounded-lg font-semibold hover:bg-green-500/30 transition-colors"
+                    >
+                      <UserCheck className="w-5 h-5" />
+                      Amigos
+                    </button>
+                  ) : friendshipStatus === 'pending' ? (
+                    <button
+                      disabled
+                      className="flex-1 flex items-center justify-center gap-2 bg-yellow-500/20 text-yellow-400 px-4 py-2 rounded-lg font-semibold cursor-not-allowed"
+                    >
+                      <UserCheck className="w-5 h-5" />
+                      Solicitud enviada
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleFriendRequest}
+                      disabled={loadingFriendship}
+                      className="flex-1 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50"
+                    >
+                      <UserPlus className="w-5 h-5" />
+                      {loadingFriendship ? 'Enviando...' : 'Agregar amigo'}
+                    </button>
+                  )}
+
+                  {/* Botón de mensaje */}
+                  <button
+                    onClick={handleOpenChat}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Mensaje
+                  </button>
+                </div>
+              )}
+
+              {/* Sección de amigos */}
+              {friendsCount > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white font-semibold flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Amigos ({friendsCount})
+                    </h3>
+                    {activeTab !== 'friends' && (
+                      <button
+                        onClick={() => setActiveTab('friends')}
+                        className="text-blue-400 hover:text-blue-300 text-sm font-semibold transition-colors"
+                      >
+                        Ver todos
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {friends.slice(0, 6).map((friend) => (
+                      <div
+                        key={friend.userid}
+                        onClick={() => navigate(`/profile/${friend.userid}`)}
+                        className="cursor-pointer hover:scale-105 transition-transform"
+                      >
+                        <div className="relative">
+                          {friend.avatar_url ? (
+                            <img
+                              src={friend.avatar_url}
+                              alt={friend.nombre}
+                              className="w-full aspect-square rounded-lg object-cover border-2 border-slate-700 hover:border-blue-500 transition-colors"
+                            />
+                          ) : (
+                            <div className="w-full aspect-square rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center border-2 border-slate-700 hover:border-blue-500 transition-colors">
+                              <span className="text-white font-bold text-xl">
+                                {friend.nombre?.charAt(0) || 'U'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-white text-xs font-semibold mt-1 truncate text-center">
+                          {friend.nombre}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </GlassCard>
@@ -534,6 +741,16 @@ const PublicProfilePage = () => {
                 }`}
               >
                 Reseñas ({reviews.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('friends')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'friends'
+                    ? 'bg-emerald-500 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Amigos ({friendsCount})
               </button>
             </div>
 
@@ -841,6 +1058,55 @@ const PublicProfilePage = () => {
                   <h3 className="text-white font-semibold mb-2">No hay reseñas</h3>
                   <p className="text-slate-400 text-sm">
                     {[profile?.nombre, profile?.apellido].filter(Boolean).join(' ') || 'Este usuario'} no ha recibido reseñas todavía.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab de Amigos */}
+          {activeTab === 'friends' && (
+            <div>
+              {friends.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {friends.map((friend) => (
+                    <div
+                      key={friend.userid}
+                      onClick={() => navigate(`/profile/${friend.userid}`)}
+                      className="bg-slate-800/50 rounded-xl p-4 cursor-pointer hover:bg-slate-700/50 transition-all hover:scale-105"
+                    >
+                      <div className="relative mb-3">
+                        {friend.avatar_url ? (
+                          <img
+                            src={friend.avatar_url}
+                            alt={friend.nombre}
+                            className="w-full aspect-square rounded-lg object-cover border-2 border-slate-700"
+                          />
+                        ) : (
+                          <div className="w-full aspect-square rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center border-2 border-slate-700">
+                            <span className="text-white font-bold text-3xl">
+                              {friend.nombre?.charAt(0) || 'U'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <h4 className="text-white font-semibold text-sm truncate text-center">
+                        {friend.nombre} {friend.apellido}
+                      </h4>
+                      {friend.bio && (
+                        <p className="text-slate-400 text-xs mt-1 line-clamp-2 text-center">
+                          {friend.bio}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Users className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                  <h3 className="text-white font-semibold mb-2">No tiene amigos todavía</h3>
+                  <p className="text-slate-400 text-sm">
+                    {[profile?.nombre, profile?.apellido].filter(Boolean).join(' ') || 'Este usuario'} aún no ha agregado amigos.
                   </p>
                 </div>
               )}
