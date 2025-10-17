@@ -19,6 +19,7 @@ import NotificationButton from './NotificationButton'
 export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
   const [isOpen, setIsOpen] = useState(false)
   const [theme, setTheme] = useState('system')
+  const [userProfile, setUserProfile] = useState(null)
   const menuRef = useRef(null)
   const navigate = useNavigate()
 
@@ -28,6 +29,29 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
       setTheme(stored)
     } catch {}
   }, [])
+
+  // Cargar perfil del usuario
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (isLoggedIn && user?.id) {
+        try {
+          const { data, error } = await supabase
+            .from('User')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+          
+          if (data && !error) {
+            setUserProfile(data)
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error)
+        }
+      }
+    }
+
+    loadUserProfile()
+  }, [isLoggedIn, user])
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -93,6 +117,61 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
     return 'Usuario'
   }
 
+  const getUserAvatar = () => {
+    // Prioridad: avatar_url del perfil, luego user_metadata, luego iniciales
+    if (userProfile?.avatar_url) {
+      return userProfile.avatar_url
+    }
+    if (user?.user_metadata?.avatar_url) {
+      return user.user_metadata.avatar_url
+    }
+    return null
+  }
+
+  const getUserDisplayName = () => {
+    // Prioridad: nombre del perfil, luego user_metadata, luego email
+    if (userProfile?.nombre && userProfile?.apellido) {
+      return `${userProfile.nombre} ${userProfile.apellido}`
+    }
+    if (userProfile?.nombre) {
+      return userProfile.nombre
+    }
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name
+    }
+    if (user?.email) {
+      return user.email.split('@')[0]
+    }
+    return 'Usuario'
+  }
+
+  const UserAvatar = ({ size = 'w-8 h-8', className = '' }) => {
+    const avatarUrl = getUserAvatar()
+    const initials = getUserInitials()
+    const displayName = getUserDisplayName()
+
+    if (avatarUrl) {
+      return (
+        <img
+          src={avatarUrl}
+          alt={`Avatar de ${displayName}`}
+          className={`${size} rounded-full object-cover border-2 border-white/20 ${className}`}
+          onError={(e) => {
+            // Si la imagen falla, mostrar iniciales
+            e.target.style.display = 'none'
+            e.target.nextSibling.style.display = 'flex'
+          }}
+        />
+      )
+    }
+
+    return (
+      <div className={`${size} rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-medium border-2 border-white/20 ${className}`}>
+        {initials}
+      </div>
+    )
+  }
+
   return (
     <div className="relative" ref={menuRef}>
       {/* Profile Button */}
@@ -102,9 +181,7 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
         aria-label="Menú de usuario"
       >
         {isLoggedIn && user ? (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-medium">
-            {getUserInitials()}
-          </div>
+          <UserAvatar size="w-8 h-8" />
         ) : (
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
             <User className="w-4 h-4 text-white" />
@@ -120,12 +197,10 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
           {isLoggedIn && user && (
             <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium">
-                  {getUserInitials()}
-                </div>
+                <UserAvatar size="w-10 h-10" />
                 <div>
                   <p className="font-medium text-slate-900 dark:text-white text-sm">
-                    {getUserName()}
+                    {getUserDisplayName()}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {user.email}
