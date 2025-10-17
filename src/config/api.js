@@ -1,42 +1,57 @@
-// API Configuration
+const BACKEND_FALLBACKS = {
+  PRODUCTION: 'https://jetgoback.onrender.com',
+  STAGING: 'https://jetgoback.onrender.com',
+  LOCAL: 'http://localhost:8000',
+}
+
+function sanitizeBackendUrl(url) {
+  if (!url) return ''
+  return url.replace('jetgo-back', 'jetgoback').replace(/\/+$/, '')
+}
+
+function extractBaseFromEnv() {
+  const raw = import.meta.env.VITE_API_BASE_URL
+  if (!raw) return ''
+
+  const cleaned = sanitizeBackendUrl(raw)
+  // VITE_API_BASE_URL usually points to the /api root. Strip it to keep config consistent.
+  if (cleaned.endsWith('/api')) {
+    return cleaned.slice(0, -4)
+  }
+  return cleaned
+}
+
+function detectEnvironment() {
+  if (typeof window === 'undefined') return 'PRODUCTION'
+  const hostname = window.location.hostname
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'LOCAL'
+  }
+  if (hostname.includes('vercel.app')) {
+    return 'PRODUCTION'
+  }
+  return 'STAGING'
+}
+
 const API_CONFIG = {
-  // Backend URLs
-  BACKEND_URLS: {
-    PRODUCTION: 'https://jetgoback.onrender.com',
-    STAGING: 'https://jetgoback.onrender.com',
-    LOCAL: 'http://localhost:8000'
-  },
-  
-  // Current environment
-  getCurrentEnvironment() {
-    const hostname = window.location.hostname;
-    
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'LOCAL';
-    } else if (hostname.includes('vercel.app')) {
-      return 'PRODUCTION';
-    } else {
-      return 'STAGING';
-    }
-  },
-  
-  // Get current API base URL
-  getApiBaseUrl() {
-    const env = this.getCurrentEnvironment();
-    return this.BACKEND_URLS[env];
-  },
-  
-  // Social endpoints
   SOCIAL_ENDPOINTS: {
     POSTS: '/api/social/posts/',
     STORIES: '/api/social/stories/',
-    TEST: '/api/social/test/'
+    TEST: '/api/social/test/',
   },
-  
-  // Get full URL for endpoint
-  getEndpointUrl(endpoint) {
-    return `${this.getApiBaseUrl()}${endpoint}`;
-  }
-};
 
-export default API_CONFIG;
+  getApiBaseUrl() {
+    const envBase = extractBaseFromEnv()
+    if (envBase) return envBase
+
+    const env = detectEnvironment()
+    return sanitizeBackendUrl(BACKEND_FALLBACKS[env])
+  },
+
+  getEndpointUrl(endpoint) {
+    const base = this.getApiBaseUrl()
+    return `${base}${endpoint}`
+  },
+}
+
+export default API_CONFIG
