@@ -51,6 +51,8 @@ export default function ModernChatPage() {
   const [showAudioTranscriber, setShowAudioTranscriber] = useState(false)
   const [transcribingAudio, setTranscribingAudio] = useState(null)
   const [audioTranscriptions, setAudioTranscriptions] = useState({})
+  const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false)
+  const [messageToDelete, setMessageToDelete] = useState(null)
   const fileInputRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
@@ -355,6 +357,33 @@ export default function ModernChatPage() {
       setShowEmojiPicker(false)
     } catch (e) {
       alert(e?.message || 'No se pudo enviar el mensaje')
+    }
+  }
+
+  const confirmDeleteMessage = (messageId) => {
+    setMessageToDelete(messageId)
+    setShowDeleteMessageConfirm(true)
+  }
+
+  const deleteMessage = async () => {
+    if (!messageToDelete) return
+
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('id', messageToDelete)
+      
+      if (error) throw error
+      
+      setMessages(prev => prev.filter(m => m.id !== messageToDelete))
+      setShowDeleteMessageConfirm(false)
+      setMessageToDelete(null)
+    } catch (err) {
+      console.error('Error al eliminar mensaje:', err)
+      alert('Error al eliminar el mensaje')
+      setShowDeleteMessageConfirm(false)
+      setMessageToDelete(null)
     }
   }
 
@@ -725,9 +754,60 @@ export default function ModernChatPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div>
-                      <h2 className="text-xl font-semibold text-white">
-                        {normalizeRoomName(activeRoom) || 'Chat'}
-                      </h2>
+                      {isPrivateRoom(activeRoom) ? (
+                        <button
+                          onClick={async () => {
+                            try {
+                              console.log('Click en nombre del chat privado')
+                              const roomId = activeRoom?.id
+                              console.log('Room ID:', roomId)
+                              if (!roomId) {
+                                console.log('No hay room ID')
+                                return
+                              }
+                              
+                              // Para chats privados, consultar direct_conversations con las columnas correctas
+                              const { data: directConvs, error } = await supabase
+                                .from('direct_conversations')
+                                .select('user_a, user_b')
+                                .eq('room_id', roomId)
+                              
+                              console.log('Direct conversations query result:', directConvs)
+                              console.log('Query error:', error)
+                              
+                              if (directConvs && directConvs.length > 0) {
+                                const directConv = directConvs[0] // Tomar el primero
+                                console.log('Direct conversation found:', directConv)
+                                
+                                // Encontrar el ID de la otra persona
+                                const otherUserId = directConv.user_a === profile?.user_id 
+                                  ? directConv.user_b 
+                                  : directConv.user_a
+                                
+                                console.log('Other user ID:', otherUserId)
+                                
+                                if (otherUserId) {
+                                  console.log('Navegando a:', `/u/${otherUserId}`)
+                                  navigate(`/u/${otherUserId}`)
+                                } else {
+                                  console.log('No se encontró el ID de la otra persona')
+                                }
+                              } else {
+                                console.log('No se encontraron conversaciones directas')
+                              }
+                            } catch (error) {
+                              console.error('Error navigating to profile:', error)
+                            }
+                          }}
+                          className="text-xl font-semibold text-white hover:text-emerald-300 transition-colors cursor-pointer"
+                        >
+                          {normalizeRoomName(activeRoom) || 'Chat'}
+                        </button>
+                      ) : (
+                        <h2 className="text-xl font-semibold text-white">
+                          {normalizeRoomName(activeRoom) || 'Chat'}
+                        </h2>
+                      )}
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`
                           text-xs px-2 py-1 rounded-full font-medium
@@ -757,9 +837,10 @@ export default function ModernChatPage() {
                         {showExpenses ? '💬 Chat' : '💰 Gastos'}
                       </Button>
                     )}
-                    <Button
-                      variant="secondary"
-                      onClick={async () => {
+                    {!isPrivateRoom(activeRoom) && (
+                      <Button
+                        variant="secondary"
+                        onClick={async () => {
                         try {
                           if (isPrivateRoom(activeRoom)) {
                             const roomId = activeRoom?.id
@@ -775,15 +856,12 @@ export default function ModernChatPage() {
                               new Set((membersRows || []).map((m) => m.user_id).filter(Boolean)),
                             )
                             const nameMap = await fetchNamesForUserIds(ids)
-                            const members = ids.map((id) => ({
-                              user_id: id,
-                              name:
-                                profile?.user_id && id === profile.user_id
-                                  ? profile?.meta?.first_name && profile?.meta?.last_name
-                                    ? `${profile.meta.first_name} ${profile.meta.last_name}`
-                                    : 'Tú'
-                                  : nameMap[id] || 'Usuario',
-                            }))
+                            const members = ids
+                              .filter((id) => id !== profile?.user_id) // Excluir al usuario actual
+                              .map((id) => ({
+                                user_id: id,
+                                name: nameMap[id] || 'Usuario',
+                              }))
                             setChatMembers(members)
                             setChatInfoOpen(true)
                             return
@@ -817,6 +895,7 @@ export default function ModernChatPage() {
                     >
                       👥 Integrantes
                     </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1071,8 +1150,17 @@ export default function ModernChatPage() {
                                   return null
                                 })()}
 
-                                <div className="mt-2 text-right text-xs opacity-60">
-                                  {new Date(message.created_at).toLocaleString()}
+                                <div className="mt-2 flex items-center justify-between text-xs opacity-60">
+                                  <span>{new Date(message.created_at).toLocaleString()}</span>
+                                  {isOwn && (
+                                    <button
+                                      onClick={() => confirmDeleteMessage(message.id)}
+                                      className="ml-2 text-red-400 hover:text-red-300 opacity-70 hover:opacity-100 transition-all"
+                                      title="Eliminar mensaje"
+                                    >
+                                      🗑️
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1255,7 +1343,8 @@ export default function ModernChatPage() {
                     const isOwner = (tripsBase || []).some(
                       (trip) => String(trip.id) === String(activeRoom.trip_id) && trip.creatorId === profile?.user_id,
                     )
-                    return isOwner ? (
+                    const isGroupChat = activeRoom?.is_group === true
+                    return isOwner && isGroupChat ? (
                       <Button
                         variant="secondary"
                         onClick={() => setShowInviteFriends(true)}
@@ -1329,6 +1418,50 @@ export default function ModernChatPage() {
           tripTitle={activeRoom?.name || 'Viaje'}
           onClose={() => setShowInviteFriends(false)}
         />
+      )}
+
+      {/* Modal de confirmación para eliminar mensaje */}
+      {showDeleteMessageConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 border-b border-red-500/30 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-red-500/20 p-2 rounded-full">
+                  <span className="text-2xl">🗑️</span>
+                </div>
+                <h3 className="text-xl font-bold text-white">Eliminar Mensaje</h3>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-6">
+              <p className="text-slate-300 text-base leading-relaxed">
+                ¿Estás seguro de que quieres eliminar este mensaje? Esta acción no se puede deshacer.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowDeleteMessageConfirm(false)
+                  setMessageToDelete(null)
+                }}
+                className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={deleteMessage}
+                className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+              >
+                <span>🗑️</span>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
