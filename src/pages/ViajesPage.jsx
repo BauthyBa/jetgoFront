@@ -41,6 +41,7 @@ export default function ViajesPage() {
   const [joiningId, setJoiningId] = useState(null)
   const [leavingId, setLeavingId] = useState(null)
   const [applyModal, setApplyModal] = useState({ open: false, trip: null })
+  const [showApplyToast, setShowApplyToast] = useState(false)
   const [joinDialog, setJoinDialog] = useState({ open: false, title: '', message: '' })
   const [userApplications, setUserApplications] = useState([])
   
@@ -631,6 +632,10 @@ export default function ViajesPage() {
                           key={trip.id} 
                           viaje={trip} 
                           creadorNombre={creatorsInfo[trip.creatorId] || 'Usuario'}
+                          onApply={handleApply}
+                          hasApplied={hasAppliedFn(trip)}
+                          isOwner={isOwnerFn(trip)}
+                          isMember={isMemberFn(trip)}
                         />
                       ))}
                     </div>
@@ -808,9 +813,10 @@ export default function ViajesPage() {
       {/* Modal de aplicación */}
       {applyModal.open && (
         <ApplyToTripModal
+          isOpen={applyModal.open}
           trip={applyModal.trip}
           onClose={() => setApplyModal({ open: false, trip: null })}
-          onSuccess={async () => {
+          onSuccess={async (_roomId) => {
             setApplyModal({ open: false, trip: null })
             await loadTrips()
             // Recargar aplicaciones del usuario
@@ -822,8 +828,26 @@ export default function ViajesPage() {
                 console.error('Error recargando aplicaciones:', error)
               }
             }
+
+            // Mostrar toast de confirmación
+            setShowApplyToast(true)
+            window.setTimeout(() => setShowApplyToast(false), 3000)
           }}
         />
+      )}
+
+      {/* Toast de confirmación de aplicación enviada */}
+      {showApplyToast && (
+        <div className="fixed top-6 right-6 z-50">
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-600/20 text-emerald-200 shadow-lg px-4 py-3 backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 text-sm">✓</span>
+              <div className="text-sm font-medium">
+                Solicitud enviada al organizador
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Dialog de confirmación */}

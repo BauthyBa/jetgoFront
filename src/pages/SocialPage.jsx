@@ -80,8 +80,8 @@ export default function SocialPage() {
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
       const response = await fetch(url)
       if (response.ok) {
-        const data = await response.json()
-        setPosts(data.posts || [])
+      const data = await response.json()
+      setPosts(data.posts || [])
       }
     } catch (error) {
       console.error('Error loading posts:', error)
@@ -509,7 +509,7 @@ export default function SocialPage() {
         alert('Debes iniciar sesión para crear una historia')
         return
       }
-
+      
       if (!storyFile) {
         alert('Debes seleccionar una imagen o video')
         return
@@ -674,7 +674,7 @@ export default function SocialPage() {
             </div>
 
             {/* Navigation Icons */}
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
               {/* Home */}
               <Link
                 to="/social"
@@ -712,13 +712,13 @@ export default function SocialPage() {
               </Link>
 
               {/* Notifications */}
-              <button
+                <button
                 className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group relative"
                 title="Notificaciones"
               >
                 <Bell className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+                </button>
 
               {/* Create Post */}
               <button
@@ -747,12 +747,12 @@ export default function SocialPage() {
                       <span className="text-white font-bold text-sm">
                         {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
                       </span>
-                    </div>
-                  )}
-                </div>
-              </Link>
             </div>
+                  )}
           </div>
+              </Link>
+        </div>
+      </div>
 
           {/* Search Bar - Mobile */}
           <div className="md:hidden pb-3">
@@ -763,9 +763,9 @@ export default function SocialPage() {
                 placeholder="Buscar..."
                 className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
               />
-            </div>
-          </div>
-        </div>
+                    </div>
+                  </div>
+                      </div>
       </nav>
 
       {/* Mobile Bottom Navigation - Solo iconos inferiores */}
@@ -815,9 +815,9 @@ export default function SocialPage() {
                   <span className="text-white font-bold text-xs">
                     {user?.nombre?.charAt(0)?.toUpperCase() || 'U'}
                   </span>
-                </div>
+                    </div>
               )}
-            </div>
+                </div>
             <span className="text-xs font-medium">Perfil</span>
           </Link>
         </div>
@@ -851,8 +851,8 @@ export default function SocialPage() {
                               <span className="text-white font-bold text-xl">
                                 {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
                               </span>
-            </div>
-                          )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -884,10 +884,10 @@ export default function SocialPage() {
                               <span className="text-white font-bold text-xl">
                                 {story.author?.nombre?.charAt(0) || 'U'}
                               </span>
-              </div>
-            )}
-                        </div>
                       </div>
+            )}
+                    </div>
+                    </div>
                     </div>
                     <span className="text-xs text-slate-200 font-semibold truncate w-20 text-center">
                       {story.author?.nombre || 'Usuario'}
@@ -935,9 +935,9 @@ export default function SocialPage() {
                           </p>
                             {post.location && (
                             <p className="text-slate-400 text-xs">{post.location}</p>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
                       {/* Botón de opciones */}
                       <div className="relative">
                         <button 
@@ -945,7 +945,7 @@ export default function SocialPage() {
                           className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800/50 rounded-full"
                         >
                           <MoreHorizontal className="w-5 h-5" />
-                        </button>
+                      </button>
                         
                         {/* Menú desplegable */}
                         {showPostMenu === post.id && (
@@ -1003,20 +1003,20 @@ export default function SocialPage() {
                             <Heart 
                               className={`w-7 h-7 ${likedPosts.has(post.id) ? 'fill-red-500 text-red-500 animate-pulse' : 'text-slate-300 hover:text-red-400'}`}
                             />
-                          </button>
+                        </button>
                           <button 
                             onClick={() => toggleComments(post.id)}
                             className="text-slate-300 hover:text-blue-400 hover:scale-125 transition-all duration-200 active:scale-95"
                           >
                             <MessageCircle className="w-7 h-7" />
-                          </button>
+                        </button>
                           <button 
                             onClick={() => sharePost(post)}
                             className="text-slate-300 hover:text-emerald-400 hover:scale-125 transition-all duration-200 active:scale-95"
                           >
                             <Send className="w-7 h-7" />
-                          </button>
-                        </div>
+                        </button>
+                      </div>
                         <button className="text-slate-300 hover:text-yellow-400 hover:scale-125 transition-all duration-200 active:scale-95">
                           <Bookmark className="w-7 h-7" />
                         </button>
@@ -1075,11 +1075,11 @@ export default function SocialPage() {
                                 <p className="text-xs text-slate-500 mt-1">
                                   {new Date(comment.created_at).toLocaleDateString()}
                                 </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
                       {/* Add Comment */}
                       <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-700/50 relative">
@@ -1108,8 +1108,8 @@ export default function SocialPage() {
                                   </button>
                                 ))}
                               </div>
-                            </div>
-                          )}
+          </div>
+        )}
                         </div>
                         
                         <input 
@@ -1132,12 +1132,12 @@ export default function SocialPage() {
                           className="text-blue-500 hover:text-blue-400 font-bold text-sm transition-colors"
                         >
                           Publicar
-                        </button>
-                      </div>
+            </button>
+          </div>
                     </div>
                   </div>
                 ))
-              )}
+        )}
               </div>
       </div>
 
@@ -1210,12 +1210,12 @@ export default function SocialPage() {
                         </div>
                       </div>
                       {friendshipStatuses[suggestedUser.userid] === 'accepted' ? (
-                        <button 
+              <button
                           className="text-green-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-green-500/10 rounded-lg flex items-center gap-1.5 cursor-default"
-                        >
+              >
                           <UserCheck className="w-3.5 h-3.5" />
                           Amigos
-                        </button>
+              </button>
                       ) : friendshipStatuses[suggestedUser.userid] === 'pending' ? (
                         <button 
                           className="text-yellow-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-yellow-500/10 rounded-lg cursor-not-allowed"
@@ -1235,7 +1235,7 @@ export default function SocialPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+            </div>
 
               {/* Sugerencias de Viajes */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
@@ -1245,7 +1245,7 @@ export default function SocialPage() {
                     Ver todo
                   </button>
                 </div>
-                <div className="space-y-4">
+            <div className="space-y-4">
                   {suggestedTrips.length === 0 ? (
                     <div className="text-center py-6">
                       <p className="text-slate-400 text-sm">No hay viajes disponibles</p>
@@ -1438,7 +1438,7 @@ export default function SocialPage() {
 
             {/* Footer */}
             <div className="p-5 border-t border-slate-700/50 flex gap-3">
-              <button
+                  <button
                 onClick={closeStoryModal}
                 className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-colors"
               >
@@ -1450,11 +1450,11 @@ export default function SocialPage() {
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploadingStory ? 'Subiendo...' : 'Publicar'}
-              </button>
+                  </button>
             </div>
           </div>
-        </div>
-      )}
+                </div>
+              )}
 
       {/* Modal para ver Story */}
       {showStoryViewer && currentStory && (
@@ -1507,7 +1507,7 @@ export default function SocialPage() {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-white font-bold">
                       {currentStory.author?.nombre?.charAt(0) || 'U'}
-                    </div>
+                </div>
                   )}
                 </div>
                 <div>
@@ -1564,14 +1564,14 @@ export default function SocialPage() {
 
           {/* Botón siguiente */}
           {currentStoryIndex < stories.length - 1 && (
-            <button
+                <button
               onClick={nextStory}
               className="absolute right-6 z-50 text-white hover:scale-110 transition-transform bg-black/30 rounded-full p-2"
-            >
+                >
               <ChevronRight className="w-10 h-10" />
-            </button>
+                </button>
           )}
-        </div>
+              </div>
       )}
 
       {/* Modal de confirmación para eliminar post */}
