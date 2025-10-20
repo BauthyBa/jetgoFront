@@ -4,6 +4,7 @@ import { supabase } from '@/services/supabase'
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin, UserPlus, UserCheck, Trash2 } from 'lucide-react'
 import API_CONFIG from '@/config/api'
 import { sendFriendRequest } from '@/services/friends'
+import BackButton from '@/components/BackButton'
 
 export default function SocialPage() {
   const navigate = useNavigate()
@@ -653,13 +654,18 @@ export default function SocialPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/50 shadow-2xl">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 group">
+            {/* Botón de volver */}
+            <div className="flex items-center gap-4">
+              <BackButton fallback="/dashboard" variant="ghost" />
+              {/* Logo */}
+              <Link to="/" className="flex items-center gap-2 group">
               <img src="/jetgo.png?v=2" alt="JetGo" className="w-10 h-10" />
               <span className="text-2xl font-bold text-white group-hover:text-emerald-400 transition-colors">
                 JetGo
               </span>
             </Link>
+
+            </div>
 
             {/* Search Bar - Desktop */}
             <div className="hidden md:flex flex-1 max-w-md mx-8">

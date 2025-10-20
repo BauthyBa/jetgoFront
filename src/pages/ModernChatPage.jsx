@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import BackButton from '@/components/BackButton'
 import EmojiPicker from '@/components/EmojiPicker'
 import ChatExpenses from '@/components/ChatExpenses'
 import ConnectionStatus from '@/components/ConnectionStatus'
@@ -635,6 +636,10 @@ export default function ModernChatPage() {
         {/* Sidebar */}
         <div className="w-80 bg-slate-900/80 backdrop-blur-xl border-r border-slate-700/50 h-screen">
           <div className="h-full flex flex-col">
+            {/* Botón de volver */}
+            <div className="p-4 border-b border-slate-700/50">
+              <BackButton fallback="/profile" variant="ghost" />
+            </div>
             {/* Header */}
             <div className="p-6 border-b border-slate-700/50">
               <div className="mb-4">

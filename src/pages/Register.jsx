@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { getSession, updateUserMetadata } from '../services/supabase'
 import { upsertProfileToBackend } from '../services/api'
 import { signInWithGoogle, supabase } from '../services/supabase'
+import BackButton from '../components/BackButton'
 
 export default function Register({ embedded = false }) {
   const location = useLocation()
@@ -497,6 +498,10 @@ export default function Register({ embedded = false }) {
       ) : (
         <div className="container" style={{ maxWidth: '1000px', padding: '40px' }}>
           <div className="card glass-card" style={{ padding: '50px', transform: 'scale(1.2)', transformOrigin: 'center' }}>
+            {/* Botón de volver */}
+            <div className="mb-6">
+              <BackButton fallback="/" variant="ghost" />
+            </div>
             <h2 className="page-title" style={{ fontSize: '3rem', marginBottom: '32px' }}>Registro</h2>
             {inner}
           </div>

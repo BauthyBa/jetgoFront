@@ -25,6 +25,7 @@ import TarjetaViaje from '@/components/TarjetaViaje'
 import TripGrid from '@/components/TripGrid'
 import TripListHorizontal from '@/components/TripListHorizontal'
 import ApplyToTripModal from '@/components/ApplyToTripModal'
+import BackButton from '@/components/BackButton'
 
 export default function ViajesPage() {
   const [searchParams] = useSearchParams()
@@ -356,6 +357,10 @@ export default function ViajesPage() {
     <div className="min-h-screen bg-slate-900">
       <div className="pt-20 pb-12">
         <div className="max-w-7xl mx-auto px-6">
+          {/* Botón de volver */}
+          <div className="mb-6">
+            <BackButton fallback="/dashboard" variant="ghost" />
+          </div>
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-4">

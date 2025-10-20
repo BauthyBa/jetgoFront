@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { sendPasswordResetEmail } from '@/services/api'
+import BackButton from '@/components/BackButton'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -44,6 +45,10 @@ export default function ForgotPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-4">
       <div className="w-full max-w-lg bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl p-10 border border-slate-700/50 transform scale-110">
+        {/* Botón de volver */}
+        <div className="mb-6">
+          <BackButton fallback="/login" variant="ghost" />
+        </div>
         {/* Header */}
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">

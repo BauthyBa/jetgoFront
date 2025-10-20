@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { login } from '../services/api'
 import { signInWithGoogle } from '../services/supabase'
+import BackButton from '../components/BackButton'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -47,6 +48,10 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-4">
       <div className="w-full max-w-lg bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl p-10 border border-slate-700/50 transform scale-110">
+        {/* Botón de volver */}
+        <div className="mb-6">
+          <BackButton fallback="/" variant="ghost" />
+        </div>
         <div className="text-center mb-10">
           <h2 className="text-4xl font-bold text-white mb-3">Iniciar sesión</h2>
           <p className="text-slate-400 text-base">Accedé a tu cuenta</p>

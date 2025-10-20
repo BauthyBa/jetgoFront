@@ -4,6 +4,7 @@ import { getSession } from '@/services/supabase'
 import SocialFeed from '@/components/SocialFeed'
 import Navigation from '@/components/Navigation'
 import { ArrowLeft, Activity } from 'lucide-react'
+import BackButton from '@/components/BackButton'
 
 export default function FeedPage() {
   const navigate = useNavigate()
@@ -51,13 +52,7 @@ export default function FeedPage() {
       <div className="container mx-auto px-4 py-8 pt-24">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Volver
-          </button>
+          <BackButton fallback="/dashboard" variant="ghost" />
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
               <Activity className="w-6 h-6 text-white" />
