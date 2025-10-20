@@ -12,7 +12,7 @@ import {
   Calendar
 } from 'lucide-react'
 
-export default function TarjetaViaje({ viaje, creadorNombre }) {
+export default function TarjetaViaje({ viaje, creadorNombre, onApply, hasApplied, isOwner, isMember }) {
   // Formatear fecha
   const formatDate = (dateString) => {
     if (!dateString) return ''
@@ -194,6 +194,34 @@ export default function TarjetaViaje({ viaje, creadorNombre }) {
               </div>
             </div>
           )}
+
+          {/* Botón de acción */}
+          <div className="mt-4 pt-4 border-t border-white/20">
+            {isOwner ? (
+              <div className="text-center text-slate-400 text-sm">
+                Tu viaje
+              </div>
+            ) : isMember ? (
+              <div className="text-center text-green-400 text-sm font-medium">
+                ✓ Ya eres participante
+              </div>
+            ) : hasApplied ? (
+              <div className="text-center text-yellow-400 text-sm font-medium">
+                ⏳ Aplicación enviada
+              </div>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onApply?.(viaje)
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                Aplicar
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </Link>
