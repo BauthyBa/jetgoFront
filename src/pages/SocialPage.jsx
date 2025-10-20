@@ -830,10 +830,12 @@ export default function SocialPage() {
       </nav>
 
       <div className="pt-20 md:pt-24 pb-20 md:pb-12">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-8">
+        <div className="w-full mx-auto px-4 md:px-6">
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 md:gap-8">
+
             {/* Feed Principal */}
-            <div className="w-full max-w-[630px] mx-auto xl:mx-0">
+            <div className="w-full">
+
               {/* Stories */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl">
               <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1">
@@ -1246,12 +1248,12 @@ export default function SocialPage() {
               {/* Sugerencias de Viajes */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
                 <div className="flex items-center justify-between mb-5">
-                  <p className="text-white font-bold text-sm">Viajes sugeridos</p>
-                  <button className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
+                  <p className="text-white font-bold text-sm">Viajes disponibles</p>
+                  <button onClick={() => navigate('/viajes')} className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
                     Ver todo
                   </button>
                 </div>
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {suggestedTrips.length === 0 ? (
                     <div className="text-center py-6">
                       <p className="text-slate-400 text-sm">No hay viajes disponibles</p>
@@ -1266,7 +1268,7 @@ export default function SocialPage() {
                     suggestedTrips.map((trip) => (
                     <div 
                       key={trip.id} 
-                      className="bg-slate-800/50 rounded-xl overflow-hidden cursor-pointer hover:bg-slate-800 transition-all duration-300 border border-slate-700/50 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 group"
+                      className="bg-slate-800/50 rounded-xl overflow-hidden cursor-pointer hover:bg-slate-700/50 rounded-xl transition-all duration-300 border border-slate-700/30 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 group"
                       onClick={() => navigate(`/trip/${trip.id}`)}
                     >
                       {trip.image_url && (
@@ -1274,7 +1276,7 @@ export default function SocialPage() {
                           <img 
                             src={trip.image_url} 
                             alt={trip.name}
-                            className="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-300"
+                            className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
                         </div>

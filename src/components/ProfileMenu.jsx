@@ -276,6 +276,8 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
                 </Link>
                 <Link
                   to="/social"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
