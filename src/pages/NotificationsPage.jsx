@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import NotificationCenter from '@/components/NotificationCenter'
+import BackButton from '@/components/BackButton'
 import { getSession } from '@/services/supabase'
 
 export default function NotificationsPage() {
@@ -38,6 +39,11 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen bg-slate-900 pt-24 pb-12">
       <div className="max-w-4xl mx-auto px-6">
+        {/* Botón de volver */}
+        <div className="mb-6">
+          <BackButton fallback="/profile" variant="ghost" />
+        </div>
+        
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Notificaciones</h1>
           <p className="text-slate-300">

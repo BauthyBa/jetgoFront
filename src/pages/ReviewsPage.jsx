@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getSession, supabase } from '../services/supabase'
 import { Star, ArrowLeft, MessageSquare, User, Calendar } from 'lucide-react'
 import Navigation from '../components/Navigation'
+import BackButton from '../components/BackButton'
 
 export default function ReviewsPage() {
   const [profile, setProfile] = useState(null)
@@ -178,6 +179,11 @@ export default function ReviewsPage() {
     <div className="min-h-screen bg-gradient-hero">
       <Navigation />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Botón de volver */}
+        <div className="mb-6">
+          <BackButton fallback="/profile" variant="ghost" />
+        </div>
+        
         {/* Header */}
         <div className="glass-card p-6 mb-6">
           <div className="flex items-center gap-4">

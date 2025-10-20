@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '@/components/DashboardLayout'
+import BackButton from '@/components/BackButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import EmojiPicker from '@/components/EmojiPicker'
@@ -466,6 +467,11 @@ export default function ChatsPage() {
   return (
     <DashboardLayout>
       <div className="py-8 text-white space-y-8">
+        {/* Botón de volver */}
+        <div className="mb-4">
+          <BackButton fallback="/profile" variant="ghost" />
+        </div>
+        
         <header className="space-y-2">
           <span className="uppercase tracking-[0.3em] text-xs text-slate-400">Centro de chats</span>
           <h1 className="text-3xl md:text-4xl font-extrabold text-white">

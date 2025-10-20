@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import DashboardLayout from '@/components/DashboardLayout'
 import GlassCard from '@/components/GlassCard'
+import BackButton from '@/components/BackButton'
 import { api } from '@/services/api'
 import { listTrips, normalizeTrip } from '@/services/trips'
 import { Button } from '@/components/ui/button'
@@ -68,6 +69,11 @@ export default function TripDetails() {
   return (
     <DashboardLayout>
       <div className="p-6 sm:p-8 text-white" style={{ display: 'grid', gap: 16 }}>
+        {/* Botón de volver */}
+        <div className="mb-4">
+          <BackButton fallback="/viajes" variant="ghost" />
+        </div>
+        
         <div className="glass-card" style={{ padding: 16 }}>
           <div style={{ display: 'flex', gap: 16 }}>
             {trip.imageUrl && (

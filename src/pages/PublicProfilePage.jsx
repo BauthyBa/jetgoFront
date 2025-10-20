@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import Navigation from '../components/Navigation'
 import GlassCard from '../components/GlassCard'
+import BackButton from '../components/BackButton'
 import API_CONFIG from '../config/api'
 import { sendFriendRequest, checkFriendshipStatus } from '../services/friends'
 import { getOrCreateDirectRoom } from '../services/chat'
@@ -564,13 +565,7 @@ const PublicProfilePage = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header con botón de volver */}
         <div className="mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center text-slate-300 hover:text-white transition-colors mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver
-          </button>
+          <BackButton fallback={-1} variant="ghost" />
         </div>
 
         {/* Información principal */}

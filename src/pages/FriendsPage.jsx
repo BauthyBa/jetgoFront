@@ -4,6 +4,7 @@ import { getSession } from '@/services/supabase'
 import { getFriendRequests, respondFriendRequest, getFriends } from '@/services/friends'
 import { UserPlus, Check, X, Clock, Users, ArrowLeft } from 'lucide-react'
 import GlassCard from '@/components/GlassCard'
+import BackButton from '@/components/BackButton'
 
 export default function FriendsPage() {
   const navigate = useNavigate()
@@ -160,13 +161,7 @@ export default function FriendsPage() {
       <div className="container mx-auto px-4 py-8 pt-24">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Volver
-          </button>
+          <BackButton fallback={-1} variant="ghost" />
           <div>
             <h1 className="text-3xl font-bold text-white">Amigos</h1>
             <p className="text-white/70">Gestiona tus conexiones y solicitudes</p>
