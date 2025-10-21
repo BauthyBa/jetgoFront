@@ -509,8 +509,20 @@ export default function Register({ embedded = false }) {
       )}
       {termsOpen && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
-          <div className="overlay-box" style={{ maxWidth: 740, width: '90%' }}>
-            <h3 id="termsTitle" style={{ fontWeight: 800, marginBottom: 8 }}>Términos y Condiciones</h3>
+          <div className="overlay-box" style={{ maxWidth: 740, width: '90%', background: '#ffffff', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+            <h3 id="termsTitle" style={{ fontWeight: 800, marginBottom: 8, color: '#0f172a' }}>Términos y Condiciones</h3>
+            <style>{`
+              .terms-content { color: #0f172a; line-height: 1.6; }
+              .terms-content h1, .terms-content h2, .terms-content h3, .terms-content h4, .terms-content h5, .terms-content h6 { color: #0f172a; margin: 0.5rem 0; }
+              .terms-content p { color: #0f172a; margin: 0.5rem 0; }
+              .terms-content a { color: #2563eb; text-decoration: underline; }
+              .terms-content ul, .terms-content ol { margin: 0.5rem 1.25rem; }
+              .terms-content li { margin: 0.25rem 0; }
+              .terms-content strong, .terms-content b { color: #0f172a; }
+              .terms-content em, .terms-content i { color: #0f172a; }
+              .terms-content table { width: 100%; border-collapse: collapse; }
+              .terms-content th, .terms-content td { border: 1px solid #e2e8f0; padding: 8px; }
+            `}</style>
             <div
               ref={termsScrollRef}
               onScroll={() => {
@@ -521,11 +533,12 @@ export default function Register({ embedded = false }) {
                   if (nearBottom) setTermsReadyToAccept(true)
                 } catch {}
               }}
-              style={{ maxHeight: '50vh', overflowY: 'auto', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(255,255,255,0.04)', width: '100%' }}
+              className="terms-content"
+              style={{ maxHeight: '50vh', overflowY: 'auto', padding: 16, borderRadius: 8, border: '1px solid #e2e8f0', background: '#ffffff', width: '100%' }}
               dangerouslySetInnerHTML={{ __html: termsHtml }}
             />
-            <div className="muted" style={{ fontSize: 12 }}>Desplazate hasta el final para habilitar "Aceptar".</div>
-            <div className="actions" style={{ justifyContent: 'flex-end' }}>
+            <div className="muted" style={{ fontSize: 12, color: '#475569', marginTop: 8 }}>Desplazate hasta el final para habilitar "Aceptar".</div>
+            <div className="actions" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
               <button className="btn secondary" type="button" onClick={() => { setTermsOpen(false) }}>Cancelar</button>
               <button className="btn" type="button" disabled={!termsReadyToAccept} onClick={() => { setTermsAccepted(true); setTermsOpen(false) }}>Aceptar</button>
             </div>
