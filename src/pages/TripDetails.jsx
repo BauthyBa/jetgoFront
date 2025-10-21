@@ -6,6 +6,10 @@ import BackButton from '@/components/BackButton'
 import { api } from '@/services/api'
 import { listTrips, normalizeTrip } from '@/services/trips'
 import { Button } from '@/components/ui/button'
+import { getSession } from '@/services/supabase'
+import { getUserApplications } from '@/services/applications'
+import { listRoomsForUser } from '@/services/chat'
+import ROUTES from '@/config/routes'
 
 export default function TripDetails() {
   const { tripId } = useParams()
@@ -14,6 +18,43 @@ export default function TripDetails() {
   const [error, setError] = useState('')
   const [trip, setTrip] = useState(null)
   const [participants, setParticipants] = useState([])
+  const [currentUser, setCurrentUser] = useState(null)
+  const [userRooms, setUserRooms] = useState([])
+  const [userApplications, setUserApplications] = useState([])
+  const [applyModalOpen, setApplyModalOpen] = useState(false)
+
+  // Cargar información del usuario actual
+  useEffect(() => {
+    let mounted = true
+    async function loadUserInfo() {
+      try {
+        const session = await getSession()
+        if (mounted && session?.user) {
+          setCurrentUser(session.user)
+          
+          // Cargar rooms del usuario
+          try {
+            const rooms = await listRoomsForUser(session.user.id)
+            if (mounted) setUserRooms(rooms)
+          } catch (error) {
+            console.error('Error cargando rooms:', error)
+          }
+          
+          // Cargar aplicaciones del usuario
+          try {
+            const applications = await getUserApplications(session.user.id)
+            if (mounted) setUserApplications(applications)
+          } catch (error) {
+            console.error('Error cargando aplicaciones:', error)
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando sesión:', error)
+      }
+    }
+    loadUserInfo()
+    return () => { mounted = false }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -62,6 +103,67 @@ export default function TripDetails() {
     } catch { return '' }
   }, [trip])
 
+  // Determinar el estado del usuario con respecto al viaje
+  const userTripStatus = useMemo(() => {
+    if (!currentUser || !trip) {
+      return { isOwner: false, isMember: false, hasApplied: false }
+    }
+
+    // Verificar si es el creador del viaje
+    const isOwner = trip.creatorId && trip.creatorId === currentUser.id
+
+    // Verificar si es miembro (tiene acceso al chat grupal)
+    const isMember = Array.isArray(userRooms) && userRooms.some((room) => (
+      String(room?.trip_id) === String(trip.id) && 
+      (room?.is_group === true || (!room?.is_private && !room?.application_id))
+    ))
+
+    // Verificar si ya aplicó al viaje
+    const hasApplied = userApplications.some(app => String(app.trip_id) === String(trip.id))
+
+    return { isOwner, isMember, hasApplied }
+  }, [currentUser, trip, userRooms, userApplications])
+
+  // Manejar la acción principal según el estado del usuario
+  const handlePrimaryAction = () => {
+    if (userTripStatus.isMember || userTripStatus.isOwner) {
+      // Si es miembro o dueño, ir al chat
+      navigate(ROUTES.TRIP_CHAT(trip.id))
+    } else {
+      // Si no es miembro, ir a la página de aplicación (viajes)
+      navigate(ROUTES.VIAJES)
+    }
+  }
+
+  // Obtener el texto y estilo del botón principal
+  const getPrimaryButtonProps = () => {
+    if (userTripStatus.isOwner) {
+      return {
+        text: 'Ir al chat del viaje',
+        variant: 'default',
+        disabled: false
+      }
+    } else if (userTripStatus.isMember) {
+      return {
+        text: 'Ir al chat del viaje',
+        variant: 'default',
+        disabled: false
+      }
+    } else if (userTripStatus.hasApplied) {
+      return {
+        text: 'Solicitud enviada - Esperando aprobación',
+        variant: 'secondary',
+        disabled: true
+      }
+    } else {
+      return {
+        text: 'Aplicar al viaje',
+        variant: 'default',
+        disabled: false
+      }
+    }
+  }
+
   if (loading) return <div className="container"><p className="muted">Cargando…</p></div>
   if (error) return <div className="container"><pre className="error">{error}</pre></div>
   if (!trip) return <div className="container"><p className="muted">No encontrado</p></div>
@@ -90,9 +192,34 @@ export default function TripDetails() {
               {(trip.currentParticipants != null || trip.maxParticipants != null) && (
                 <div className="muted">Cupos: {trip.currentParticipants ?? '?'} / {trip.maxParticipants ?? '?'}</div>
               )}
-              <div style={{ marginTop: 8 }}>
-                <Button onClick={() => navigate(`/modern-chat?trip=${encodeURIComponent(trip.id)}`)}>Ir al chat del viaje</Button>
-              </div>
+              {currentUser && (
+                <div style={{ marginTop: 8, display: 'flex', gap: 8, flexDirection: 'column' }}>
+                  <Button 
+                    onClick={handlePrimaryAction}
+                    disabled={getPrimaryButtonProps().disabled}
+                    variant={getPrimaryButtonProps().variant}
+                  >
+                    {getPrimaryButtonProps().text}
+                  </Button>
+                  {userTripStatus.isOwner && (
+                    <div className="text-sm text-emerald-400" style={{ marginTop: 4 }}>
+                      ✓ Eres el organizador de este viaje
+                    </div>
+                  )}
+                  {userTripStatus.isMember && !userTripStatus.isOwner && (
+                    <div className="text-sm text-emerald-400" style={{ marginTop: 4 }}>
+                      ✓ Eres participante de este viaje
+                    </div>
+                  )}
+                </div>
+              )}
+              {!currentUser && (
+                <div style={{ marginTop: 8 }}>
+                  <Button onClick={() => navigate(ROUTES.LOGIN)}>
+                    Inicia sesión para aplicar
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
