@@ -495,6 +495,8 @@ export default function ProfilePage() {
     )
   }
 
+  const isVerified = (profile?.meta?.dni_verified === true) || (typeof window !== 'undefined' && localStorage.getItem('dni_verified') === 'true')
+
   return (
     <div className="min-h-screen bg-gradient-hero">
       <Navigation />
@@ -541,8 +543,8 @@ export default function ProfilePage() {
                     <span className="text-xs text-slate-400 bg-slate-700 px-2 py-1 rounded-full">
                       {getTripLevel()} ({getTripCount()} viajes)
                     </span>
-                    <span className="text-xs text-emerald-400">
-                      ✓ DNI Verificado
+                    <span className={`text-xs ${isVerified ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {isVerified ? '✓ DNI verificado' : 'Cuenta sin verificar'}
                     </span>
                   </div>
                 </div>
