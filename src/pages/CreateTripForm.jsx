@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import CurrencySelect from '@/components/CurrencySelect'
 import { getSession } from '@/services/supabase'
 import { createTrip } from '@/services/trips'
+import ROUTES from '@/config/routes'
 
 export default function CreateTripForm() {
   const navigate = useNavigate()
@@ -135,6 +136,11 @@ export default function CreateTripForm() {
         throw new Error('La fecha de fin debe ser posterior a la de inicio')
       }
 
+      // Validar que el usuario esté autenticado
+      if (!profile || !profile.id) {
+        throw new Error('Debes estar autenticado para crear un viaje')
+      }
+
       // Preparar datos para envío
       const tripData = {
         ...trip,
@@ -145,20 +151,45 @@ export default function CreateTripForm() {
         countryCode: isoCountry
       }
 
+      // Log para debugging
+      console.log('📤 Enviando datos del viaje:', tripData)
+
       // Crear el viaje
       const result = await createTrip(tripData)
       
-      if (result) {
+      console.log('✅ Respuesta del servidor:', result)
+
+      if (result && (result.trip_id || result.id)) {
         setSuccess(true)
         setTimeout(() => {
-          navigate('/viajes')
+          navigate(ROUTES.VIAJES)
         }, 2000)
       } else {
-        throw new Error('Error al crear el viaje')
+        throw new Error('Error al crear el viaje. Por favor intenta nuevamente.')
       }
     } catch (error) {
-      console.error('Error creando viaje:', error)
-      setError(error.message || 'Error al crear el viaje')
+      console.error('❌ Error creando viaje:', error)
+      
+      // Mensajes de error más descriptivos
+      if (error.response) {
+        const statusCode = error.response.status
+        const errorData = error.response.data
+        
+        if (statusCode === 401) {
+          setError('Tu sesión ha expirado. Por favor inicia sesión nuevamente.')
+        } else if (statusCode === 400) {
+          const errorMessage = typeof errorData === 'string' 
+            ? errorData 
+            : JSON.stringify(errorData)
+          setError(`Error en los datos: ${errorMessage}`)
+        } else if (statusCode === 500) {
+          setError('Error del servidor. Por favor intenta más tarde.')
+        } else {
+          setError(errorData?.message || error.message || 'Error al crear el viaje')
+        }
+      } else {
+        setError(error.message || 'Error al crear el viaje. Verifica tu conexión a internet.')
+      }
     } finally {
       setSubmitting(false)
     }
