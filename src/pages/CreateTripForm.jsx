@@ -179,7 +179,6 @@ export default function CreateTripForm() {
         description: trip.description || '',
         tipo: trip.tipo
       }
-
       // Log para debugging
       console.log('📤 Enviando datos del viaje:', tripData)
 
