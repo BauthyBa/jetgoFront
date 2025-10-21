@@ -187,13 +187,13 @@ export default function CreateTripForm() {
       
       console.log('✅ Respuesta del servidor:', result)
 
-      if (result && (result.trip_id || result.id)) {
+      if (result && result.ok && result.trip) {
         setSuccess(true)
         setTimeout(() => {
           navigate(ROUTES.VIAJES)
         }, 2000)
       } else {
-        throw new Error('Error al crear el viaje. Por favor intenta nuevamente.')
+        throw new Error(result?.error || 'Error al crear el viaje. Por favor intenta nuevamente.')
       }
     } catch (error) {
       console.error('❌ Error creando viaje:', error)
