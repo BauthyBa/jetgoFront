@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin, UserPlus, UserCheck, Trash2 } from 'lucide-react'
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin, UserPlus, UserCheck, Trash2, Image as ImageIcon } from 'lucide-react'
 import API_CONFIG from '@/config/api'
 import { sendFriendRequest } from '@/services/friends'
 import BackButton from '@/components/BackButton'
@@ -34,6 +34,11 @@ export default function SocialPage() {
   const [showPostMenu, setShowPostMenu] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [postToDelete, setPostToDelete] = useState(null)
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false)
+  const [newPostContent, setNewPostContent] = useState('')
+  const [newPostFile, setNewPostFile] = useState(null)
+  const [newPostPreview, setNewPostPreview] = useState(null)
+  const [creatingPost, setCreatingPost] = useState(false)
 
   useEffect(() => {
     getCurrentUser()
@@ -648,6 +653,82 @@ export default function SocialPage() {
     }
   }
 
+  const handlePostFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        alert('Solo se permiten imágenes y videos')
+        return
+      }
+
+      setNewPostFile(file)
+      
+      // Crear preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setNewPostPreview(reader.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const closeCreatePostModal = () => {
+    setShowCreatePostModal(false)
+    setNewPostContent('')
+    setNewPostFile(null)
+    setNewPostPreview(null)
+  }
+
+  const createPost = async () => {
+    try {
+      if (!user?.id) {
+        alert('Debes iniciar sesión para crear un post')
+        return
+      }
+
+      if (!newPostContent.trim() && !newPostFile) {
+        alert('Debes agregar contenido o una imagen/video')
+        return
+      }
+
+      setCreatingPost(true)
+
+      // Crear FormData
+      const formData = new FormData()
+      formData.append('user_id', user.id)
+      formData.append('content', newPostContent)
+      if (newPostFile) {
+        formData.append('file', newPostFile)
+      }
+
+      // Enviar al backend
+      const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('Post creado:', result)
+        alert('¡Post creado exitosamente!')
+        closeCreatePostModal()
+        // Recargar posts
+        loadPosts()
+      } else {
+        const errorData = await response.json()
+        console.error('Error al crear post:', errorData)
+        alert(`Error: ${errorData.error || 'No se pudo crear el post'}`)
+      }
+    } catch (error) {
+      console.error('Error creating post:', error)
+      alert('Error al crear el post')
+    } finally {
+      setCreatingPost(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Social Navigation Bar */}
@@ -728,11 +809,11 @@ export default function SocialPage() {
 
               {/* Create Post */}
               <button
-                onClick={openStoryModal}
+                onClick={() => setShowCreatePostModal(true)}
                 className="hidden md:flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white px-4 py-2 rounded-xl font-semibold transition-all shadow-lg shadow-emerald-500/20"
               >
                 <Plus className="w-5 h-5" />
-                Crear
+                Crear Post
               </button>
 
               {/* Profile Avatar */}
@@ -875,10 +956,12 @@ export default function SocialPage() {
                 {stories.map((story, index) => (
                   <div 
                     key={story.id} 
-                    onClick={() => openStoryViewer(index)}
                     className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
                   >
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-pink-500/30">
+                    <div 
+                      onClick={() => openStoryViewer(index)}
+                      className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-pink-500/30"
+                    >
                       <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
                         <div className="w-full h-full rounded-full overflow-hidden">
                           {story.author?.avatar_url ? (
@@ -897,7 +980,10 @@ export default function SocialPage() {
                     </div>
                     </div>
                     </div>
-                    <span className="text-xs text-slate-200 font-semibold truncate w-20 text-center">
+                    <span 
+                      onClick={() => goToUserProfile(story.user_id || story.author?.userid)}
+                      className="text-xs text-slate-200 font-semibold truncate w-20 text-center hover:text-emerald-400 transition-colors"
+                    >
                       {story.author?.nombre || 'Usuario'}
                     </span>
                   </div>
@@ -924,7 +1010,10 @@ export default function SocialPage() {
                     {/* Post Header */}
                     <div className="flex items-center justify-between p-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 ring-2 ring-blue-500/30 shadow-lg">
+                        <div 
+                          onClick={() => goToUserProfile(post.user_id || post.author?.userid)}
+                          className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 ring-2 ring-blue-500/30 shadow-lg cursor-pointer hover:ring-emerald-500 transition-all"
+                        >
                           {post.author?.avatar_url ? (
                             <img 
                               src={post.author.avatar_url} 
@@ -938,7 +1027,10 @@ export default function SocialPage() {
                           )}
                         </div>
                         <div>
-                          <p className="text-white font-bold text-sm">
+                          <p 
+                            onClick={() => goToUserProfile(post.user_id || post.author?.userid)}
+                            className="text-white font-bold text-sm cursor-pointer hover:text-emerald-400 transition-colors"
+                          >
                             {post.author?.nombre} {post.author?.apellido}
                           </p>
                             {post.location && (
@@ -1060,7 +1152,10 @@ export default function SocialPage() {
                         <div className="mt-4 space-y-3 max-h-64 overflow-y-auto scrollbar-hide">
                           {comments[post.id]?.map((comment, idx) => (
                             <div key={idx} className="flex gap-3">
-                              <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
+                              <div 
+                                onClick={() => goToUserProfile(comment.user_id || comment.author?.userid)}
+                                className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all"
+                              >
                                 {comment.author?.avatar_url ? (
                                   <img 
                                     src={comment.author.avatar_url} 
@@ -1075,7 +1170,10 @@ export default function SocialPage() {
                               </div>
                               <div className="flex-1">
                                 <p className="text-sm">
-                                  <span className="font-bold text-white mr-2">
+                                  <span 
+                                    onClick={() => goToUserProfile(comment.user_id || comment.author?.userid)}
+                                    className="font-bold text-white mr-2 cursor-pointer hover:text-emerald-400 transition-colors"
+                                  >
                                     {comment.author?.nombre || 'Usuario'}
                                   </span>
                                   <span className="text-slate-200">{comment.content}</span>
@@ -1253,7 +1351,7 @@ export default function SocialPage() {
                     Ver todo
                   </button>
                 </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
                   {suggestedTrips.length === 0 ? (
                     <div className="text-center py-6">
                       <p className="text-slate-400 text-sm">No hay viajes disponibles</p>
@@ -1268,29 +1366,31 @@ export default function SocialPage() {
                     suggestedTrips.map((trip) => (
                     <div 
                       key={trip.id} 
-                      className="bg-slate-800/50 rounded-xl overflow-hidden cursor-pointer hover:bg-slate-700/50 rounded-xl transition-all duration-300 border border-slate-700/30 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 group"
+                      className="bg-slate-800/50 rounded-xl overflow-hidden cursor-pointer hover:bg-slate-700/50 transition-all duration-300 border border-slate-700/30 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 group"
                       onClick={() => navigate(`/trip/${trip.id}`)}
                     >
-                      {trip.image_url && (
-                        <div className="relative overflow-hidden">
-                          <img 
-                            src={trip.image_url} 
-                            alt={trip.name}
-                            className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
+                      <div className="flex gap-3 p-3">
+                        {trip.image_url && (
+                          <div className="relative overflow-hidden rounded-lg flex-shrink-0">
+                            <img 
+                              src={trip.image_url} 
+                              alt={trip.name}
+                              className="w-20 h-20 object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent"></div>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-bold text-sm mb-1 truncate">{trip.name}</p>
+                          <p className="text-slate-400 text-xs mb-2 truncate">{trip.destination}</p>
+                          {trip.budget_min && (
+                            <div className="inline-block px-2 py-0.5 bg-emerald-500/20 rounded-full">
+                              <p className="text-emerald-400 text-xs font-bold">
+                                Desde ${trip.budget_min}
+                              </p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      <div className="p-3">
-                        <p className="text-white font-bold text-sm mb-1">{trip.name}</p>
-                        <p className="text-slate-400 text-xs mb-2">{trip.destination}</p>
-                        {trip.budget_min && (
-                          <div className="inline-block px-3 py-1 bg-emerald-500/20 rounded-full">
-                            <p className="text-emerald-400 text-xs font-bold">
-                              Desde ${trip.budget_min}
-                            </p>
-                </div>
-              )}
                       </div>
                     </div>
                   ))
@@ -1580,6 +1680,142 @@ export default function SocialPage() {
                 </button>
           )}
               </div>
+      )}
+
+      {/* Modal para crear post */}
+      {showCreatePostModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-500/20 to-blue-500/20 border-b border-emerald-500/30 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">Crear Nuevo Post</h3>
+              <button
+                onClick={closeCreatePostModal}
+                className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-700 rounded-full"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* User info */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600">
+                  {user?.avatar_url ? (
+                    <img 
+                      src={user.avatar_url} 
+                      alt={user.nombre || 'Tu perfil'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
+                      {user?.nombre?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-white font-bold">
+                    {user?.nombre && user?.apellido 
+                      ? `${user.nombre} ${user.apellido}` 
+                      : user?.email?.split('@')[0] || 'Usuario'}
+                  </p>
+                  <p className="text-slate-400 text-sm">Público</p>
+                </div>
+              </div>
+
+              {/* Content textarea */}
+              <textarea
+                value={newPostContent}
+                onChange={(e) => setNewPostContent(e.target.value)}
+                placeholder="¿Qué estás pensando?"
+                className="w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 rounded-xl px-4 py-3 min-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                maxLength={500}
+              />
+
+              {/* Preview de imagen/video */}
+              {newPostPreview && (
+                <div className="relative rounded-xl overflow-hidden bg-slate-950">
+                  <button
+                    onClick={() => {
+                      setNewPostFile(null)
+                      setNewPostPreview(null)
+                    }}
+                    className="absolute top-2 right-2 z-10 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  {newPostFile?.type.startsWith('image/') ? (
+                    <img 
+                      src={newPostPreview} 
+                      alt="Preview"
+                      className="w-full max-h-96 object-contain"
+                    />
+                  ) : (
+                    <video 
+                      src={newPostPreview}
+                      controls
+                      className="w-full max-h-96 object-contain"
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* File upload button */}
+              {!newPostFile && (
+                <div className="border-2 border-dashed border-slate-700 rounded-xl p-6 hover:border-emerald-500/50 transition-colors">
+                  <input
+                    type="file"
+                    id="post-file-input"
+                    accept="image/*,video/*"
+                    onChange={handlePostFileChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="post-file-input"
+                    className="flex flex-col items-center gap-3 cursor-pointer"
+                  >
+                    <div className="bg-emerald-500/20 p-4 rounded-full">
+                      <ImageIcon className="w-8 h-8 text-emerald-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-white font-semibold mb-1">Agregar foto o video</p>
+                      <p className="text-slate-400 text-sm">Haz clic para seleccionar</p>
+                    </div>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end border-t border-slate-700">
+              <button
+                onClick={closeCreatePostModal}
+                className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+                disabled={creatingPost}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={createPost}
+                disabled={creatingPost || (!newPostContent.trim() && !newPostFile)}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {creatingPost ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Publicando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    Publicar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de confirmación para eliminar post */}

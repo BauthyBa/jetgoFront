@@ -1088,6 +1088,10 @@ export default function ModernChatPage() {
                                     }
                                     const status = applicationStatuses[applicationId]
                                     const isFinal = status === 'accepted' || status === 'rejected'
+                                    
+                                    // Verificar si el mensaje es del usuario actual (es el aplicante)
+                                    const isOwnMessage = profile?.user_id && String(message.user_id) === String(profile.user_id)
+                                    
                                     if (isApplication && applicationId && isFinal) {
                                       return (
                                         <div
@@ -1102,7 +1106,14 @@ export default function ModernChatPage() {
                                         </div>
                                       )
                                     }
-                                    if (isPrivate && isOrganizer && isApplication && applicationId && !isFinal) {
+                                    
+                                    // Solo mostrar botones si:
+                                    // 1. Es un chat privado
+                                    // 2. Es el organizador del viaje
+                                    // 3. Es una aplicación
+                                    // 4. NO es el mensaje del usuario actual (no es el aplicante)
+                                    // 5. No está finalizada
+                                    if (isPrivate && isOrganizer && isApplication && applicationId && !isFinal && !isOwnMessage) {
                                       return (
                                         <div className="mt-3 flex items-center justify-end gap-2">
                                           <Button
