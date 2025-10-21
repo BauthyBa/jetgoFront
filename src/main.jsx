@@ -10,6 +10,7 @@ import ChatsPage from './pages/ChatsPage.jsx'
 import ModernChatPage from './pages/ModernChatPage.jsx'
 import VerifyDni from './pages/VerifyDni.jsx'
 import Layout from './components/Layout.jsx'
+import ProtectedRoute from './components/ProtectedRoute.jsx'
 import PublicProfilePage from './pages/PublicProfilePage.jsx'
 import TripDetails from './pages/TripDetails.jsx'
 import TripReviews from './pages/TripReviews.jsx'
@@ -30,26 +31,71 @@ const router = createBrowserRouter([
     path: '/',
     element: <Layout />,
     children: [
+      // Rutas públicas (sin verificación requerida)
       { index: true, element: <App /> },
       { path: 'register', element: <Register /> },
       { path: 'login', element: <Login /> },
       { path: 'signup', element: <Signup /> },
       { path: 'verify-dni', element: <VerifyDni /> },
-      { path: 'dashboard', element: <ModernChatPage /> },
-      { path: 'chats', element: <ChatsPage /> },
-      { path: 'modern-chat', element: <ModernChatPage /> },
-      { path: 'viajes', element: <ViajesPage /> },
-      { path: 'amigos', element: <FriendsPage /> },
-      { path: 'social', element: <SocialPage /> },
-      { path: 'crear-viaje', element: <CreateTripLanding /> },
-      { path: 'crear-viaje/formulario', element: <CreateTripForm /> },
-      { path: 'u/:username', element: <PublicProfilePage /> },
-      { path: 'trip/:tripId', element: <TripDetails /> },
-      { path: 'trip/:tripId/reviews', element: <TripReviews /> },
       { path: 'profile', element: <ProfilePage /> },
-      { path: 'profile/:userId', element: <PublicProfilePage /> },
-      { path: 'profile/reviews', element: <ReviewsPage /> },
-      { path: 'profile/settings', element: <AccountSettingsPage /> },
+      
+      // Rutas protegidas (requieren verificación de DNI)
+      { 
+        path: 'dashboard', 
+        element: <ProtectedRoute><ModernChatPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'chats', 
+        element: <ProtectedRoute><ChatsPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'modern-chat', 
+        element: <ProtectedRoute><ModernChatPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'viajes', 
+        element: <ProtectedRoute><ViajesPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'amigos', 
+        element: <ProtectedRoute><FriendsPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'social', 
+        element: <ProtectedRoute><SocialPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'crear-viaje', 
+        element: <ProtectedRoute><CreateTripLanding /></ProtectedRoute> 
+      },
+      { 
+        path: 'crear-viaje/formulario', 
+        element: <ProtectedRoute><CreateTripForm /></ProtectedRoute> 
+      },
+      { 
+        path: 'u/:username', 
+        element: <ProtectedRoute><PublicProfilePage /></ProtectedRoute> 
+      },
+      { 
+        path: 'trip/:tripId', 
+        element: <ProtectedRoute><TripDetails /></ProtectedRoute> 
+      },
+      { 
+        path: 'trip/:tripId/reviews', 
+        element: <ProtectedRoute><TripReviews /></ProtectedRoute> 
+      },
+      { 
+        path: 'profile/:userId', 
+        element: <ProtectedRoute><PublicProfilePage /></ProtectedRoute> 
+      },
+      { 
+        path: 'profile/reviews', 
+        element: <ProtectedRoute><ReviewsPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'profile/settings', 
+        element: <ProtectedRoute><AccountSettingsPage /></ProtectedRoute> 
+      },
     ],
   },
   // Rutas de autenticación sin Layout (sin navbar)
