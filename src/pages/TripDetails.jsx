@@ -10,6 +10,8 @@ import { getSession } from '@/services/supabase'
 import { getUserApplications } from '@/services/applications'
 import { listRoomsForUser } from '@/services/chat'
 import ROUTES from '@/config/routes'
+import ReportUserModal from '@/components/ReportUserModal'
+import { Star, MessageCircle, Flag } from 'lucide-react'
 
 export default function TripDetails() {
   const { tripId } = useParams()
@@ -22,6 +24,9 @@ export default function TripDetails() {
   const [userRooms, setUserRooms] = useState([])
   const [userApplications, setUserApplications] = useState([])
   const [applyModalOpen, setApplyModalOpen] = useState(false)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportedUserId, setReportedUserId] = useState(null)
+  const [reportedUserName, setReportedUserName] = useState('')
 
   // Cargar información del usuario actual
   useEffect(() => {
@@ -224,6 +229,39 @@ export default function TripDetails() {
           </div>
         </div>
 
+        {/* Botones de Reseñas y Reportar */}
+        {trip && (
+          <div className="glass-card" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {/* Botón Ver Reseñas */}
+              <Button
+                onClick={() => navigate(ROUTES.TRIP_REVIEWS(trip.id))}
+                variant="secondary"
+                style={{ flex: '1 1 auto', minWidth: 150 }}
+              >
+                <Star className="w-4 h-4 mr-2" />
+                Ver Reseñas
+              </Button>
+
+              {/* Botón Reportar Organizador (solo si no eres el organizador) */}
+              {currentUser && !userTripStatus.isOwner && trip.creatorId && (
+                <Button
+                  onClick={() => {
+                    setReportedUserId(trip.creatorId)
+                    setReportedUserName('Organizador del viaje')
+                    setReportModalOpen(true)
+                  }}
+                  variant="secondary"
+                  style={{ flex: '1 1 auto', minWidth: 150, background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                >
+                  <Flag className="w-4 h-4 mr-2" />
+                  Reportar Organizador
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="glass-card" style={{ padding: 16 }}>
           <h3 className="page-title" style={{ margin: 0 }}>Participantes</h3>
           {(participants || []).length === 0 && <p className="muted" style={{ marginTop: 8 }}>Sin participantes aún</p>}
@@ -238,13 +276,11 @@ export default function TripDetails() {
                   onClick={() => {
                     try {
                       if (!m?.user_id) return
-                      // Intentar navegar por username si está disponible, sino por user_id
-                      if (m.username) {
-                        navigate(`/u/${m.username}`)
-                      } else {
-                        navigate(`/u/${m.user_id}`)
-                      }
-                    } catch {}
+                      // Navegar usando la ruta de perfil público por ID
+                      navigate(ROUTES.PUBLIC_PROFILE_BY_ID(m.user_id))
+                    } catch (error) {
+                      console.error('Error navegando a perfil:', error)
+                    }
                   }}
                 >
                   <div style={{ fontWeight: 600 }}>{m.name || m.user_id}</div>
@@ -254,6 +290,20 @@ export default function TripDetails() {
             </div>
           )}
         </div>
+
+        {/* Modal de Reportar Usuario */}
+        {reportModalOpen && (
+          <ReportUserModal
+            isOpen={reportModalOpen}
+            onClose={() => {
+              setReportModalOpen(false)
+              setReportedUserId(null)
+              setReportedUserName('')
+            }}
+            reportedUserId={reportedUserId}
+            reportedUserName={reportedUserName}
+          />
+        )}
       </div>
     </DashboardLayout>
   )

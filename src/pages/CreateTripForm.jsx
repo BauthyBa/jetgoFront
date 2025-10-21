@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import CurrencySelect from '@/components/CurrencySelect'
 import { getSession } from '@/services/supabase'
 import { createTrip } from '@/services/trips'
+import ROUTES from '@/config/routes'
 
 export default function CreateTripForm() {
   const navigate = useNavigate()
@@ -127,6 +128,26 @@ export default function CreateTripForm() {
         throw new Error('Por favor completa todos los campos obligatorios')
       }
 
+      if (!trip.roomType) {
+        throw new Error('Por favor selecciona un tipo de habitación')
+      }
+
+      if (!trip.season) {
+        throw new Error('Por favor selecciona una temporada')
+      }
+
+      if (!trip.country) {
+        throw new Error('Por favor selecciona un país')
+      }
+
+      if (!trip.budgetMin || !trip.budgetMax) {
+        throw new Error('Por favor completa el presupuesto')
+      }
+
+      if (!trip.maxParticipants) {
+        throw new Error('Por favor indica el máximo de participantes')
+      }
+
       if (new Date(trip.startDate) < new Date()) {
         throw new Error('La fecha de inicio debe ser futura')
       }
@@ -135,30 +156,69 @@ export default function CreateTripForm() {
         throw new Error('La fecha de fin debe ser posterior a la de inicio')
       }
 
-      // Preparar datos para envío
-      const tripData = {
-        ...trip,
-        creatorId: profile.id,
-        budgetMin: trip.budgetMin ? parseFloat(trip.budgetMin) : null,
-        budgetMax: trip.budgetMax ? parseFloat(trip.budgetMax) : null,
-        maxParticipants: trip.maxParticipants ? parseInt(trip.maxParticipants) : null,
-        countryCode: isoCountry
+      // Validar que el usuario esté autenticado
+      if (!profile || !profile.id) {
+        throw new Error('Debes estar autenticado para crear un viaje')
       }
+
+      // Preparar datos para envío - convertir a snake_case para el backend
+      const tripData = {
+        creator_id: profile.id,
+        name: trip.name,
+        origin: trip.origin,
+        destination: trip.destination,
+        start_date: trip.startDate,
+        end_date: trip.endDate || null,
+        budget_min: trip.budgetMin ? parseFloat(trip.budgetMin) : null,
+        budget_max: trip.budgetMax ? parseFloat(trip.budgetMax) : null,
+        max_participants: trip.maxParticipants ? parseInt(trip.maxParticipants) : null,
+        room_type: trip.roomType,
+        season: trip.season,
+        country: trip.country,
+        currency: trip.currency,
+        description: trip.description || '',
+        tipo: trip.tipo
+      }
+
+      // Log para debugging
+      console.log('📤 Enviando datos del viaje:', tripData)
 
       // Crear el viaje
       const result = await createTrip(tripData)
       
-      if (result) {
+      console.log('✅ Respuesta del servidor:', result)
+
+      if (result && (result.trip_id || result.id)) {
         setSuccess(true)
         setTimeout(() => {
-          navigate('/viajes')
+          navigate(ROUTES.VIAJES)
         }, 2000)
       } else {
-        throw new Error('Error al crear el viaje')
+        throw new Error('Error al crear el viaje. Por favor intenta nuevamente.')
       }
     } catch (error) {
-      console.error('Error creando viaje:', error)
-      setError(error.message || 'Error al crear el viaje')
+      console.error('❌ Error creando viaje:', error)
+      
+      // Mensajes de error más descriptivos
+      if (error.response) {
+        const statusCode = error.response.status
+        const errorData = error.response.data
+        
+        if (statusCode === 401) {
+          setError('Tu sesión ha expirado. Por favor inicia sesión nuevamente.')
+        } else if (statusCode === 400) {
+          const errorMessage = typeof errorData === 'string' 
+            ? errorData 
+            : JSON.stringify(errorData)
+          setError(`Error en los datos: ${errorMessage}`)
+        } else if (statusCode === 500) {
+          setError('Error del servidor. Por favor intenta más tarde.')
+        } else {
+          setError(errorData?.message || error.message || 'Error al crear el viaje')
+        }
+      } else {
+        setError(error.message || 'Error al crear el viaje. Verifica tu conexión a internet.')
+      }
     } finally {
       setSubmitting(false)
     }
