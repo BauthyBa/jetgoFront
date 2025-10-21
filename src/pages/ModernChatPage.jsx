@@ -1088,91 +1088,66 @@ export default function ModernChatPage() {
                                     }
                                     const status = applicationStatuses[applicationId]
                                     const isFinal = status === 'accepted' || status === 'rejected'
-                                    
-                                    // Botón para ver perfil del aplicante (siempre visible en solicitudes)
-                                    if (isApplication && applicationId && message.user_id) {
-                                      const profileButton = (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="mt-2 w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border-blue-400/30"
-                                          onClick={() => navigate(`/profile/${message.user_id}`)}
+                                    if (isApplication && applicationId && isFinal) {
+                                      return (
+                                        <div
+                                          className={`
+                                            mt-3 text-sm font-semibold
+                                            ${status === 'accepted' ? 'text-emerald-300' : 'text-red-300'}
+                                          `}
                                         >
-                                          👤 Ver perfil del solicitante
-                                        </Button>
+                                          {status === 'accepted'
+                                            ? 'Esta solicitud ya fue aceptada.'
+                                            : 'Esta solicitud ya fue rechazada.'}
+                                        </div>
                                       )
-                                      
-                                      if (isFinal) {
-                                        return (
-                                          <>
-                                            <div
-                                              className={`
-                                                mt-3 text-sm font-semibold
-                                                ${status === 'accepted' ? 'text-emerald-300' : 'text-red-300'}
-                                              `}
-                                            >
-                                              {status === 'accepted'
-                                                ? 'Esta solicitud ya fue aceptada.'
-                                                : 'Esta solicitud ya fue rechazada.'}
-                                            </div>
-                                            {profileButton}
-                                          </>
-                                        )
-                                      }
-                                      
-                                      if (isPrivate && isOrganizer && !isFinal) {
-                                        return (
-                                          <>
-                                            {profileButton}
-                                            <div className="mt-3 flex items-center justify-end gap-2">
-                                              <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={async () => {
-                                                  try {
-                                                    await respondToApplication(applicationId, 'reject')
-                                                    setApplicationStatuses((prev) => ({
-                                                      ...prev,
-                                                      [applicationId]: 'rejected',
-                                                    }))
-                                                  } catch (actionError) {
-                                                    alert(
-                                                      actionError?.response?.data?.error ||
-                                                        actionError?.message ||
-                                                        'No se pudo rechazar la solicitud',
-                                                    )
-                                                  }
-                                                }}
-                                              >
-                                                Rechazar
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                onClick={async () => {
-                                                  try {
-                                                    await respondToApplication(applicationId, 'accept')
-                                                    setApplicationStatuses((prev) => ({
-                                                      ...prev,
-                                                      [applicationId]: 'accepted',
-                                                    }))
-                                                  } catch (actionError) {
-                                                    alert(
-                                                      actionError?.response?.data?.error ||
-                                                        actionError?.message ||
-                                                        'No se pudo aceptar la solicitud',
-                                                    )
-                                                  }
-                                                }}
-                                              >
-                                                Aceptar
-                                              </Button>
-                                            </div>
-                                          </>
-                                        )
-                                      }
-                                      
-                                      // Si es aplicación pero no es organizador, solo mostrar el botón de perfil
-                                      return profileButton
+                                    }
+                                    if (isPrivate && isOrganizer && isApplication && applicationId && !isFinal) {
+                                      return (
+                                        <div className="mt-3 flex items-center justify-end gap-2">
+                                          <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={async () => {
+                                              try {
+                                                await respondToApplication(applicationId, 'reject')
+                                                setApplicationStatuses((prev) => ({
+                                                  ...prev,
+                                                  [applicationId]: 'rejected',
+                                                }))
+                                              } catch (actionError) {
+                                                alert(
+                                                  actionError?.response?.data?.error ||
+                                                    actionError?.message ||
+                                                    'No se pudo rechazar la solicitud',
+                                                )
+                                              }
+                                            }}
+                                          >
+                                            Rechazar
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            onClick={async () => {
+                                              try {
+                                                await respondToApplication(applicationId, 'accept')
+                                                setApplicationStatuses((prev) => ({
+                                                  ...prev,
+                                                  [applicationId]: 'accepted',
+                                                }))
+                                              } catch (actionError) {
+                                                alert(
+                                                  actionError?.response?.data?.error ||
+                                                    actionError?.message ||
+                                                    'No se pudo aceptar la solicitud',
+                                                )
+                                              }
+                                            }}
+                                          >
+                                            Aceptar
+                                          </Button>
+                                        </div>
+                                      )
                                     }
                                   } catch {
                                     return null
