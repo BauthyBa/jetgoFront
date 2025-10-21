@@ -5,6 +5,7 @@ import { getSession, supabase } from '@/services/supabase'
 import ColorBar from '@/components/ColorBar'
 import ProfileMenu from '@/components/ProfileMenu'
 import { MapPin, MessageCircle, Plus, Search, UserRound, Users, Heart } from 'lucide-react'
+import ROUTES from '@/config/routes'
 
 export default function Navigation() {
   const [loggedIn, setLoggedIn] = useState(false)
@@ -12,12 +13,12 @@ export default function Navigation() {
   const location = useLocation()
 
   const hideNavLinks =
-    location.pathname === '/viajes' ||
+    location.pathname === ROUTES.VIAJES ||
     location.pathname.startsWith('/crear-viaje') ||
-    location.pathname === '/amigos' ||
-    location.pathname === '/chats' ||
-    location.pathname === '/modern-chat' ||
-    location.pathname === '/social' ||
+    location.pathname === ROUTES.AMIGOS ||
+    location.pathname === ROUTES.CHATS ||
+    location.pathname === ROUTES.MODERN_CHAT ||
+    location.pathname === ROUTES.SOCIAL ||
     location.pathname.startsWith('/profile')
 
   useEffect(() => {
@@ -46,33 +47,33 @@ export default function Navigation() {
     () => [
       {
         label: 'Mis viajes',
-        path: '/viajes',
+        path: ROUTES.VIAJES,
         icon: MapPin,
-        isActive: (pathname) => pathname === '/viajes' || pathname.startsWith('/trip'),
+        isActive: (pathname) => pathname === ROUTES.VIAJES || pathname.startsWith('/trip'),
       },
       {
         label: 'Chats',
-        path: '/chats',
+        path: ROUTES.CHATS,
         icon: MessageCircle,
-        isActive: (pathname) => pathname === '/chats' || pathname.startsWith('/modern-chat') || pathname.startsWith('/dashboard'),
+        isActive: (pathname) => pathname === ROUTES.CHATS || pathname.startsWith(ROUTES.MODERN_CHAT) || pathname.startsWith(ROUTES.DASHBOARD),
       },
       {
         label: 'Perfil',
-        path: '/profile',
+        path: ROUTES.PROFILE,
         icon: UserRound,
-        isActive: (pathname) => pathname.startsWith('/profile'),
+        isActive: (pathname) => pathname.startsWith(ROUTES.PROFILE),
       },
       {
         label: 'Amigos',
-        path: '/amigos',
+        path: ROUTES.AMIGOS,
         icon: Users,
-        isActive: (pathname) => pathname.startsWith('/amigos'),
+        isActive: (pathname) => pathname.startsWith(ROUTES.AMIGOS),
       },
       {
         label: 'Social',
-        path: '/social',
+        path: ROUTES.SOCIAL,
         icon: Heart,
-        isActive: (pathname) => pathname.startsWith('/social'),
+        isActive: (pathname) => pathname.startsWith(ROUTES.SOCIAL),
       },
     ],
     [],
@@ -85,7 +86,7 @@ export default function Navigation() {
         <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
           <div className="flex flex-shrink-0 items-center gap-2">
             <img src="/jetgo.png?v=2" alt="JetGo" width="44" height="44" />
-            <Link to="/" className="text-3xl font-extrabold text-white transition-colors hover:text-emerald-400">
+            <Link to={ROUTES.HOME} className="text-3xl font-extrabold text-white transition-colors hover:text-emerald-400">
               JetGo
             </Link>
           </div>
@@ -103,14 +104,14 @@ export default function Navigation() {
             </div>
           )}
           <div className="ml-auto flex flex-shrink-0 items-center space-x-3">
-            <Link to="/viajes" className="hidden md:flex">
+            <Link to={ROUTES.VIAJES} className="hidden md:flex">
               <Button variant="secondary" className="flex items-center gap-2 bg-slate-700 px-4 py-2 font-medium text-white hover:bg-slate-600">
                 <Search className="h-4 w-4" />
                 <span className="hidden sm:inline">Buscar viajes</span>
                 <span className="sm:hidden">🔍</span>
               </Button>
             </Link>
-            <Link to="/crear-viaje">
+            <Link to={ROUTES.CREAR_VIAJE}>
               <Button className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2 font-medium text-white hover:from-emerald-500 hover:to-emerald-400">
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Crear Viaje</span>
@@ -131,8 +132,8 @@ export default function Navigation() {
               <Link
                 key={item.path}
                 to={item.path}
-                target={item.path === '/social' ? '_blank' : undefined}
-                rel={item.path === '/social' ? 'noopener noreferrer' : undefined}
+                target={item.path === ROUTES.SOCIAL ? '_blank' : undefined}
+                rel={item.path === ROUTES.SOCIAL ? 'noopener noreferrer' : undefined}
                 className={`flex flex-1 flex-col items-center rounded-xl px-3 py-2 text-xs font-medium transition-colors ${
                   active ? 'text-emerald-400' : 'text-slate-200 hover:text-emerald-200'
                 }`}

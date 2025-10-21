@@ -11,6 +11,7 @@ import {
   XCircle,
   Calendar
 } from 'lucide-react'
+import ROUTES from '@/config/routes'
 
 export default function TarjetaViaje({ viaje, creadorNombre, onApply, hasApplied, isOwner, isMember }) {
   // Formatear fecha
@@ -70,7 +71,7 @@ export default function TarjetaViaje({ viaje, creadorNombre, onApply, hasApplied
 
   return (
     <Link
-      to={`/trip/${viaje.id}`}
+      to={ROUTES.TRIP_DETAILS(viaje.id)}
       className="block group"
     >
       <div className={`bg-slate-700/30 backdrop-blur-sm rounded-xl border transition-all duration-200 hover:shadow-lg hover:bg-slate-600/30 ${

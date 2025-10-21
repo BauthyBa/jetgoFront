@@ -4,6 +4,7 @@ import { listTrips, joinTrip, leaveTrip } from '@/services/trips'
 import { applyToTrip, getUserApplications } from '@/services/applications'
 import { listRoomsForUser } from '@/services/chat'
 import { supabase, getSession } from '@/services/supabase'
+import ROUTES from '@/config/routes'
 import { 
   MapPin, 
   Calendar, 
@@ -360,7 +361,7 @@ export default function ViajesPage() {
         <div className="max-w-7xl mx-auto px-6">
           {/* Botón de volver */}
           <div className="mb-6">
-            <BackButton fallback="/dashboard" variant="ghost" />
+            <BackButton fallback={ROUTES.DASHBOARD} variant="ghost" />
           </div>
           {/* Header */}
           <div className="text-center mb-8">
