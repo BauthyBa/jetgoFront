@@ -503,7 +503,7 @@ export default function ProfilePage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Botón de volver */}
         <div className="mb-6">
-          <BackButton fallback="/dashboard" variant="ghost" />
+          <BackButton fallback="/" variant="ghost" />
         </div>
         {/* Header del perfil */}
         <div className="glass-card p-6 mb-6">
@@ -587,6 +587,28 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        {/* Banner de verificación */}
+        {!isVerified && (
+          <div className="glass-card p-4 mb-6 bg-red-500/10 border-2 border-red-500/50">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-red-400 mb-1">Cuenta sin verificar</h3>
+                <p className="text-slate-300 text-sm mb-3">
+                  No podrás acceder a las funcionalidades sin la verificación del DNI. Verifica tu identidad para disfrutar de todas las características de JetGo.
+                </p>
+                <button
+                  onClick={() => navigate('/verify-dni')}
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                >
+                  <Shield className="w-4 h-4" />
+                  Verificar DNI ahora
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tabs de navegación */}
         <div className="glass-card p-1 mb-6">

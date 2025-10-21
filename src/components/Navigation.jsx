@@ -132,8 +132,6 @@ export default function Navigation() {
               <Link
                 key={item.path}
                 to={item.path}
-                target={item.path === ROUTES.SOCIAL ? '_blank' : undefined}
-                rel={item.path === ROUTES.SOCIAL ? 'noopener noreferrer' : undefined}
                 className={`flex flex-1 flex-col items-center rounded-xl px-3 py-2 text-xs font-medium transition-colors ${
                   active ? 'text-emerald-400' : 'text-slate-200 hover:text-emerald-200'
                 }`}
