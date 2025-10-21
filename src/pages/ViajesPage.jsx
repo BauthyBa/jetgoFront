@@ -46,6 +46,7 @@ export default function ViajesPage() {
   const [showApplyToast, setShowApplyToast] = useState(false)
   const [joinDialog, setJoinDialog] = useState({ open: false, title: '', message: '' })
   const [userApplications, setUserApplications] = useState([])
+  const [appliedLocal, setAppliedLocal] = useState([])
   
   // Estados de búsqueda
   const [searchFrom, setSearchFrom] = useState('')
@@ -133,6 +134,27 @@ export default function ViajesPage() {
 
     loadProfile()
   }, [])
+
+  // Cargar aplicaciones locales (fallback) desde localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('appliedTripIds')
+      const parsed = raw ? JSON.parse(raw) : []
+      if (Array.isArray(parsed)) setAppliedLocal(parsed)
+    } catch {}
+  }, [])
+
+  const rememberApplied = (tripId) => {
+    try {
+      if (!tripId) return
+      const idStr = String(tripId)
+      setAppliedLocal((prev) => {
+        const next = Array.isArray(prev) ? Array.from(new Set([...prev.map(String), idStr])) : [idStr]
+        try { localStorage.setItem('appliedTripIds', JSON.stringify(next)) } catch {}
+        return next
+      })
+    } catch {}
+  }
 
   // Cargar viajes
   useEffect(() => {
@@ -303,6 +325,12 @@ export default function ViajesPage() {
   }
 
   const handleApply = (trip) => {
+    try {
+      if (hasAppliedFn(trip)) {
+        alert('Ya enviaste una aplicación para este viaje. No puedes aplicar dos veces al mismo viaje.')
+        return
+      }
+    } catch {}
     setApplyModal({ open: true, trip })
   }
 
@@ -321,7 +349,13 @@ export default function ViajesPage() {
   }
 
   const hasAppliedFn = (trip) => {
-    return userApplications.some(app => app.trip_id === trip.id)
+    try {
+      const byApi = userApplications.some(app => String(app?.trip_id) === String(trip?.id))
+      const byLocal = (appliedLocal || []).some((id) => String(id) === String(trip?.id))
+      return byApi || byLocal
+    } catch {
+      return false
+    }
   }
 
   const transportTypes = [
@@ -823,17 +857,20 @@ export default function ViajesPage() {
           trip={applyModal.trip}
           onClose={() => setApplyModal({ open: false, trip: null })}
           onSuccess={async (_roomId) => {
+            const appliedTripId = applyModal?.trip?.id
             setApplyModal({ open: false, trip: null })
             await loadTrips()
-            // Recargar aplicaciones del usuario
-            if (profile?.id) {
-              try {
-                const applications = await getUserApplications(profile.id)
+            try {
+              const session = await getSession()
+              const userId = session?.user?.id
+              if (userId) {
+                const applications = await getUserApplications(userId)
                 setUserApplications(applications)
-              } catch (error) {
-                console.error('Error recargando aplicaciones:', error)
               }
-            }
+            } catch {}
+
+            // Guardar localmente el viaje aplicado para bloquear el botón inmediatamente
+            rememberApplied(appliedTripId)
 
             // Mostrar toast de confirmación
             setShowApplyToast(true)

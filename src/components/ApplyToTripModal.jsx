@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { applyToTrip } from '../services/applications'
+import { applyToTrip, getUserApplications } from '../services/applications'
 import { getSession } from '@/services/supabase'
 
 export default function ApplyToTripModal({ trip, isOpen, onClose, onSuccess }) {
@@ -16,6 +16,17 @@ export default function ApplyToTripModal({ trip, isOpen, onClose, onSuccess }) {
         const session = await getSession()
         userId = session?.user?.id || ''
       } catch {}
+
+      if (userId) {
+        try {
+          const apps = await getUserApplications(userId)
+          const already = Array.isArray(apps) && apps.some(a => String(a?.trip_id) === String(trip.id))
+          if (already) {
+            alert('Ya enviaste una solicitud para este viaje. No puedes aplicar dos veces al mismo viaje.')
+            return
+          }
+        } catch {}
+      }
       const result = await applyToTrip(trip.id, message, userId)
       onSuccess?.(result?.room_id)
       onClose()
@@ -23,7 +34,7 @@ export default function ApplyToTripModal({ trip, isOpen, onClose, onSuccess }) {
     } catch (error) {
       const errorMessage = error?.response?.data?.error || error?.response?.data?.message || 'Error al aplicar al viaje'
       if (errorMessage.includes('Ya has aplicado')) {
-        alert('Ya enviaste una aplicación para este viaje. No puedes aplicar dos veces al mismo viaje.')
+        alert('Ya enviaste una solicitud para este viaje. No puedes aplicar dos veces al mismo viaje.')
       } else {
         alert(errorMessage)
       }

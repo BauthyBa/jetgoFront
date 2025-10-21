@@ -14,5 +14,11 @@ export async function respondToApplication(applicationId, action) {
 
 export async function getUserApplications(userId) {
   const { data } = await api.get(`/applications/my/?user_id=${userId}`)
-  return data
+  try {
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.applications)) return data.applications
+    return []
+  } catch {
+    return []
+  }
 }

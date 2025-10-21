@@ -359,7 +359,7 @@ export default function HeroSection() {
                 // Mostrar el diálogo de éxito
                 setJoinDialog({ 
                   open: true, 
-                  title: 'Aplicación enviada', 
+                  title: 'Solicitud enviada', 
                   message: 'Abrimos un chat privado con el organizador.' 
                 })
                 
@@ -374,7 +374,7 @@ export default function HeroSection() {
             } catch (error) {
               console.error('Error al procesar la aplicación:', error)
               // Fallback: mostrar mensaje simple
-              alert('¡Aplicación enviada con éxito!')
+              alert('¡Solicitud enviada con éxito!')
             }
           }}
         />

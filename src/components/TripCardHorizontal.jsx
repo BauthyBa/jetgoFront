@@ -215,9 +215,9 @@ export default function TripCardHorizontal({ trip, onJoin, onLeave, joining, lea
               className="btn secondary w-full"
               type="button"
               disabled={true}
-              title="Ya enviaste una aplicación para este viaje"
+              title="Ya enviaste una solicitud para este viaje"
             >
-              Aplicación enviada
+              Solicitud enviada
             </button>
           ) : (
             <button

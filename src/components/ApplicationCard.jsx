@@ -11,7 +11,7 @@ export default function ApplicationCard({ application, onResponse }) {
       await respondToApplication(application.id, action)
       onResponse?.(application.id, action)
     } catch (error) {
-      alert(error?.response?.data?.error || 'Error al responder la aplicación')
+      alert(error?.response?.data?.error || 'Error al responder la solicitud')
     } finally {
       setLoading(false)
     }
@@ -85,13 +85,13 @@ export default function ApplicationCard({ application, onResponse }) {
 
       {application.status === 'accepted' && (
         <div className="text-green-600 text-sm font-medium">
-          ✓ Aplicación aceptada
+          ✓ Solicitud aceptada
         </div>
       )}
 
       {application.status === 'rejected' && (
         <div className="text-red-600 text-sm font-medium">
-          ✗ Aplicación rechazada
+          ✗ Solicitud rechazada
         </div>
       )}
     </div>

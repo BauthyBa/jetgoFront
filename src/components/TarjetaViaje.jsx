@@ -208,7 +208,7 @@ export default function TarjetaViaje({ viaje, creadorNombre, onApply, hasApplied
               </div>
             ) : hasApplied ? (
               <div className="text-center text-yellow-400 text-sm font-medium">
-                ⏳ Aplicación enviada
+                ⏳ Solicitud enviada
               </div>
             ) : (
               <button
