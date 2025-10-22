@@ -205,8 +205,37 @@ h1 {
 .header-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; max-width: 1024px; margin: 0 auto; padding: 0 16px; }
 .brand { font-weight: 700; color: hsl(var(--foreground)); }
 .nav { display: flex; gap: 12px; }
-.overlay { position: fixed; inset: 0; background: rgba(10, 12, 16, 0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
-.overlay-box { background: rgba(24, 28, 36, 0.95); border: 1px solid #2a2f3a; border-radius: 12px; padding: 24px 28px; display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 260px; }
+/* ✅ Modal overlay - Centrado y con backdrop */
+.overlay { 
+  position: fixed; 
+  inset: 0; 
+  background: rgba(10, 12, 16, 0.75); 
+  backdrop-filter: blur(6px); 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  z-index: 9999;
+  padding: 20px; /* Evita que el modal toque los bordes en móviles */
+}
+
+/* ✅ Modal box - Centrado y responsivo */
+.overlay-box { 
+  background: rgba(24, 28, 36, 0.98); 
+  border: 1px solid #2a2f3a; 
+  border-radius: 16px; 
+  padding: 28px 32px; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 16px; 
+  min-width: 260px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  /* ✅ Scroll suave en móviles */
+  -webkit-overflow-scrolling: touch;
+}
 .loader { width: 48px; height: 48px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 /* Liquid glass utilities */

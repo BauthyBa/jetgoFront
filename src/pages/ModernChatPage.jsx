@@ -85,17 +85,32 @@ export default function ModernChatPage() {
         }
         const jwtPayload = accessToken ? decodeJwt(accessToken) : null
 
+        // ✅ PRIMERO verificar si hay sesión
+        const hasSupabase = !!user
+        const hasBackendJwt = !!jwtPayload
+        
+        // Si no hay ninguna sesión, redirigir a login
+        if (!hasSupabase && !hasBackendJwt) {
+          console.log('❌ No hay sesión activa, redirigiendo a login...')
+          navigate('/login', { 
+            state: { 
+              message: 'Por favor, iniciá sesión o creá una cuenta para acceder a los chats' 
+            }
+          })
+          return
+        }
+
+        // LUEGO verificar DNI solo si hay sesión
         const supaVerified = (
           meta?.dni_verified === true ||
           !!meta?.document_number ||
           !!meta?.dni ||
           localStorage.getItem('dni_verified') === 'true'
         )
-        const hasSupabase = !!user
-        const hasBackendJwt = !!jwtPayload
         const verified = hasSupabase ? supaVerified : hasBackendJwt ? true : false
 
         if (!verified) {
+          console.log('⚠️ Sesión activa pero DNI no verificado, redirigiendo...')
           navigate('/verify-dni')
           return
         }
@@ -356,6 +371,8 @@ export default function ModernChatPage() {
       await sendMessage(activeRoomId, newMessage)
       setNewMessage('')
       setShowEmojiPicker(false)
+      // ✅ NO hacemos fetchMessages aquí porque el subscription ya agregará el mensaje
+      // Esto evita duplicados
     } catch (e) {
       alert(e?.message || 'No se pudo enviar el mensaje')
     }
@@ -431,8 +448,8 @@ export default function ModernChatPage() {
 
       const data = await response.json()
       if (data.status === 'success') {
-        const updatedMessages = await fetchMessages(activeRoomId)
-        setMessages(updatedMessages)
+        // ✅ NO hacemos fetchMessages aquí - el subscription manejará el nuevo mensaje
+        // Solo cerramos el modal
       }
     } catch (uploadError) {
       console.error('Error uploading file:', uploadError)
@@ -471,8 +488,7 @@ export default function ModernChatPage() {
 
       const data = await response.json()
       if (data.status === 'success') {
-        const updatedMessages = await fetchMessages(activeRoomId)
-        setMessages(updatedMessages)
+        // ✅ NO hacemos fetchMessages aquí - el subscription manejará el nuevo mensaje
         setShowAudioRecorder(false)
       }
     } catch (audioError) {
@@ -493,9 +509,7 @@ export default function ModernChatPage() {
       const saved = await sendMessage(activeRoomId, transcript)
       if (saved) {
         setShowAudioTranscriber(false)
-        // Recargar mensajes para mostrar el nuevo mensaje
-        const updatedMessages = await fetchMessages(activeRoomId)
-        setMessages(updatedMessages)
+        // ✅ NO hacemos fetchMessages - el subscription manejará el nuevo mensaje
       }
     } catch (transcriptionError) {
       console.error('Error sending transcription:', transcriptionError)

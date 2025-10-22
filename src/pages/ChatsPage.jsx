@@ -69,17 +69,32 @@ export default function ChatsPage() {
         }
         const jwtPayload = accessToken ? decodeJwt(accessToken) : null
 
+        // ✅ PRIMERO verificar si hay sesión
+        const hasSupabase = !!user
+        const hasBackendJwt = !!jwtPayload
+        
+        // Si no hay ninguna sesión, redirigir a login
+        if (!hasSupabase && !hasBackendJwt) {
+          console.log('❌ No hay sesión activa, redirigiendo a login...')
+          navigate('/login', { 
+            state: { 
+              message: 'Por favor, iniciá sesión o creá una cuenta para acceder a los chats' 
+            }
+          })
+          return
+        }
+
+        // LUEGO verificar DNI solo si hay sesión
         const supaVerified = (
           meta?.dni_verified === true ||
           !!meta?.document_number ||
           !!meta?.dni ||
           localStorage.getItem('dni_verified') === 'true'
         )
-        const hasSupabase = !!user
-        const hasBackendJwt = !!jwtPayload
         const verified = hasSupabase ? supaVerified : hasBackendJwt ? true : false
 
         if (!verified) {
+          console.log('⚠️ Sesión activa pero DNI no verificado, redirigiendo...')
           navigate('/verify-dni')
           return
         }
