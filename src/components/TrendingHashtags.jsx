@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Hash, TrendingUp } from 'lucide-react'
-import { getTrendingHashtags } from '@/services/hashtags'
+import { getTrendingHashtags, extractHashtags } from '@/services/hashtags'
+import { supabase } from '@/services/supabase'
 
 export default function TrendingHashtags() {
   const [hashtags, setHashtags] = useState([])
@@ -13,8 +14,37 @@ export default function TrendingHashtags() {
 
   const loadTrendingHashtags = async () => {
     try {
+      // 1) Intentar con la tabla hashtags (si existe y tiene datos)
       const data = await getTrendingHashtags(5)
-      setHashtags(data || [])
+      if (Array.isArray(data) && data.length > 0) {
+        setHashtags(data)
+        return
+      }
+
+      // 2) Fallback real: calcular tendencias desde posts recientes públicos
+      const { data: recentPosts, error } = await supabase
+        .from('posts')
+        .select('id, content, created_at, is_public')
+        .eq('is_public', true)
+        .order('created_at', { ascending: false })
+        .limit(200)
+      if (error) throw error
+
+      const usageByTag = {}
+      for (const p of recentPosts || []) {
+        const tags = extractHashtags(p?.content || '')
+        for (const raw of tags) {
+          const name = raw.replace('#', '').toLowerCase()
+          usageByTag[name] = (usageByTag[name] || 0) + 1
+        }
+      }
+
+      const top = Object.entries(usageByTag)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, usage_count]) => ({ id: name, name, usage_count }))
+
+      setHashtags(top)
     } catch (error) {
       console.error('Error loading trending hashtags:', error)
       setHashtags([])

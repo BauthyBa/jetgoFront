@@ -76,7 +76,29 @@ export default function HashtagPage() {
         return contentHasHashtag || hasHashtagRelation
       })
 
-      setPosts(filteredPosts)
+      // Si faltan perfiles, resolverlos por userid
+      const missingUserIds = filteredPosts
+        .filter(p => !p.User)
+        .map(p => p.user_id)
+        .filter(Boolean)
+        .filter((id, i, arr) => arr.indexOf(id) === i)
+
+      let userMap = {}
+      if (missingUserIds.length > 0) {
+        const { data: usersRows } = await supabase
+          .from('User')
+          .select('userid, nombre, apellido, avatar_url')
+          .in('userid', missingUserIds)
+        for (const u of usersRows || []) {
+          userMap[u.userid] = u
+        }
+      }
+
+      const withUsers = filteredPosts.map(p => (
+        p.User ? p : { ...p, User: userMap[p.user_id] || null }
+      ))
+
+      setPosts(withUsers)
     } catch (error) {
       console.error('Error loading hashtag data:', error)
     } finally {

@@ -92,8 +92,34 @@ export default function SocialPage() {
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
       const response = await fetch(url)
       if (response.ok) {
-      const data = await response.json()
-      setPosts(data.posts || [])
+        const data = await response.json()
+        const posts = data.posts || []
+        
+        // Enriquecer posts con datos de usuario si no están completos
+        const enrichedPosts = await Promise.all(posts.map(async (post) => {
+          if (post.author && post.author.avatar_url) {
+            return post // Ya tiene datos completos
+          }
+          
+          // Buscar datos del usuario en Supabase
+          const { data: userData } = await supabase
+            .from('User')
+            .select('userid, nombre, apellido, avatar_url')
+            .eq('userid', post.user_id)
+            .single()
+          
+          return {
+            ...post,
+            author: userData ? {
+              userid: userData.userid,
+              nombre: userData.nombre,
+              apellido: userData.apellido,
+              avatar_url: userData.avatar_url
+            } : post.author
+          }
+        }))
+        
+        setPosts(enrichedPosts)
       }
     } catch (error) {
       console.error('Error loading posts:', error)
@@ -138,7 +164,34 @@ export default function SocialPage() {
           return storyUserId === user.userid || friendIds.has(storyUserId)
         })
 
-        setStories(filteredStories)
+        // Enriquecer stories con datos de usuario
+        const enrichedStories = await Promise.all(filteredStories.map(async (story) => {
+          if (story.author && story.author.avatar_url) {
+            return story // Ya tiene datos completos
+          }
+          
+          const storyUserId = story.user_id || story.author?.userid || story.author?.id
+          if (!storyUserId) return story
+          
+          // Buscar datos del usuario en Supabase
+          const { data: userData } = await supabase
+            .from('User')
+            .select('userid, nombre, apellido, avatar_url')
+            .eq('userid', storyUserId)
+            .single()
+          
+          return {
+            ...story,
+            author: userData ? {
+              userid: userData.userid,
+              nombre: userData.nombre,
+              apellido: userData.apellido,
+              avatar_url: userData.avatar_url
+            } : story.author
+          }
+        }))
+
+        setStories(enrichedStories)
       }
     } catch (error) {
       console.error('Error loading stories:', error)
@@ -280,9 +333,35 @@ export default function SocialPage() {
       
       if (response.ok) {
         const data = await response.json()
+        const comments = data.comments || []
+        
+        // Enriquecer comentarios con datos de usuario
+        const enrichedComments = await Promise.all(comments.map(async (comment) => {
+          if (comment.author && comment.author.avatar_url) {
+            return comment // Ya tiene datos completos
+          }
+          
+          // Buscar datos del usuario en Supabase
+          const { data: userData } = await supabase
+            .from('User')
+            .select('userid, nombre, apellido, avatar_url')
+            .eq('userid', comment.user_id)
+            .single()
+          
+          return {
+            ...comment,
+            author: userData ? {
+              userid: userData.userid,
+              nombre: userData.nombre,
+              apellido: userData.apellido,
+              avatar_url: userData.avatar_url
+            } : comment.author
+          }
+        }))
+        
         setComments(prev => ({
           ...prev,
-          [postId]: data.comments || []
+          [postId]: enrichedComments
         }))
       }
     } catch (error) {
