@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
+import { getUserAvatar as getUserAvatarApi } from '@/services/api'
 import { 
   User, 
   LogIn, 
@@ -37,12 +38,20 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
         try {
           const { data, error } = await supabase
             .from('User')
-            .select('*')
-            .eq('id', user.id)
+            .select('userid,nombre,apellido,avatar_url')
+            .eq('userid', user.id)
             .single()
-          
           if (data && !error) {
             setUserProfile(data)
+          } else {
+            // Fallback: intentar obtener avatar desde backend
+            try {
+              const res = await getUserAvatarApi(user.id)
+              const avatar_url = res?.avatar_url || res?.data?.avatar_url || res?.url
+              if (avatar_url) {
+                setUserProfile((prev) => ({ ...(prev || {}), userid: user.id, avatar_url }))
+              }
+            } catch (_e) {}
           }
         } catch (error) {
           console.error('Error loading user profile:', error)

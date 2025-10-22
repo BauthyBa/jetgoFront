@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSession, updateUserMetadata, supabase } from '../services/supabase'
-import { upsertProfileToBackend } from '../services/api'
+import { upsertProfileToBackend, getUserAvatar } from '../services/api'
 import { updatePassword, sendPasswordResetEmail } from '../services/passwordReset'
 import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X, Download, Trash2, AlertTriangle, FileText, MapPin as MapPinIcon } from 'lucide-react'
 import AvatarUpload from '../components/AvatarUpload'
@@ -85,6 +85,27 @@ export default function ProfilePage() {
 
         setProfile(info)
         setAvatarUrl(mergedMeta?.avatar_url || '')
+
+        // Intentar obtener avatar persistente desde backend o tabla pública
+        try {
+          const avatarRes = await getUserAvatar(info.user_id)
+          const backendUrl = avatarRes?.avatar_url || avatarRes?.data?.avatar_url || avatarRes?.url
+          if (backendUrl) {
+            setAvatarUrl(backendUrl)
+          } else {
+            // Fallback: leer desde tabla User en Supabase
+            try {
+              const { data: userRows, error: userErr } = await supabase
+                .from('User')
+                .select('avatar_url')
+                .eq('userid', info.user_id)
+                .limit(1)
+              if (!userErr && Array.isArray(userRows) && userRows[0]?.avatar_url) {
+                setAvatarUrl(userRows[0].avatar_url)
+              }
+            } catch (_e) {}
+          }
+        } catch (_e) {}
         setBio(mergedMeta?.bio || '')
         setInterests(Array.isArray(mergedMeta?.interests) ? mergedMeta.interests.join(', ') : (mergedMeta?.interests || ''))
         setFavoriteTrips(Array.isArray(mergedMeta?.favorite_travel_styles) ? mergedMeta.favorite_travel_styles.join(', ') : (mergedMeta?.favorite_travel_styles || ''))
@@ -119,13 +140,15 @@ export default function ProfilePage() {
     try {
       setSaving(true)
       setError('')
-      
-      // Actualizar metadata en Supabase
-      await updateUserMetadata({
-        avatar_url: newAvatarUrl
-      })
-      
-      // Actualizar en el backend
+
+      // 1) Intentar actualizar metadata en Supabase Auth (puede fallar si no hay sesión activa en Supabase)
+      try {
+        await updateUserMetadata({ avatar_url: newAvatarUrl })
+      } catch (authErr) {
+        console.warn('updateUserMetadata falló, continuo con backend/User table:', authErr)
+      }
+
+      // 2) Actualizar en el backend (no depende de Supabase Auth)
       try {
         await upsertProfileToBackend({
           user_id: profile?.user_id,
@@ -140,24 +163,24 @@ export default function ProfilePage() {
           favorite_travel_styles: favoriteTrips.split(',').map(t => t.trim()).filter(Boolean),
           avatar_url: newAvatarUrl,
         })
-      } catch (e) {
-        console.warn('Error updating backend avatar:', e)
+      } catch (backendErr) {
+        console.warn('Error updating backend avatar:', backendErr)
       }
-      
-      // Actualizar avatar_url en la tabla User de Supabase
+
+      // 3) Actualizar avatar_url en la tabla User (bypass RLS mediante supabase JS si tiene permisos del usuario)
       try {
         const { error: updateError } = await supabase
           .from('User')
           .update({ avatar_url: newAvatarUrl })
           .eq('userid', profile?.user_id)
-        
         if (updateError) {
           console.warn('Error updating avatar_url in User table:', updateError)
         }
-      } catch (e) {
-        console.warn('Error updating avatar_url in User table:', e)
+      } catch (tableErr) {
+        console.warn('Error updating avatar_url in User table:', tableErr)
       }
-      
+
+      // 4) Actualizar estado local siempre que tengamos la URL nueva
       setAvatarUrl(newAvatarUrl)
     } catch (e) {
       setError(e?.message || 'Error al actualizar la foto de perfil')
