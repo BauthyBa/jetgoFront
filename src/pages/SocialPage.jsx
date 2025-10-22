@@ -627,6 +627,45 @@ export default function SocialPage() {
     setStoryContent('')
   }
 
+  const createStory = async () => {
+    try {
+      if (!user?.id) {
+        showNotification('Inicia sesión', 'Debes iniciar sesión para crear una historia', 'error')
+        return
+      }
+
+      if (!storyFile) {
+        showNotification('Archivo requerido', 'Debes seleccionar una imagen o video', 'error')
+        return
+      }
+
+      setUploadingStory(true)
+
+      const formData = new FormData()
+      formData.append('user_id', user.id)
+      formData.append('content', storyContent)
+      formData.append('file', storyFile)
+
+      const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.STORIES)
+      const response = await fetch(url, { method: 'POST', body: formData })
+
+      if (response.ok) {
+        await response.json().catch(() => null)
+        showNotification('Historia publicada', '¡Tu historia se publicó correctamente!')
+        closeStoryModal()
+        setTimeout(() => { loadStories() }, 500)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        showNotification('Error al publicar', errorData.error || 'No se pudo crear la historia', 'error')
+      }
+    } catch (error) {
+      console.error('Error creating story:', error)
+      showNotification('Error al publicar', 'Error al crear la historia', 'error')
+    } finally {
+      setUploadingStory(false)
+    }
+  }
+
   const handlePostFileChange = (e) => {
     const file = e.target.files[0]
     if (file) {
@@ -919,7 +958,13 @@ export default function SocialPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="absolute bottom-0 right-0 w-7 h-7 bg-blue-500 rounded-full border-3 border-slate-900 flex items-center justify-center shadow-lg">
+                      <div
+                        onClick={(e) => { e.stopPropagation(); openStoryModal() }}
+                        className="absolute bottom-0 right-0 w-7 h-7 bg-blue-500 rounded-full border-3 border-slate-900 flex items-center justify-center shadow-lg cursor-pointer active:scale-95"
+                        aria-label="Crear historia"
+                        role="button"
+                        tabIndex={0}
+                      >
                         <Plus className="w-4 h-4 text-white" />
                       </div>
                     </div>
