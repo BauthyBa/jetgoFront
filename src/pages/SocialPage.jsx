@@ -44,6 +44,18 @@ export default function SocialPage() {
   const [newPostFile, setNewPostFile] = useState(null)
   const [newPostPreview, setNewPostPreview] = useState(null)
   const [creatingPost, setCreatingPost] = useState(false)
+  const [showEditPostModal, setShowEditPostModal] = useState(false)
+  const [editingPostId, setEditingPostId] = useState(null)
+  const [editingPostContent, setEditingPostContent] = useState('')
+  const [seenUsers, setSeenUsers] = useState({})
+  const [storyProgress, setStoryProgress] = useState(0)
+  const [fadeIn, setFadeIn] = useState(false)
+  const [toast, setToast] = useState({ show: false, type: 'success', title: '', message: '' })
+
+  const showNotification = (title, message, type = 'success') => {
+    setToast({ show: true, type, title, message })
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 2800)
+  }
 
   useEffect(() => {
     getCurrentUser()
@@ -160,14 +172,40 @@ export default function SocialPage() {
         // Filtrar historias: solo de amigos o propias
         const filteredStories = allStories.filter(story => {
           const storyUserId = story.user_id || story.author?.userid || story.author?.id
-          // Mostrar si es propia o de un amigo
           return storyUserId === user.userid || friendIds.has(storyUserId)
         })
 
+        // Agrupar por usuario para el visor/carrusel
+        const groupsMap = new Map()
+        for (const s of filteredStories) {
+          const storyUserId = s.user_id || s.author?.userid || s.author?.id
+          if (!storyUserId) continue
+          if (!groupsMap.has(storyUserId)) {
+            groupsMap.set(storyUserId, {
+              userId: storyUserId,
+              author: s.author || null,
+              stories: []
+            })
+          }
+          groupsMap.get(storyUserId).stories.push(s)
+        }
+
+        const groups = Array.from(groupsMap.values())
+        setStoryGroups(groups)
         setStories(filteredStories)
       }
     } catch (error) {
       console.error('Error loading stories:', error)
+    }
+  }
+
+  const openMyStoriesOrCreate = () => {
+    if (!user?.userid) return openStoryModal()
+    const idx = storyGroups.findIndex(g => g.userId === user.userid)
+    if (idx >= 0 && (storyGroups[idx]?.stories?.length || 0) > 0) {
+      openStoryViewer(idx)
+    } else {
+      openStoryModal()
     }
   }
 
