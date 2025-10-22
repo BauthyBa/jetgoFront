@@ -48,6 +48,7 @@ export default function Navigation() {
       {
         label: 'Mis viajes',
         path: ROUTES.VIAJES,
+        to: `${ROUTES.VIAJES}?view=search`,
         icon: MapPin,
         isActive: (pathname) => pathname === ROUTES.VIAJES || pathname.startsWith('/trip'),
       },
@@ -104,7 +105,7 @@ export default function Navigation() {
             </div>
           )}
           <div className="ml-auto flex flex-shrink-0 items-center space-x-3">
-            <Link to={ROUTES.VIAJES} className="hidden md:flex">
+            <Link to={`${ROUTES.VIAJES}?view=search`} className="hidden md:flex">
               <Button variant="secondary" className="flex items-center gap-2 bg-slate-700 px-4 py-2 font-medium text-white hover:bg-slate-600">
                 <Search className="h-4 w-4" />
                 <span className="hidden sm:inline">Buscar viajes</span>
@@ -131,7 +132,7 @@ export default function Navigation() {
             return (
               <Link
                 key={item.path}
-                to={item.path}
+                to={item.to || item.path}
                 className={`flex flex-1 flex-col items-center rounded-xl px-3 py-2 text-xs font-medium transition-colors ${
                   active ? 'text-emerald-400' : 'text-slate-200 hover:text-emerald-200'
                 }`}

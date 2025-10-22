@@ -9,7 +9,7 @@ export default function DashboardLayout({ children }) {
     { label: 'Inicio', path: '/dashboard?tab=inicio#inicio', hash: '#inicio', matchPath: '/dashboard' },
     { label: 'Perfil', path: '/profile', matchPath: '/profile' },
     { label: 'Chats', path: '/modern-chat', matchPath: '/modern-chat' },
-    { label: 'Viajes', path: '/dashboard?tab=trips#trips', hash: '#trips', matchPath: '/dashboard' },
+    { label: 'Viajes', path: '/viajes?view=search', hash: null, matchPath: '/viajes' },
     { label: 'Gastos', path: '/dashboard?tab=expenses#expenses', hash: '#expenses', matchPath: '/dashboard' },
   ]
   const isActive = (item) => {
@@ -20,7 +20,8 @@ export default function DashboardLayout({ children }) {
     if (item.matchPath) {
       return location.pathname === item.matchPath
     }
-    return currentHash === (item.hash || '')
+    const normalizedPath = (item.path || '').split('?')[0]
+    return item.hash ? currentHash === item.hash : location.pathname === normalizedPath
   }
   return (
     <div className="min-h-screen bg-gradient-hero text-foreground" style={{ display: 'flex', flexDirection: 'column' }}>

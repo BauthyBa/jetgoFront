@@ -190,7 +190,7 @@ export default function CreateTripForm() {
       if (result && result.ok && result.trip) {
         setSuccess(true)
         setTimeout(() => {
-          navigate(ROUTES.VIAJES)
+          navigate(`${ROUTES.VIAJES}?view=search`)
         }, 2000)
       } else {
         throw new Error(result?.error || 'Error al crear el viaje. Por favor intenta nuevamente.')

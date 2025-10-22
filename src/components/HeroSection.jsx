@@ -155,18 +155,21 @@ export default function HeroSection() {
     
     // Redirigir a la página de viajes con los parámetros de búsqueda
     const params = new URLSearchParams()
+    params.set('view', 'search')
     if (fromText.trim()) params.set('desde', fromText.trim())
     if (toText.trim()) params.set('hasta', toText.trim())
     if (date && !anyDate) params.set('fecha', date)
     
-    navigate(`/viajes?${params.toString()}`)
+    const query = params.toString()
+    navigate(`/viajes${query ? `?${query}` : ''}`)
   }
 
   // Desactivar auto-búsqueda: ahora solo busca al tocar el botón
 
   function handleGoTrips() {
+    const target = '/viajes?view=search'
     if (loggedIn) {
-      navigate('/dashboard#trips')
+      navigate(target)
     } else {
       navigate('/login')
     }
@@ -430,5 +433,3 @@ export default function HeroSection() {
     </section>
   )
 }
-
-

@@ -136,7 +136,7 @@ export default function TripDetails() {
       navigate(ROUTES.TRIP_CHAT(trip.id))
     } else {
       // Si no es miembro, ir a la página de aplicación (viajes)
-      navigate(ROUTES.VIAJES)
+      navigate(`${ROUTES.VIAJES}?view=search`)
     }
   }
 
@@ -178,7 +178,7 @@ export default function TripDetails() {
       <div className="p-6 sm:p-8 text-white" style={{ display: 'grid', gap: 16 }}>
         {/* Botón de volver */}
         <div className="mb-4">
-          <BackButton fallback="/viajes" variant="ghost" />
+          <BackButton fallback="/viajes?view=search" variant="ghost" />
         </div>
         
         <div className="glass-card" style={{ padding: 16 }}>

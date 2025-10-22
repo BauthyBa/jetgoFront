@@ -47,6 +47,7 @@ export default function ViajesPage() {
   const [joinDialog, setJoinDialog] = useState({ open: false, title: '', message: '' })
   const [userApplications, setUserApplications] = useState([])
   const [appliedLocal, setAppliedLocal] = useState([])
+  const profileId = profile?.id
   
   // Estados de búsqueda
   const [searchFrom, setSearchFrom] = useState('')
@@ -66,6 +67,7 @@ export default function ViajesPage() {
   const urlFrom = searchParams.get('desde') || ''
   const urlTo = searchParams.get('hasta') || ''
   const urlDate = searchParams.get('fecha') || ''
+  const viewParam = searchParams.get('view') || ''
 
   // Inicializar búsqueda con parámetros de URL
   useEffect(() => {
@@ -178,6 +180,21 @@ export default function ViajesPage() {
 
     loadTrips()
   }, [])
+
+  useEffect(() => {
+    if (!viewParam) return
+    if (viewParam === 'mine') {
+      if (!profileId) return
+      const mine = (tripsBase || []).filter((t) => t.creatorId && t.creatorId === profileId)
+      setTrips(mine)
+      setShowMineOnly(true)
+      setVisibleCount(6)
+    } else if (viewParam === 'search') {
+      setTrips(tripsBase || [])
+      setShowMineOnly(false)
+      setVisibleCount(6)
+    }
+  }, [viewParam, tripsBase, profileId])
 
   // Filtrar y ordenar viajes
   const filteredTrips = useMemo(() => {
@@ -474,6 +491,7 @@ export default function ViajesPage() {
                           setShowMineOnly(false)
                           setTrips(tripsBase || [])
                           setVisibleCount(6)
+                          navigate(`${ROUTES.VIAJES}?view=search`)
                         }}
                         className="w-full justify-start"
                       >
@@ -486,6 +504,7 @@ export default function ViajesPage() {
                           setTrips(mine)
                           setShowMineOnly(true)
                           setVisibleCount(6)
+                          navigate(`${ROUTES.VIAJES}?view=mine`)
                         }}
                         className="w-full justify-start"
                       >
