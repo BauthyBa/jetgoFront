@@ -24,6 +24,7 @@ import ProfilePage from './pages/ProfilePage.jsx'
 import ReviewsPage from './pages/ReviewsPage.jsx'
 import AccountSettingsPage from './pages/AccountSettingsPage.jsx'
 import SocialPage from './pages/SocialPage.jsx'
+import HashtagPage from './pages/HashtagPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 
 const router = createBrowserRouter([
@@ -96,11 +97,14 @@ const router = createBrowserRouter([
         path: 'profile/settings', 
         element: <ProtectedRoute><AccountSettingsPage /></ProtectedRoute> 
       },
+      // quitamos hashtag de dentro del Layout para evitar navbar duplicado
     ],
   },
   // Rutas de autenticación sin Layout (sin navbar)
   { path: 'forgot-password', element: <ForgotPassword /> },
   { path: 'reset-password', element: <ResetPassword /> },
+  // Hashtag sin Layout para usar navbar propio
+  { path: 'hashtag/:hashtag', element: <ProtectedRoute><HashtagPage /></ProtectedRoute> },
 ])
 
 async function bootstrap() {

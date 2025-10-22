@@ -3,8 +3,11 @@ import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin, UserPlus, UserCheck, Trash2, Image as ImageIcon } from 'lucide-react'
 import API_CONFIG from '@/config/api'
+import { extractHashtags, linkPostHashtags, relinkPostHashtags } from '@/services/hashtags'
 import { sendFriendRequest } from '@/services/friends'
 import BackButton from '@/components/BackButton'
+import HashtagParser from '@/components/HashtagParser'
+import TrendingHashtags from '@/components/TrendingHashtags'
 
 export default function SocialPage() {
   const navigate = useNavigate()
@@ -39,6 +42,9 @@ export default function SocialPage() {
   const [newPostFile, setNewPostFile] = useState(null)
   const [newPostPreview, setNewPostPreview] = useState(null)
   const [creatingPost, setCreatingPost] = useState(false)
+  const [editingPostId, setEditingPostId] = useState(null)
+  const [editingPostContent, setEditingPostContent] = useState('')
+  const [showEditPostModal, setShowEditPostModal] = useState(false)
 
   useEffect(() => {
     getCurrentUser()
@@ -328,6 +334,40 @@ export default function SocialPage() {
     setPostToDelete(postId)
     setShowDeleteConfirm(true)
     setShowPostMenu(null)
+  }
+
+  const openEditPostModal = (post) => {
+    setEditingPostId(post.id)
+    setEditingPostContent(post.content || '')
+    setShowPostMenu(null)
+    setShowEditPostModal(true)
+  }
+
+  const saveEditPost = async () => {
+    try {
+      if (!editingPostId) return
+      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${editingPostId}/`
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editingPostContent })
+      })
+      if (response.ok) {
+        // Relink hashtags
+        try { await relinkPostHashtags(editingPostId, editingPostContent) } catch {}
+        // Update local state
+        setPosts(prev => prev.map(p => p.id === editingPostId ? { ...p, content: editingPostContent } : p))
+        setShowEditPostModal(false)
+        setEditingPostId(null)
+        setEditingPostContent('')
+      } else {
+        const err = await response.json().catch(() => ({}))
+        alert(err.error || 'No se pudo editar el post')
+      }
+    } catch (e) {
+      console.error('Error editing post:', e)
+      alert('Error al editar el post')
+    }
   }
 
   const deletePost = async () => {
@@ -711,8 +751,10 @@ export default function SocialPage() {
 
       if (response.ok) {
         const result = await response.json()
+        // Vincular hashtags al post
+        try { await linkPostHashtags(result?.id, newPostContent) } catch {}
+        // UI feedback
         console.log('Post creado:', result)
-        alert('¡Post creado exitosamente!')
         closeCreatePostModal()
         // Recargar posts
         loadPosts()
@@ -1050,15 +1092,23 @@ export default function SocialPage() {
                         {/* Menú desplegable */}
                         {showPostMenu === post.id && (
                           <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10 min-w-[180px]">
-                            {/* Solo mostrar eliminar si es el autor */}
+                            {/* Solo autor: editar y eliminar */}
                             {post.user_id === user?.id && (
-                              <button
-                                onClick={() => confirmDeletePost(post.id)}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-slate-700 transition-colors text-sm font-medium"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Eliminar post
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => openEditPostModal(post)}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-700 transition-colors text-sm font-medium"
+                                >
+                                  ✏️ Editar post
+                                </button>
+                                <button
+                                  onClick={() => confirmDeletePost(post.id)}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-slate-700 transition-colors text-sm font-medium"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Eliminar post
+                                </button>
+                              </>
                             )}
                             <button
                               onClick={() => setShowPostMenu(null)}
@@ -1133,7 +1183,7 @@ export default function SocialPage() {
                           <span className="font-bold text-white mr-2">
                             {post.author?.nombre}
                           </span>
-                          {post.content}
+                          <HashtagParser text={post.content} />
                         </p>
                       )}
 
@@ -1397,6 +1447,11 @@ export default function SocialPage() {
                   )}
                 </div>
               </div>
+
+              {/* Hashtags Trending */}
+              <div className="mt-6">
+                <TrendingHashtags />
+              </div>
             </div>
           </div>
         </div>
@@ -1461,6 +1516,50 @@ export default function SocialPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar post */}
+      {showEditPostModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-slate-700 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-slate-700/50">
+              <h3 className="text-white font-bold text-lg">Editar post</h3>
+            </div>
+            <div className="p-5 space-y-4">
+              <textarea
+                value={editingPostContent}
+                onChange={(e) => setEditingPostContent(e.target.value)}
+                placeholder="Edita el contenido de tu post"
+                className="w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 rounded-xl px-4 py-3 min-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                maxLength={500}
+              />
+              {editingPostContent && extractHashtags(editingPostContent).length > 0 && (
+                <div className="mt-2 text-sm">
+                  <span className="text-slate-400 mr-2">Hashtags:</span>
+                  {extractHashtags(editingPostContent).map((h, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 text-blue-300 rounded-full mr-2 mb-2">
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end border-t border-slate-700">
+              <button
+                onClick={() => { setShowEditPostModal(false); setEditingPostId(null); setEditingPostContent('') }}
+                className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveEditPost}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors"
+              >
+                Guardar cambios
+              </button>
             </div>
           </div>
         </div>
@@ -1724,7 +1823,7 @@ export default function SocialPage() {
                 </div>
               </div>
 
-              {/* Content textarea */}
+              {/* Content textarea + hashtag preview */}
               <textarea
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
@@ -1732,6 +1831,16 @@ export default function SocialPage() {
                 className="w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 rounded-xl px-4 py-3 min-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
                 maxLength={500}
               />
+              {newPostContent && extractHashtags(newPostContent).length > 0 && (
+                <div className="mt-2 text-sm">
+                  <span className="text-slate-400 mr-2">Hashtags:</span>
+                  {extractHashtags(newPostContent).map((h, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 text-blue-300 rounded-full mr-2 mb-2">
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Preview de imagen/video */}
               {newPostPreview && (
