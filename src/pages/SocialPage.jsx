@@ -11,6 +11,7 @@ export default function SocialPage() {
   const [user, setUser] = useState(null)
   const [posts, setPosts] = useState([])
   const [stories, setStories] = useState([])
+  const [storyGroups, setStoryGroups] = useState([])
   const [suggestedUsers, setSuggestedUsers] = useState([])
   const [suggestedTrips, setSuggestedTrips] = useState([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +31,7 @@ export default function SocialPage() {
   const [showStoryViewer, setShowStoryViewer] = useState(false)
   const [currentStory, setCurrentStory] = useState(null)
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0)
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0)
   const [friendshipStatuses, setFriendshipStatuses] = useState({})
   const [showPostMenu, setShowPostMenu] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -39,6 +41,25 @@ export default function SocialPage() {
   const [newPostFile, setNewPostFile] = useState(null)
   const [newPostPreview, setNewPostPreview] = useState(null)
   const [creatingPost, setCreatingPost] = useState(false)
+  const [seenUsers, setSeenUsers] = useState({})
+  const [storyProgress, setStoryProgress] = useState(0) // 0..100
+  const [fadeIn, setFadeIn] = useState(false)
+  const [toast, setToast] = useState({ show: false, type: 'success', title: '', message: '' })
+
+  const showNotification = (title, message, type = 'success') => {
+    setToast({ show: true, type, title, message })
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 2800)
+  }
+
+  const openMyStoriesOrCreate = () => {
+    if (!user?.userid) return openStoryModal()
+    const idx = storyGroups.findIndex(g => g.userId === user.userid)
+    if (idx >= 0 && (storyGroups[idx]?.stories?.length || 0) > 0) {
+      openStoryViewer(idx)
+    } else {
+      openStoryModal()
+    }
+  }
 
   useEffect(() => {
     getCurrentUser()
@@ -108,6 +129,7 @@ export default function SocialPage() {
         // Si no hay usuario logueado, no mostrar historias
         if (!user?.userid) {
           setStories([])
+          setStoryGroups([])
           return
         }
 
@@ -132,6 +154,24 @@ export default function SocialPage() {
           return storyUserId === user.userid || friendIds.has(storyUserId)
         })
 
+        // Agrupar historias por usuario
+        const groupsMap = new Map()
+        for (const s of filteredStories) {
+          const storyUserId = s.user_id || s.author?.userid || s.author?.id
+          if (!storyUserId) continue
+          if (!groupsMap.has(storyUserId)) {
+            groupsMap.set(storyUserId, {
+              userId: storyUserId,
+              author: s.author || null,
+              stories: []
+            })
+          }
+          groupsMap.get(storyUserId).stories.push(s)
+        }
+
+        const groups = Array.from(groupsMap.values())
+        // Guardar todos los grupos (incluye tu propio usuario para que el visor pueda abrirlos)
+        setStoryGroups(groups)
         setStories(filteredStories)
       }
     } catch (error) {
@@ -287,7 +327,7 @@ export default function SocialPage() {
   const createComment = async (postId) => {
     try {
       if (!user?.id) {
-        alert('Debes iniciar sesión para comentar')
+        showNotification('Inicia sesión', 'Debes iniciar sesión para comentar', 'error')
         return
       }
 
@@ -353,7 +393,7 @@ export default function SocialPage() {
       }
     } catch (error) {
       console.error('Error deleting post:', error)
-      alert('Error al eliminar el post')
+      showNotification('Error', 'Error al eliminar el post', 'error')
       setShowDeleteConfirm(false)
       setPostToDelete(null)
     }
@@ -465,36 +505,103 @@ export default function SocialPage() {
         })
 
       if (!error) {
-        alert('Post compartido exitosamente!')
+        showNotification('Compartido', 'Post compartido exitosamente!')
         setShowShareModal(false)
         setSelectedPost(null)
       } else {
         console.error('Error sharing post:', error)
-        alert('Error al compartir el post')
+        showNotification('Error al compartir', 'No se pudo compartir el post', 'error')
       }
     } catch (error) {
       console.error('Error sharing to chat:', error)
-      alert('Error al compartir el post')
+      showNotification('Error al compartir', 'No se pudo compartir el post', 'error')
     }
   }
 
-  const openStoryModal = () => {
-    setShowStoryModal(true)
+  const openStoryViewer = (groupIndex) => {
+    if (storyGroups.length > 0 && storyGroups[groupIndex]?.stories?.length > 0) {
+      setCurrentGroupIndex(groupIndex)
+      setCurrentStoryIndex(0)
+      setCurrentStory(storyGroups[groupIndex].stories[0])
+      setShowStoryViewer(true)
+    }
   }
 
-  const closeStoryModal = () => {
-    setShowStoryModal(false)
-    setStoryFile(null)
-    setStoryPreview(null)
-    setStoryContent('')
+  const openStoryViewerByUser = (userId) => {
+    const idx = storyGroups.findIndex(g => g.userId === userId)
+    if (idx >= 0) {
+      openStoryViewer(idx)
+    }
   }
+
+  const closeStoryViewer = () => {
+    // Marcar grupo actual como visto
+    const group = storyGroups[currentGroupIndex]
+    if (group?.userId) {
+      setSeenUsers(prev => ({ ...prev, [group.userId]: true }))
+    }
+    setShowStoryViewer(false)
+    setCurrentStory(null)
+    setCurrentStoryIndex(0)
+  }
+
+  const nextStory = () => {
+    const group = storyGroups[currentGroupIndex]
+    if (!group) return
+    if (currentStoryIndex < group.stories.length - 1) {
+      const nextIndex = currentStoryIndex + 1
+      setCurrentStoryIndex(nextIndex)
+      setCurrentStory(group.stories[nextIndex])
+    } else {
+      // Al terminar las stories del grupo, marcar como visto
+      if (group?.userId) {
+        setSeenUsers(prev => ({ ...prev, [group.userId]: true }))
+      }
+      closeStoryViewer()
+    }
+  }
+
+  const prevStory = () => {
+    const group = storyGroups[currentGroupIndex]
+    if (!group) return
+    if (currentStoryIndex > 0) {
+      const prevIndex = currentStoryIndex - 1
+      setCurrentStoryIndex(prevIndex)
+      setCurrentStory(group.stories[prevIndex])
+    }
+  }
+
+  // Auto-advance timer and fade-in animation
+  useEffect(() => {
+    if (!showStoryViewer || !currentStory) return
+    setStoryProgress(0)
+    setFadeIn(false)
+    const fadeTimer = setTimeout(() => setFadeIn(true), 10)
+
+    const start = Date.now()
+    const durationMs = 15000 // 15s
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start
+      const pct = Math.min(100, (elapsed / durationMs) * 100)
+      setStoryProgress(pct)
+      if (elapsed >= durationMs) {
+        clearInterval(interval)
+        nextStory()
+      }
+    }, 100)
+
+    return () => {
+      clearInterval(interval)
+      clearTimeout(fadeTimer)
+    }
+  }, [showStoryViewer, currentStory, currentStoryIndex, currentGroupIndex])
 
   const handleStoryFileChange = (e) => {
     const file = e.target.files[0]
     if (file) {
       // Validar tipo de archivo
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        alert('Solo se permiten imágenes y videos')
+        showNotification('Formato no permitido', 'Solo se permiten imágenes y videos', 'error')
         return
       }
 
@@ -509,148 +616,15 @@ export default function SocialPage() {
     }
   }
 
-  const createStory = async () => {
-    try {
-      if (!user?.id) {
-        alert('Debes iniciar sesión para crear una historia')
-        return
-      }
-      
-      if (!storyFile) {
-        alert('Debes seleccionar una imagen o video')
-        return
-      }
-
-      setUploadingStory(true)
-
-      // Crear FormData
-      const formData = new FormData()
-      formData.append('user_id', user.id)
-      formData.append('content', storyContent)
-      formData.append('file', storyFile)
-
-      // Enviar al backend
-      const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.STORIES)
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Historia creada:', result)
-        alert('¡Historia creada exitosamente!')
-        closeStoryModal()
-        // Recargar stories después de un pequeño delay para asegurar que se guardó
-        setTimeout(() => {
-          loadStories()
-        }, 500)
-      } else {
-        const errorData = await response.json()
-        console.error('Error al crear historia:', errorData)
-        alert(`Error: ${errorData.error || 'No se pudo crear la historia'}`)
-      }
-    } catch (error) {
-      console.error('Error creating story:', error)
-      alert('Error al crear la historia')
-    } finally {
-      setUploadingStory(false)
-    }
+  const openStoryModal = () => {
+    setShowStoryModal(true)
   }
 
-  const insertEmoji = (postId, emoji) => {
-    setNewComment(prev => ({
-      ...prev,
-      [postId]: (prev[postId] || '') + emoji
-    }))
-    setShowEmojiPicker(prev => ({
-      ...prev,
-      [postId]: false
-    }))
-  }
-
-  const goToUserProfile = (userId) => {
-    navigate(`/profile/${userId}`)
-  }
-
-  const handleSendFriendRequest = async (receiverId) => {
-    if (!user?.id) return
-    
-    try {
-      // Primero verificar si existe una solicitud rechazada o eliminada
-      const { data: existingRequest } = await supabase
-        .from('friend_requests')
-        .select('id, status')
-        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`)
-        .maybeSingle()
-
-      if (existingRequest) {
-        // Si existe y está rechazada, actualizar a pending
-        if (existingRequest.status === 'rejected') {
-          const { error: updateError } = await supabase
-            .from('friend_requests')
-            .update({ 
-              status: 'pending',
-              sender_id: user.id,
-              receiver_id: receiverId,
-              created_at: new Date().toISOString()
-            })
-            .eq('id', existingRequest.id)
-
-          if (updateError) {
-            console.error('Error actualizando solicitud:', updateError)
-            throw updateError
-          }
-        } else if (existingRequest.status === 'pending') {
-          // Ya está pendiente, no hacer nada
-          return
-        }
-      } else {
-        // No existe, crear una nueva
-        await sendFriendRequest(user.id, receiverId)
-      }
-      
-      // Actualizar el estado local
-      setFriendshipStatuses(prev => ({
-        ...prev,
-        [receiverId]: 'pending'
-      }))
-    } catch (error) {
-      console.error('Error sending friend request:', error)
-      alert('Error al enviar la solicitud de amistad')
-    }
-  }
-
-  const openStoryViewer = (storyIndex) => {
-    if (stories.length > 0) {
-      setCurrentStoryIndex(storyIndex)
-      setCurrentStory(stories[storyIndex])
-      setShowStoryViewer(true)
-    }
-  }
-
-  const closeStoryViewer = () => {
-    setShowStoryViewer(false)
-    setCurrentStory(null)
-    setCurrentStoryIndex(0)
-  }
-
-  const nextStory = () => {
-    if (currentStoryIndex < stories.length - 1) {
-      const nextIndex = currentStoryIndex + 1
-      setCurrentStoryIndex(nextIndex)
-      setCurrentStory(stories[nextIndex])
-    } else {
-      closeStoryViewer()
-    }
-  }
-
-  const prevStory = () => {
-    if (currentStoryIndex > 0) {
-      const prevIndex = currentStoryIndex - 1
-      setCurrentStoryIndex(prevIndex)
-      setCurrentStory(stories[prevIndex])
-    }
+  const closeStoryModal = () => {
+    setShowStoryModal(false)
+    setStoryFile(null)
+    setStoryPreview(null)
+    setStoryContent('')
   }
 
   const handlePostFileChange = (e) => {
@@ -658,7 +632,7 @@ export default function SocialPage() {
     if (file) {
       // Validar tipo de archivo
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        alert('Solo se permiten imágenes y videos')
+        showNotification('Formato no permitido', 'Solo se permiten imágenes y videos', 'error')
         return
       }
 
@@ -683,12 +657,12 @@ export default function SocialPage() {
   const createPost = async () => {
     try {
       if (!user?.id) {
-        alert('Debes iniciar sesión para crear un post')
+        showNotification('Inicia sesión', 'Debes iniciar sesión para crear un post', 'error')
         return
       }
 
       if (!newPostContent.trim() && !newPostFile) {
-        alert('Debes agregar contenido o una imagen/video')
+        showNotification('Contenido requerido', 'Agrega texto o una imagen/video', 'error')
         return
       }
 
@@ -712,18 +686,18 @@ export default function SocialPage() {
       if (response.ok) {
         const result = await response.json()
         console.log('Post creado:', result)
-        alert('¡Post creado exitosamente!')
+        showNotification('Post publicado', '¡Tu post se publicó correctamente!')
         closeCreatePostModal()
         // Recargar posts
         loadPosts()
       } else {
         const errorData = await response.json()
         console.error('Error al crear post:', errorData)
-        alert(`Error: ${errorData.error || 'No se pudo crear el post'}`)
+        showNotification('Error al publicar', errorData.error || 'No se pudo crear el post', 'error')
       }
     } catch (error) {
       console.error('Error creating post:', error)
-      alert('Error al crear el post')
+      showNotification('Error al publicar', 'Error al crear el post', 'error')
     } finally {
       setCreatingPost(false)
     }
@@ -902,7 +876,7 @@ export default function SocialPage() {
                   <span className="text-white font-bold text-xs">
                     {user?.nombre?.charAt(0)?.toUpperCase() || 'U'}
                   </span>
-                    </div>
+            </div>
               )}
                 </div>
             <span className="text-xs font-medium">Perfil</span>
@@ -919,76 +893,80 @@ export default function SocialPage() {
 
               {/* Stories */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl">
-              <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1">
-                {/* Tu Story */}
-                <div 
-                  onClick={openStoryModal}
-                  className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
-                >
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-pink-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-blue-500/30">
-                      <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
-                        <div className="w-full h-full rounded-full overflow-hidden">
-                          {user?.avatar_url ? (
-                            <img 
-                              src={user.avatar_url} 
-                              alt={user.nombre || 'Tu perfil'}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                              <span className="text-white font-bold text-xl">
-                                {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-                              </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-                    <div className="absolute bottom-0 right-0 w-7 h-7 bg-blue-500 rounded-full border-3 border-slate-900 flex items-center justify-center shadow-lg">
-                      <Plus className="w-4 h-4 text-white" />
-                    </div>
-                  </div>
-                  <span className="text-xs text-slate-200 font-semibold">Tu historia</span>
-                </div>
-
-                {/* Stories de otros usuarios */}
-                {stories.map((story, index) => (
+                <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1">
+                  {/* Tu Story */}
                   <div 
-                    key={story.id} 
+                    onClick={openMyStoriesOrCreate}
                     className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
                   >
-                    <div 
-                      onClick={() => openStoryViewer(index)}
-                      className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-pink-500/30"
-                    >
-                      <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
-                        <div className="w-full h-full rounded-full overflow-hidden">
-                          {story.author?.avatar_url ? (
-                            <img 
-                              src={story.author.avatar_url} 
-                              alt={story.author.nombre}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-pink-600 to-orange-600 flex items-center justify-center">
-                              <span className="text-white font-bold text-xl">
-                                {story.author?.nombre?.charAt(0) || 'U'}
-                              </span>
+                    <div className="relative">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-pink-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-blue-500/30">
+                        <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
+                          <div className="w-full h-full rounded-full overflow-hidden">
+                            {user?.avatar_url ? (
+                              <img 
+                                src={user.avatar_url} 
+                                alt={user.nombre || 'Tu perfil'}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                                <span className="text-white font-bold text-xl">
+                                  {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-            )}
+                      <div className="absolute bottom-0 right-0 w-7 h-7 bg-blue-500 rounded-full border-3 border-slate-900 flex items-center justify-center shadow-lg">
+                        <Plus className="w-4 h-4 text-white" />
+                      </div>
                     </div>
-                    </div>
-                    </div>
-                    <span 
-                      onClick={() => goToUserProfile(story.user_id || story.author?.userid)}
-                      className="text-xs text-slate-200 font-semibold truncate w-20 text-center hover:text-emerald-400 transition-colors"
-                    >
-                      {story.author?.nombre || 'Usuario'}
-                    </span>
+                    <span className="text-xs text-slate-200 font-semibold">Tu historia</span>
                   </div>
-                ))}
-              </div>
+
+                  {/* Stories de otros usuarios (agrupadas por usuario) */}
+                  {storyGroups.filter(g => g.userId !== user?.userid).map((group) => (
+                    <div
+                      key={group.userId}
+                      className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
+                    >
+                      <div
+                        onClick={() => openStoryViewerByUser(group.userId)}
+                        className={`w-20 h-20 rounded-full p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg ${
+                          seenUsers[group.userId]
+                            ? 'bg-gradient-to-tr from-slate-600 via-slate-500 to-slate-400 shadow-slate-500/30'
+                            : 'bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 shadow-pink-500/30'
+                        }`}
+                      >
+                        <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
+                          <div className="w-full h-full rounded-full overflow-hidden">
+                            {group.author?.avatar_url ? (
+                              <img
+                                src={group.author.avatar_url}
+                                alt={group.author?.nombre || 'Usuario'}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-pink-600 to-orange-600 flex items-center justify-center">
+                                <span className="text-white font-bold text-xl">
+                                  {group.author?.nombre?.charAt(0) || 'U'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        onClick={() => goToUserProfile(group.userId)}
+                        className="text-xs text-slate-200 font-semibold truncate w-20 text-center hover:text-emerald-400 transition-colors"
+                      >
+                        {group.author?.nombre || 'Usuario'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Posts Feed */}
@@ -1630,34 +1608,32 @@ export default function SocialPage() {
 
               {/* Barra de progreso */}
               <div className="flex gap-1 mt-3">
-                {stories.map((_, idx) => (
-                  <div
-                    key={idx}
-                    className={`h-0.5 flex-1 rounded-full ${
-                      idx === currentStoryIndex ? 'bg-white' : 
-                      idx < currentStoryIndex ? 'bg-white/80' : 'bg-white/30'
-                    }`}
-                  />
+                {storyGroups[currentGroupIndex]?.stories?.map((_, idx) => (
+                  <div key={idx} className="flex-1 h-1 rounded-full bg-white/20 overflow-hidden">
+                    <div
+                      className="h-full bg-white/80 transition-[width] duration-150 ease-linear"
+                      style={{ width: idx < currentStoryIndex ? '100%' : idx === currentStoryIndex ? `${Math.max(0, Math.min(100, storyProgress))}%` : '0%' }}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
 
             {/* Media (imagen o video) */}
-            <div className="w-full h-full flex items-center justify-center bg-black">
-              {currentStory.media_type === 'image' ? (
-                <img 
-                  src={currentStory.media_url} 
-                  alt="Story"
-                  className="max-w-full max-h-full object-contain"
-                />
-              ) : (
-                <video 
-                  src={currentStory.media_url}
-                  controls
-                  autoPlay
-                  className="max-w-full max-h-full object-contain"
-                />
-              )}
+            <div className={`w-full h-full flex items-center justify-center bg-black transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}>
+              {(() => {
+                const imgUrl = currentStory.media_url || currentStory.image_url
+                const vidUrl = currentStory.video_url && !currentStory.image_url ? currentStory.video_url : null
+                const isImage = (currentStory.media_type === 'image') || (!!imgUrl && !vidUrl)
+                if (isImage) {
+                  return (
+                    <img src={imgUrl} alt="Story" className="max-w-full max-h-full object-contain" />
+                  )
+                }
+                return (
+                  <video src={vidUrl || currentStory.media_url} controls autoPlay className="max-w-full max-h-full object-contain" />
+                )
+              })()}
             </div>
 
             {/* Texto de la story (si existe) */}
@@ -1671,7 +1647,7 @@ export default function SocialPage() {
           </div>
 
           {/* Botón siguiente */}
-          {currentStoryIndex < stories.length - 1 && (
+          {currentStoryIndex < (storyGroups[currentGroupIndex]?.stories?.length || 0) - 1 && (
                 <button
               onClick={nextStory}
               className="absolute right-6 z-50 text-white hover:scale-110 transition-transform bg-black/30 rounded-full p-2"
@@ -1858,6 +1834,24 @@ export default function SocialPage() {
                 Eliminar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast notifications */}
+      {toast.show && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120]">
+          <div
+            className={`min-w-[280px] max-w-[92vw] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md ${
+              toast.type === 'error'
+                ? 'bg-red-500/10 border-red-500/30 text-red-200'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+            }`}
+          >
+            <div className="font-semibold text-sm">{toast.title}</div>
+            {toast.message && (
+              <div className="text-xs mt-0.5 text-white/80">{toast.message}</div>
+            )}
           </div>
         </div>
       )}
