@@ -878,7 +878,7 @@ export default function SocialPage() {
   return (
     <>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="flex flex-col gap-6 px-4 py-6 pb-24 md:px-8 md:pb-16 xl:px-12">
+      <div className="flex flex-col gap-6 px-4 py-6 pb-24 md:px-8 md:pb-16 xl:px-12 max-w-5xl mx-auto">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <BackButton fallback="/dashboard" variant="ghost" />
@@ -911,7 +911,7 @@ export default function SocialPage() {
         <div className="grid grid-cols-1 gap-6 md:gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
 
             {/* Feed Principal */}
-            <div className="w-full">
+            <div className="w-full max-w-2xl mx-auto">
 
               {/* Stories */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl">
