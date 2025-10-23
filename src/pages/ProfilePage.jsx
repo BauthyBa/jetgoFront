@@ -5,7 +5,6 @@ import { upsertProfileToBackend, getUserAvatar } from '../services/api'
 import { updatePassword, sendPasswordResetEmail } from '../services/passwordReset'
 import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X, Download, Trash2, AlertTriangle, FileText, MapPin as MapPinIcon } from 'lucide-react'
 import AvatarUpload from '../components/AvatarUpload'
-import Navigation from '../components/Navigation'
 import MyTripHistory from '../components/MyTripHistory'
 import BackButton from '../components/BackButton'
 
@@ -522,7 +521,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-hero">
-      <Navigation />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Botón de volver */}
         <div className="mb-6">

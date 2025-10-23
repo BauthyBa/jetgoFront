@@ -1,7 +1,25 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin, UserPlus, UserCheck, Trash2, Image as ImageIcon } from 'lucide-react'
+import {
+  Heart,
+  MessageCircle,
+  Send,
+  Bookmark,
+  MoreHorizontal,
+  Smile,
+  Plus,
+  PlayCircle,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Search,
+  Settings,
+  UserPlus,
+  UserCheck,
+  Trash2,
+  Image as ImageIcon,
+} from 'lucide-react'
 import API_CONFIG from '@/config/api'
 import { extractHashtags, linkPostHashtags, relinkPostHashtags } from '@/services/hashtags'
 import { sendFriendRequest } from '@/services/friends'
@@ -858,189 +876,39 @@ export default function SocialPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Social Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/50 shadow-2xl">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Botón de volver */}
-            <div className="flex items-center gap-4">
-              <BackButton fallback="/dashboard" variant="ghost" />
-              {/* Logo */}
-              <Link to="/" className="flex items-center gap-2 group">
-              <img src="/jetgo.png?v=2" alt="JetGo" className="w-10 h-10" />
-              <span className="text-2xl font-bold text-white group-hover:text-emerald-400 transition-colors">
-                JetGo
-              </span>
-            </Link>
-
+      <div className="flex flex-col gap-6 px-4 py-6 pb-24 md:px-8 md:pb-16 xl:px-12">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <BackButton fallback="/dashboard" variant="ghost" />
+            <div>
+              <h1 className="text-2xl font-bold text-white md:text-3xl">Comunidad JetGo</h1>
+              <p className="text-sm text-slate-300 md:text-base">
+                Conectate con otros viajeros, compartí historias y coordiná tus próximos viajes.
+              </p>
             </div>
-
-            {/* Search Bar - Desktop */}
-            <div className="hidden md:flex flex-1 max-w-md mx-8">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar usuarios, viajes..."
-                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Navigation Icons */}
-              <div className="flex items-center gap-2">
-              {/* Home */}
-              <Link
-                to="/social"
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group"
-                title="Inicio"
-              >
-                <Home className="w-6 h-6 text-emerald-400" />
-              </Link>
-
-              {/* Trips */}
-              <Link
-                to="/viajes"
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group"
-                title="Mis Viajes"
-              >
-                <MapPin className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-              </Link>
-
-              {/* Friends */}
-              <Link
-                to="/amigos"
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group"
-                title="Amigos"
-              >
-                <Users className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-              </Link>
-
-              {/* Messages */}
-              <Link
-                to="/modern-chat"
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group relative"
-                title="Mensajes"
-              >
-                <MessageCircle className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-              </Link>
-
-              {/* Notifications */}
-                <button
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group relative"
-                title="Notificaciones"
-              >
-                <Bell className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
-
-              {/* Create Post */}
-              <button
-                onClick={() => setShowCreatePostModal(true)}
-                className="hidden md:flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white px-4 py-2 rounded-xl font-semibold transition-all shadow-lg shadow-emerald-500/20"
-              >
-                <Plus className="w-5 h-5" />
-                Crear Post
-              </button>
-
-              {/* Profile Avatar */}
-              <Link
-                to="/profile"
-                className="ml-2 relative group"
-                title="Perfil"
-              >
-                <div className="w-10 h-10 rounded-full ring-2 ring-emerald-500/30 group-hover:ring-emerald-500 transition-all overflow-hidden">
-                  {user?.avatar_url ? (
-                    <img 
-                      src={user.avatar_url} 
-                      alt={user.nombre || 'Perfil'}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">
-                        {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-                      </span>
-            </div>
-                  )}
           </div>
-              </Link>
-        </div>
-      </div>
-
-          {/* Search Bar - Mobile */}
-          <div className="md:hidden pb-3">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <div className="relative w-full sm:w-72 md:w-96">
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar..."
-                className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                placeholder="Buscar usuarios, viajes..."
+                className="w-full rounded-xl border border-slate-700/50 bg-slate-800/50 px-11 py-2.5 text-white placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
               />
-                    </div>
-                  </div>
-                      </div>
-      </nav>
-
-      {/* Mobile Bottom Navigation - Solo iconos inferiores */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800/50 bg-slate-900/95 backdrop-blur-xl md:hidden">
-        <div className="flex justify-around items-center h-16 px-2">
-          <Link
-            to="/social"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-emerald-400"
-          >
-            <Home className="w-6 h-6" />
-            <span className="text-xs font-medium">Social</span>
-          </Link>
-          <Link
-            to="/viajes"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
-          >
-            <MapPin className="w-6 h-6" />
-            <span className="text-xs font-medium">Viajes</span>
-          </Link>
-          <Link
-            to="/amigos"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
-          >
-            <Users className="w-6 h-6" />
-            <span className="text-xs font-medium">Amigos</span>
-          </Link>
-          <Link
-            to="/modern-chat"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
-          >
-            <MessageCircle className="w-6 h-6" />
-            <span className="text-xs font-medium">Chats</span>
-          </Link>
-          <Link
-            to="/profile"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
-          >
-            <div className="w-6 h-6 rounded-full ring-2 ring-slate-600 overflow-hidden">
-              {user?.avatar_url ? (
-                <img 
-                  src={user.avatar_url} 
-                  alt="Perfil"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-xs">
-                    {user?.nombre?.charAt(0)?.toUpperCase() || 'U'}
-                  </span>
             </div>
-              )}
-                </div>
-            <span className="text-xs font-medium">Perfil</span>
-          </Link>
+            <button
+              onClick={() => setShowCreatePostModal(true)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:from-emerald-500 hover:to-emerald-400"
+            >
+              <Plus className="h-5 w-5" />
+              <span className="hidden sm:inline">Crear Post</span>
+            </button>
+          </div>
         </div>
-      </nav>
 
-      <div className="pt-20 md:pt-24 pb-20 md:pb-12">
-        <div className="w-full mx-auto px-4 md:px-6">
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 md:gap-8">
+        <div className="grid grid-cols-1 gap-6 md:gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
 
             {/* Feed Principal */}
             <div className="w-full">
@@ -1569,7 +1437,6 @@ export default function SocialPage() {
               </div>
             </div>
           </div>
-        </div>
         </div>
       </div>
 
@@ -2102,5 +1969,6 @@ export default function SocialPage() {
         </div>
       )}
     </div>
+    </>
   )
 }

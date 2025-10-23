@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
-import Navigation from '../components/Navigation'
 import GlassCard from '../components/GlassCard'
 import BackButton from '../components/BackButton'
 import API_CONFIG from '../config/api'
@@ -518,7 +517,6 @@ const PublicProfilePage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-hero">
-        <Navigation />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-white text-center">
@@ -534,7 +532,6 @@ const PublicProfilePage = () => {
   if (error || !profile) {
     return (
       <div className="min-h-screen bg-gradient-hero">
-        <Navigation />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-white text-center">
@@ -560,8 +557,6 @@ const PublicProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-hero">
-      <Navigation />
-      
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header con botón de volver */}
         <div className="mb-6">

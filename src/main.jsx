@@ -25,6 +25,7 @@ import ReviewsPage from './pages/ReviewsPage.jsx'
 import AccountSettingsPage from './pages/AccountSettingsPage.jsx'
 import SocialPage from './pages/SocialPage.jsx'
 import HashtagPage from './pages/HashtagPage.jsx'
+import WeatherPage from './pages/WeatherPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 
 const router = createBrowserRouter([
@@ -64,6 +65,10 @@ const router = createBrowserRouter([
       { 
         path: 'social', 
         element: <ProtectedRoute><SocialPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'clima', 
+        element: <ProtectedRoute><WeatherPage /></ProtectedRoute> 
       },
       { 
         path: 'crear-viaje', 

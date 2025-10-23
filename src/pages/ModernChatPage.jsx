@@ -6,7 +6,6 @@ import BackButton from '@/components/BackButton'
 import EmojiPicker from '@/components/EmojiPicker'
 import ChatExpenses from '@/components/ChatExpenses'
 import ConnectionStatus from '@/components/ConnectionStatus'
-import Navigation from '@/components/Navigation'
 import AudioRecorder from '@/components/AudioRecorder'
 import AudioTranscriber from '@/components/AudioTranscriber'
 import SharedPostPreview from '@/components/SharedPostPreview'
@@ -623,7 +622,6 @@ export default function ModernChatPage() {
 
   return (
     <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
-      <Navigation />
       <ConnectionStatus />
       {/* Background Pattern */}
       <div className="fixed inset-0 opacity-30">

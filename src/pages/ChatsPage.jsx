@@ -465,7 +465,7 @@ export default function ChatsPage() {
   const hasRooms = (tripRooms.length + privateRooms.length) > 0
 
   return (
-    <DashboardLayout>
+    <DashboardLayout showNav={false}>
       <div className="py-8 text-white space-y-8">
         {/* Botón de volver */}
         <div className="mb-4">
