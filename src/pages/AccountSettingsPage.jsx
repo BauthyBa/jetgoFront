@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSession, supabase } from '../services/supabase'
-import { ArrowLeft, Bell, Shield, Key, Download, Trash2, User, Mail, Phone, Globe } from 'lucide-react'
+import { ArrowLeft, Bell, Shield, Key, Download, Trash2, User, Mail, Phone, Globe, LogOut } from 'lucide-react'
 import BackButton from '../components/BackButton'
+import { setAuthToken } from '../services/api'
 
 export default function AccountSettingsPage() {
   const [profile, setProfile] = useState(null)
@@ -161,6 +162,22 @@ export default function AccountSettingsPage() {
     } finally {
       setDownloadingTrips(false)
     }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+    } catch (e) {
+      console.warn('No se pudo cerrar sesión en Supabase:', e)
+    }
+    try {
+      setAuthToken(null)
+    } catch {}
+    try {
+      localStorage.removeItem('dni_meta')
+      localStorage.removeItem('dni_verified')
+    } catch {}
+    navigate('/login')
   }
 
   if (loading) {
@@ -371,6 +388,25 @@ export default function AccountSettingsPage() {
                 >
                   <span className="text-white">Cambiar contraseña</span>
                 </button>
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <LogOut size={20} />
+                Sesión
+              </h2>
+              <div className="space-y-3">
+                <button
+                  onClick={handleLogout}
+                  className="w-full p-4 bg-red-500/80 hover:bg-red-500 transition-colors text-left rounded-lg flex items-center gap-3 text-white font-medium"
+                >
+                  <LogOut size={20} />
+                  Cerrar sesión
+                </button>
+                <p className="text-slate-400 text-sm">
+                  Esto cerrará tu sesión en JetGo! y limpiarás los datos guardados en este dispositivo. Podrás iniciar sesión nuevamente cuando quieras.
+                </p>
               </div>
             </div>
 
