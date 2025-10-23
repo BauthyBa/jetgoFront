@@ -4,7 +4,7 @@ import { getSession } from '@/services/supabase'
 import { getFriendRequests, respondFriendRequest, getFriends } from '@/services/friends'
 import { UserPlus, Check, X, Clock, Users, ArrowLeft } from 'lucide-react'
 import GlassCard from '@/components/GlassCard'
-import BackButton from '@/components/BackButton'
+ 
 
 export default function FriendsPage() {
   const navigate = useNavigate()
@@ -158,10 +158,9 @@ export default function FriendsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-hero text-foreground">
-      <div className="container mx-auto px-4 py-8 pt-24">
+      <div className="container mx-auto px-4 py-8 pt-24 max-w-5xl">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <BackButton fallback={-1} variant="ghost" />
           <div>
             <h1 className="text-3xl font-bold text-white">Amigos</h1>
             <p className="text-white/70">Gestiona tus conexiones y solicitudes</p>
@@ -169,37 +168,47 @@ export default function FriendsPage() {
         </div>
 
         {/* Tabs */}
-        <GlassCard className="p-6 mb-6">
-          <div className="flex gap-2">
+        <GlassCard className="p-4 mb-6">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setActiveTab('received')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
                 activeTab === 'received'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-blue-600/90 text-white border-blue-500 shadow-lg shadow-blue-500/20'
+                  : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-700/60'
               }`}
             >
-              Recibidas ({requests.filter(r => r.status === 'pending').length})
+              Recibidas
+              <span className={`ml-1 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-xs ${
+                activeTab === 'received' ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-200'
+              }`}>
+                {requests.filter(r => r.status === 'pending').length}
+              </span>
             </button>
             <button
               onClick={() => setActiveTab('sent')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
                 activeTab === 'sent'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-blue-600/90 text-white border-blue-500 shadow-lg shadow-blue-500/20'
+                  : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-700/60'
               }`}
             >
               Enviadas
             </button>
             <button
               onClick={() => setActiveTab('friends')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
                 activeTab === 'friends'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-blue-600/90 text-white border-blue-500 shadow-lg shadow-blue-500/20'
+                  : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-700/60'
               }`}
             >
-              Amigos ({friends.length})
+              Amigos
+              <span className={`ml-1 inline-flex items-center justify-center h-5 min-w-5 px-2 rounded-full text-xs ${
+                activeTab === 'friends' ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-200'
+              }`}>
+                {friends.length}
+              </span>
             </button>
           </div>
         </GlassCard>
@@ -280,22 +289,26 @@ export default function FriendsPage() {
           ) : (
             <div className="space-y-3">
               {requests.map((request) => (
-                <GlassCard key={request.id} className="p-4">
+                <GlassCard key={request.id} className="p-5 hover:bg-white/5 transition-colors">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium">
-                        {request.other_user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                    <div className="flex items-center gap-4">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 p-[2px]">
+                        <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-white font-medium">
+                          {request.other_user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                        </div>
                       </div>
                       <div>
                         <h4 className="font-medium text-white">
                           {request.other_user?.full_name || 'Usuario'}
                         </h4>
-                        <span className={`text-xs font-semibold ${getStatusColor(request.status)}`}>
-                          {getStatusIcon(request.status)} {getStatusText(request.status)}
-                        </span>
-                        <span className="text-xs text-slate-500 ml-2">
-                          {new Date(request.created_at).toLocaleDateString()}
-                        </span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${getStatusColor(request.status)}`}>
+                            {getStatusIcon(request.status)} {getStatusText(request.status)}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {new Date(request.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -305,14 +318,14 @@ export default function FriendsPage() {
                         <>
                           <button
                             onClick={() => handleRespondRequest(request.id, 'accept')}
-                            className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm shadow-sm"
                           >
                             <Check className="w-4 h-4" />
                             Aceptar
                           </button>
                           <button
                             onClick={() => handleRespondRequest(request.id, 'reject')}
-                            className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm shadow-sm"
                           >
                             <X className="w-4 h-4" />
                             Rechazar
