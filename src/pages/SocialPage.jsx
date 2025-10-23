@@ -70,6 +70,7 @@ export default function SocialPage() {
   const [storyProgress, setStoryProgress] = useState(0)
   const [fadeIn, setFadeIn] = useState(false)
   const [toast, setToast] = useState({ show: false, type: 'success', title: '', message: '' })
+  const [searchQuery, setSearchQuery] = useState('')
 
   const showNotification = (title, message, type = 'success') => {
     setToast({ show: true, type, title, message })
@@ -914,6 +915,16 @@ export default function SocialPage() {
     }
   }
 
+  // Derived filtered lists for search
+  const query = (searchQuery || '').trim().toLowerCase()
+  const visibleSuggestedUsers = query
+    ? suggestedUsers.filter(u => `${u?.nombre || ''} ${u?.apellido || ''}`.toLowerCase().includes(query))
+    : suggestedUsers
+  // Do not filter trips by search; search is for users only
+  const visibleSuggestedTrips = suggestedTrips
+  // Do not filter posts by search; search is for users (and trips) only
+  const visiblePosts = posts
+
   return (
     <>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -933,7 +944,9 @@ export default function SocialPage() {
               <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar usuarios, viajes..."
+                placeholder="Buscar usuarios..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-xl border border-slate-700/50 bg-slate-800/50 px-11 py-2.5 text-white placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
               />
             </div>
@@ -1036,6 +1049,49 @@ export default function SocialPage() {
                 </div>
               </div>
 
+              {/* User Search Results (when searching) */}
+              {query && visibleSuggestedUsers.length > 0 && (
+                <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-2xl">
+                  <h3 className="text-white font-semibold mb-4">Resultados de usuarios</h3>
+                  <div className="space-y-3">
+                    {visibleSuggestedUsers.map((u) => (
+                      <div key={u.userid} className="flex items-center justify-between">
+                        <div 
+                          onClick={() => goToUserProfile(u.userid)}
+                          className="flex items-center gap-3 min-w-0 cursor-pointer"
+                        >
+                          <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-cyan-600 ring-2 ring-emerald-500/20 shadow-md flex-shrink-0">
+                            {u.avatar_url ? (
+                              <img src={u.avatar_url} alt={u.nombre} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
+                                {u.nombre?.charAt(0) || 'U'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-white font-medium truncate">{u.nombre} {u.apellido}</p>
+                            {u.bio && <p className="text-slate-400 text-xs truncate">{u.bio}</p>}
+                          </div>
+                        </div>
+                        {friendshipStatuses[u.userid] === 'accepted' ? (
+                          <span className="text-green-400 text-xs px-3 py-1 bg-green-500/10 rounded-lg">Amigos</span>
+                        ) : friendshipStatuses[u.userid] === 'pending' ? (
+                          <span className="text-yellow-400 text-xs px-3 py-1 bg-yellow-500/10 rounded-lg">Pendiente</span>
+                        ) : (
+                          <button
+                            onClick={() => handleSendFriendRequest(u.userid)}
+                            className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg"
+                          >
+                            Agregar
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Posts Feed */}
               <div className="space-y-6 pb-8">
               {loading ? (
@@ -1043,14 +1099,14 @@ export default function SocialPage() {
                   <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                   <p className="text-slate-400 mt-4">Cargando posts...</p>
                 </div>
-              ) : posts.length === 0 ? (
+              ) : visiblePosts.length === 0 ? (
                 <div className="text-center py-24 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                   <div className="text-6xl mb-4">📱</div>
                   <p className="text-slate-200 text-xl font-bold mb-2">Nada nuevo por acá</p>
                   <p className="text-slate-400 text-sm">¡Sé el primero en compartir algo increíble!</p>
               </div>
             ) : (
-                posts.map((post) => (
+                visiblePosts.map((post) => (
                   <div key={post.id} className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden hover:border-slate-600/70 transition-all duration-300 shadow-2xl hover:shadow-blue-500/10">
                     {/* Post Header */}
                     <div className="flex items-center justify-between p-5">
@@ -1329,72 +1385,74 @@ export default function SocialPage() {
                     <p className="text-blue-400 text-xs font-medium">Ver perfil</p>
                   </div>
                 </div>
-            </div>
+              </div>
 
-              {/* Sugerencias de Usuarios */}
-              <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
-                <div className="flex items-center justify-between mb-5">
-                  <p className="text-white font-bold text-sm">Sugerencias para ti</p>
-                  <button className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
-                    Ver todo
-                  </button>
-                </div>
-            <div className="space-y-4">
-                  {suggestedUsers.slice(0, 5).map((suggestedUser) => (
-                    <div key={suggestedUser.userid} className="flex items-center justify-between group">
-                      <div 
-                        onClick={() => goToUserProfile(suggestedUser.userid)}
-                        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                      >
-                        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-cyan-600 ring-2 ring-emerald-500/20 shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
-                          {suggestedUser.avatar_url ? (
-                            <img 
-                              src={suggestedUser.avatar_url} 
-                              alt={suggestedUser.nombre}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
-                              {suggestedUser.nombre?.charAt(0) || 'U'}
-          </div>
-        )}
+              {/* Sugerencias de Usuarios (hidden while searching) */}
+              {!query && (
+                <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
+                  <div className="flex items-center justify-between mb-5">
+                    <p className="text-white font-bold text-sm">Sugerencias para ti</p>
+                    <button className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
+                      Ver todo
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {visibleSuggestedUsers.slice(0, 5).map((suggestedUser) => (
+                      <div key={suggestedUser.userid} className="flex items-center justify-between group">
+                        <div 
+                          onClick={() => goToUserProfile(suggestedUser.userid)}
+                          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                        >
+                          <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-cyan-600 ring-2 ring-emerald-500/20 shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
+                            {suggestedUser.avatar_url ? (
+                              <img 
+                                src={suggestedUser.avatar_url} 
+                                alt={suggestedUser.nombre}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
+                                {suggestedUser.nombre?.charAt(0) || 'U'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-bold text-sm truncate">
+                              {suggestedUser.nombre} {suggestedUser.apellido}
+                            </p>
+                            <p className="text-slate-400 text-xs truncate">
+                              {suggestedUser.bio ? suggestedUser.bio.substring(0, 20) + '...' : 'Nuevo en JetGo'}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white font-bold text-sm truncate">
-                            {suggestedUser.nombre} {suggestedUser.apellido}
-                          </p>
-                          <p className="text-slate-400 text-xs truncate">
-                            {suggestedUser.bio ? suggestedUser.bio.substring(0, 20) + '...' : 'Nuevo en JetGo'}
-                          </p>
-                        </div>
+                        {friendshipStatuses[suggestedUser.userid] === 'accepted' ? (
+                          <button
+                            className="text-green-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-green-500/10 rounded-lg flex items-center gap-1.5 cursor-default"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            Amigos
+                          </button>
+                        ) : friendshipStatuses[suggestedUser.userid] === 'pending' ? (
+                          <button 
+                            className="text-yellow-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-yellow-500/10 rounded-lg cursor-not-allowed"
+                            disabled
+                          >
+                            Pendiente
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => handleSendFriendRequest(suggestedUser.userid)}
+                            className="text-blue-400 hover:text-blue-300 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg flex items-center gap-1.5"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            Agregar
+                          </button>
+                        )}
                       </div>
-                      {friendshipStatuses[suggestedUser.userid] === 'accepted' ? (
-              <button
-                          className="text-green-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-green-500/10 rounded-lg flex items-center gap-1.5 cursor-default"
-              >
-                          <UserCheck className="w-3.5 h-3.5" />
-                          Amigos
-              </button>
-                      ) : friendshipStatuses[suggestedUser.userid] === 'pending' ? (
-                        <button 
-                          className="text-yellow-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-yellow-500/10 rounded-lg cursor-not-allowed"
-                          disabled
-                        >
-                          Pendiente
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => handleSendFriendRequest(suggestedUser.userid)}
-                          className="text-blue-400 hover:text-blue-300 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg flex items-center gap-1.5"
-                        >
-                          <UserPlus className="w-3.5 h-3.5" />
-                          Agregar
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-            </div>
+              )}
 
               {/* Sugerencias de Viajes */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
@@ -1405,7 +1463,7 @@ export default function SocialPage() {
                   </button>
                 </div>
             <div className="space-y-3">
-                  {suggestedTrips.length === 0 ? (
+                  {visibleSuggestedTrips.length === 0 ? (
                     <div className="text-center py-6">
                       <p className="text-slate-400 text-sm">No hay viajes disponibles</p>
                       <button 
@@ -1416,7 +1474,7 @@ export default function SocialPage() {
                       </button>
                     </div>
                   ) : (
-                    suggestedTrips.map((trip) => (
+                    visibleSuggestedTrips.map((trip) => (
                     <div 
                       key={trip.id} 
                       className="bg-slate-800/50 rounded-xl overflow-hidden cursor-pointer hover:bg-slate-700/50 transition-all duration-300 border border-slate-700/30 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 group"
