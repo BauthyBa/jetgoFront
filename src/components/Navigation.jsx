@@ -108,7 +108,7 @@ export default function Navigation() {
       },
       {
         label: 'Chats',
-        path: ROUTES.CHATS,
+        path: ROUTES.MODERN_CHAT,
         icon: MessageCircle,
         isActive: (pathname) =>
           pathname === ROUTES.CHATS || pathname.startsWith(ROUTES.MODERN_CHAT) || pathname.startsWith(ROUTES.DASHBOARD),

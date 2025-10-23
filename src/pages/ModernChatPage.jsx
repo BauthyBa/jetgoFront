@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import BackButton from '@/components/BackButton'
 import EmojiPicker from '@/components/EmojiPicker'
 import ChatExpenses from '@/components/ChatExpenses'
 import ConnectionStatus from '@/components/ConnectionStatus'
@@ -17,6 +16,7 @@ import { api, upsertProfileToBackend } from '@/services/api'
 import { inviteFriendToTrip } from '@/services/friends'
 import InviteFriendsModal from '@/components/InviteFriendsModal'
 import { transcriptionService } from '@/services/transcription'
+import { ArrowLeft, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
 
 function normalizeRoomName(room) {
   return (room?.display_name || room?.name || '').trim()
@@ -57,6 +57,23 @@ export default function ModernChatPage() {
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
   const typingTimeoutRef = useRef({})
+
+  const displayName =
+    profile?.meta?.first_name && profile?.meta?.last_name
+      ? `${profile.meta.first_name} ${profile.meta.last_name}`
+      : profile?.meta?.first_name
+        ? profile.meta.first_name
+        : profile?.email
+          ? profile.email.split('@')[0]
+          : 'Tu cuenta'
+
+  const displayInitials = displayName
+    .split(' ')
+    .map((part) => part[0])
+    .filter(Boolean)
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
   useEffect(() => {
     let mounted = true
@@ -563,188 +580,218 @@ export default function ModernChatPage() {
         : null
     : null
 
+  const openChatDetails = async () => {
+    if (!activeRoom) return
+    try {
+      if (isPrivateRoom(activeRoom)) {
+        const roomId = activeRoom?.id
+        if (!roomId) {
+          alert('Sala no válida')
+          return
+        }
+        const { data: membersRows } = await supabase
+          .from('chat_members')
+          .select('user_id')
+          .eq('room_id', roomId)
+        const ids = Array.from(new Set((membersRows || []).map((m) => m.user_id).filter(Boolean)))
+        const nameMap = await fetchNamesForUserIds(ids)
+        const members = ids
+          .filter((id) => id !== profile?.user_id)
+          .map((id) => ({
+            user_id: id,
+            name: nameMap[id] || 'Usuario',
+          }))
+        setChatMembers(members)
+        setChatInfoOpen(true)
+        return
+      }
+
+      const roomId = activeRoom?.id
+      if (!roomId) {
+        alert('No se pueden cargar integrantes: falta el room_id de la sala')
+        return
+      }
+      const response = await api.get('/chat-members/', { params: { room_id: roomId } })
+      if (response.data?.ok && response.data?.members) {
+        const members = response.data.members.map((member) => ({
+          user_id: member.user_id,
+          name: member.name || 'Usuario',
+        }))
+        setChatMembers(members)
+        setChatInfoOpen(true)
+      } else {
+        alert('No se pudieron cargar los integrantes')
+      }
+    } catch (membersError) {
+      console.error('Error en chat-members:', membersError)
+      if (membersError.message?.includes('ERR_BLOCKED_BY_CLIENT')) {
+        alert('La petición fue bloqueada por el navegador. Revisá extensiones o adblockers.')
+      } else {
+        alert('No se pudieron cargar los integrantes.')
+      }
+    }
+  }
+
   const renderRoomCard = (room) => {
     const isActive = activeRoomId && String(activeRoomId) === String(room.id)
     const isPrivate = isPrivateRoom(room)
-    
+    const lastMessage = room?.last_message
+    const subtitle = isPrivate
+      ? 'Conversación privada'
+      : room.trip_id
+        ? 'Chat de viaje'
+        : 'General'
+
     return (
-      <div
+      <button
         key={room.id}
-        className={`
-          group relative overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer
-          ${isActive 
-            ? 'border-emerald-400/60 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 shadow-lg shadow-emerald-500/20' 
-            : 'border-slate-700/50 bg-slate-900/40 hover:border-slate-600/60 hover:bg-slate-800/50'
-          }
-        `}
+        type="button"
         onClick={() => openRoom(room)}
+        className={`group flex w-full cursor-pointer items-center gap-3 rounded-2xl px-4 py-3 transition-all ${
+          isActive ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]'
+        }`}
       >
-        <div className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`
-                  w-3 h-3 rounded-full
-                  ${isPrivate ? 'bg-blue-400' : 'bg-emerald-400'}
-                `} />
-                <h3 className="font-semibold text-white truncate">
-                  {normalizeRoomName(room) || 'Chat sin nombre'}
-                </h3>
-              </div>
-              <p className="text-xs text-slate-400 mb-2">
-                {isPrivate ? 'Conversación privada' : room.trip_id ? 'Chat de viaje' : 'Chat general'}
-              </p>
-              {room.trip_id && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                  💰 Gastos compartidos
-                </span>
-              )}
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <div className={`
-                w-2 h-2 rounded-full
-                ${isActive ? 'bg-emerald-400' : 'bg-slate-500'}
-              `} />
-              {isActive && (
-                <div className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse" />
-              )}
-            </div>
+        <div
+          className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+            isPrivate ? 'bg-blue-500/20 text-blue-200' : 'bg-emerald-500/20 text-emerald-200'
+          }`}
+        >
+          {(normalizeRoomName(room) || 'C')[0]?.toUpperCase() || 'C'}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-sm font-semibold">
+              {normalizeRoomName(room) || 'Chat'}
+            </span>
+            <span className="text-[11px] text-slate-500">
+              {room.last_message_at ? new Date(room.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
+            <span className="truncate">{lastMessage || subtitle}</span>
+            {room.unread_count > 0 && (
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-500 text-[10px] font-semibold text-emerald-950">
+                {room.unread_count}
+              </span>
+            )}
           </div>
         </div>
-        
-        {/* Hover effect overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      </div>
+      </button>
     )
   }
 
   const hasRooms = (tripRooms.length + privateRooms.length) > 0
 
-  return (
-    <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
-      <ConnectionStatus />
-      {/* Background Pattern */}
-      <div className="fixed inset-0 opacity-30">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(34,197,94,0.1),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(59,130,246,0.1),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_75%,rgba(168,85,247,0.1),transparent_50%)]" />
+  const sidebarContent = (
+    <div className="flex h-full flex-col bg-[#111b21]">
+      <div className="flex items-center justify-between border-b border-[#202c33] px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-sm font-semibold text-emerald-200">
+            {displayInitials || 'U'}
+          </div>
+          <div className="leading-tight">
+            <p className="text-sm font-semibold text-slate-100">{displayName}</p>
+            <p className="text-xs text-slate-400">Tus conversaciones</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-[#202c33] hover:text-emerald-400"
+          aria-label="Volver"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
       </div>
 
-      <div className="relative z-10 flex h-screen">
-        {/* Sidebar */}
-        <div className="w-80 bg-slate-900/80 backdrop-blur-xl border-r border-slate-700/50 h-screen">
-          <div className="h-full flex flex-col">
-            {/* Botón de volver */}
-            <div className="p-4 border-b border-slate-700/50">
-              <BackButton fallback="/profile" variant="ghost" />
-            </div>
-            {/* Header */}
-            <div className="p-6 border-b border-slate-700/50">
-              <div className="mb-4">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
-                  JetGo Chat
-                </h1>
-                <p className="text-sm text-slate-400 mt-2">
-                  Conectá con tu equipo y organiza cada detalle
-                </p>
-              </div>
-            </div>
+      <div className="border-b border-[#202c33] px-4 py-3">
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Input
+            value={roomQuery}
+            onChange={(event) => setRoomQuery(event.target.value)}
+            placeholder="Buscar un chat o viaje"
+            className="w-full rounded-full border-0 bg-[#202c33] pl-10 pr-4 text-sm text-slate-200 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+          />
+        </div>
+      </div>
 
-            {/* Search */}
-            <div className="p-4 border-b border-slate-700/50">
-              <div className="relative">
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <Input
-                  value={roomQuery}
-                  onChange={(event) => setRoomQuery(event.target.value)}
-                  placeholder="Buscar conversaciones..."
-                  className="pl-10 bg-slate-800/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:border-emerald-400/50"
-                />
-              </div>
-            </div>
-
-            {/* Rooms List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {!hasRooms && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800/50 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-400 text-sm">
-                    Todavía no tenés chats activos
-                  </p>
-                  <p className="text-slate-500 text-xs mt-1">
-                    Unite a un viaje para empezar a conversar
-                  </p>
-                </div>
-              )}
-
-              {tripRooms.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                    <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
-                      Viajes
-                    </h3>
-                    <span className="text-xs text-slate-500 bg-slate-800/50 px-2 py-1 rounded-full">
-                      {tripRooms.length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {tripRooms.map((room) => renderRoomCard(room))}
-                  </div>
-                </div>
-              )}
-
-              {privateRooms.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-400" />
-                    <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
-                      Privados
-                    </h3>
-                    <span className="text-xs text-slate-500 bg-slate-800/50 px-2 py-1 rounded-full">
-                      {privateRooms.length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {privateRooms.map((room) => renderRoomCard(room))}
-                  </div>
-                </div>
-              )}
-            </div>
+      <div className="flex-1 overflow-y-auto px-2 pb-4">
+        {!hasRooms && (
+          <div className="px-4 py-12 text-center text-sm text-slate-400">
+            <p className="font-medium text-slate-300">No tenés chats activos todavía.</p>
+            <p className="mt-2 text-xs text-slate-500">
+              Unite a un viaje o invita a tus contactos para empezar a conversar.
+            </p>
           </div>
+        )}
+
+        {hasRooms && (
+          <div className="flex flex-col gap-6">
+            {tripRooms.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-2 text-xs uppercase tracking-widest text-slate-500">
+                  <span>Viajes</span>
+                  <span className="rounded-full bg-[#202c33] px-2 py-1 text-[10px] text-slate-400">{tripRooms.length}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {tripRooms.map((room) => renderRoomCard(room))}
+                </div>
+              </div>
+            )}
+
+            {privateRooms.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-2 text-xs uppercase tracking-widest text-slate-500">
+                  <span>Privados</span>
+                  <span className="rounded-full bg-[#202c33] px-2 py-1 text-[10px] text-slate-400">{privateRooms.length}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {privateRooms.map((room) => renderRoomCard(room))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-[#0b141a] text-slate-100">
+      <ConnectionStatus />
+
+      <div className="flex h-full flex-1">
+        {/* Sidebar */}
+        <div className="flex h-full w-[340px] flex-col border-r border-[#202c33] bg-[#111b21]">
+          {sidebarContent}
         </div>
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col h-screen">
+        <div className="flex h-full flex-1 flex-col">
           {!activeRoomId ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center space-y-6">
-                <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
+            <div className="flex flex-1 items-center justify-center bg-[radial-gradient(#ffffff08_1px,transparent_1px)] bg-[length:36px_36px]">
+              <div className="space-y-6 text-center">
+                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20">
                   <svg className="w-12 h-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-white">
+                  <h2 className="text-2xl font-semibold text-slate-100">
                     ¡Bienvenido a JetGo Chat!
                   </h2>
-                  <p className="text-slate-400 max-w-md">
+                  <p className="max-w-md text-slate-400">
                     Elegí una conversación para empezar a chatear con tu equipo y organizar todos los detalles del viaje.
                   </p>
                 </div>
-                <div className="flex items-center justify-center gap-4 text-sm text-slate-500">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <div className="flex items-center justify-center gap-6 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 uppercase tracking-widest">
+                    <div className="h-2 w-2 rounded-full bg-emerald-400" />
                     <span>Chats de viajes</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-400" />
+                  <div className="flex items-center gap-2 uppercase tracking-widest">
+                    <div className="h-2 w-2 rounded-full bg-blue-400" />
                     <span>Conversaciones privadas</span>
                   </div>
                 </div>
@@ -753,9 +800,12 @@ export default function ModernChatPage() {
           ) : (
             <>
               {/* Chat Header */}
-              <div className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+              <div className="border-b border-[#202c33] bg-[#111b21]/90 px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-sm font-semibold text-emerald-200 sm:flex">
+                      {(normalizeRoomName(activeRoom) || 'C')[0]?.toUpperCase() || 'C'}
+                    </div>
                     <div>
                       {isPrivateRoom(activeRoom) ? (
                         <button
@@ -802,21 +852,21 @@ export default function ModernChatPage() {
                               console.error('Error navigating to profile:', error)
                             }
                           }}
-                          className="text-xl font-semibold text-white hover:text-emerald-300 transition-colors cursor-pointer"
+                          className="text-base font-semibold text-slate-100 transition-colors hover:text-emerald-300"
                         >
                           {normalizeRoomName(activeRoom) || 'Chat'}
                         </button>
                       ) : (
-                        <h2 className="text-xl font-semibold text-white">
+                        <h2 className="text-base font-semibold text-slate-100">
                           {normalizeRoomName(activeRoom) || 'Chat'}
                         </h2>
                       )}
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
                         <span className={`
-                          text-xs px-2 py-1 rounded-full font-medium
+                          inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium
                           ${activeRoomBadge === 'Privado' 
-                            ? 'bg-blue-500/20 text-blue-300' 
-                            : 'bg-emerald-500/20 text-emerald-300'
+                            ? 'bg-[#1f2c33] text-blue-200'
+                            : 'bg-[#1f2c33] text-emerald-200'
                           }
                         `}>
                           {activeRoomBadge}
@@ -830,75 +880,29 @@ export default function ModernChatPage() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 md:gap-2">
                     {activeRoom?.trip_id && (
                       <Button
-                        variant={showExpenses ? 'default' : 'secondary'}
+                        variant={showExpenses ? 'default' : 'ghost'}
+                        size="sm"
+                        className={`hidden rounded-full px-3 py-1.5 text-xs font-medium md:inline-flex ${
+                          showExpenses
+                            ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400'
+                            : 'bg-[#1f2c33] text-slate-200 hover:text-emerald-200'
+                        }`}
                         onClick={() => setShowExpenses((prev) => !prev)}
-                        className="hidden sm:flex"
                       >
-                        {showExpenses ? '💬 Chat' : '💰 Gastos'}
+                        {showExpenses ? 'Ver chat' : 'Ver gastos'}
                       </Button>
                     )}
-                    {!isPrivateRoom(activeRoom) && (
-                      <Button
-                        variant="secondary"
-                        onClick={async () => {
-                        try {
-                          if (isPrivateRoom(activeRoom)) {
-                            const roomId = activeRoom?.id
-                            if (!roomId) {
-                              alert('Sala no válida')
-                              return
-                            }
-                            const { data: membersRows } = await supabase
-                              .from('chat_members')
-                              .select('user_id')
-                              .eq('room_id', roomId)
-                            const ids = Array.from(
-                              new Set((membersRows || []).map((m) => m.user_id).filter(Boolean)),
-                            )
-                            const nameMap = await fetchNamesForUserIds(ids)
-                            const members = ids
-                              .filter((id) => id !== profile?.user_id) // Excluir al usuario actual
-                              .map((id) => ({
-                                user_id: id,
-                                name: nameMap[id] || 'Usuario',
-                              }))
-                            setChatMembers(members)
-                            setChatInfoOpen(true)
-                            return
-                          }
-
-                          const roomId = activeRoom?.id
-                          if (!roomId) {
-                            alert('No se pueden cargar integrantes: falta el room_id de la sala')
-                            return
-                          }
-                          const response = await api.get('/chat-members/', { params: { room_id: roomId } })
-                          if (response.data?.ok && response.data?.members) {
-                            const members = response.data.members.map((member) => ({
-                              user_id: member.user_id,
-                              name: member.name || 'Usuario',
-                            }))
-                            setChatMembers(members)
-                            setChatInfoOpen(true)
-                          } else {
-                            alert('No se pudieron cargar los integrantes')
-                          }
-                        } catch (membersError) {
-                          console.error('Error en chat-members:', membersError)
-                          if (membersError.message?.includes('ERR_BLOCKED_BY_CLIENT')) {
-                            alert('La petición fue bloqueada por el navegador. Revisá extensiones o adblockers.')
-                          } else {
-                            alert('No se pudieron cargar los integrantes.')
-                          }
-                        }
-                      }}
+                    <button
+                      type="button"
+                      onClick={openChatDetails}
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-slate-300 transition hover:bg-[#202c33] hover:text-emerald-200"
+                      aria-label="Información del chat"
                     >
-                      👥 Integrantes
-                    </Button>
-                    )}
+                      <MoreVertical className="h-5 w-5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -917,8 +921,8 @@ export default function ModernChatPage() {
                 ) : (
                   <>
                     {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-6 min-h-0" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                      <div className="max-w-4xl mx-auto space-y-4">
+                    <div className="flex-1 overflow-y-auto bg-[radial-gradient(#ffffff08_1px,transparent_1px)] bg-[length:34px_34px] px-4 py-6">
+                      <div className="mx-auto flex max-w-3xl flex-col gap-3">
                         {messages.map((message) => {
                           const isOwn = profile?.user_id && String(message.user_id) === String(profile.user_id)
                           const isApplication = typeof message?.content === 'string' && message.content.startsWith('APP|')
@@ -935,31 +939,27 @@ export default function ModernChatPage() {
                           }
 
                           return (
-                            <div
-                              key={message.id}
-                              className={`
-                                flex ${isOwn ? 'justify-end' : 'justify-start'}
-                              `}
-                            >
-                              <div className={`
-                                max-w-xs lg:max-w-md xl:max-w-lg rounded-2xl px-4 py-3 shadow-lg
-                                ${isOwn
-                                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white'
-                                  : 'bg-slate-700/80 backdrop-blur-sm text-slate-100'
-                                }
-                              `}>
-                                <div className="text-xs font-medium opacity-70 mb-1">
-                                  {getSenderLabel(message)}
-                                </div>
-                                
+                                <div
+                                  key={message.id}
+                                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                                >
+                                  <div
+                                    className={`relative max-w-[68%] rounded-xl px-3 py-2 text-sm shadow-sm ${
+                                      isOwn ? 'bg-[#005c4b] text-white' : 'bg-[#202c33] text-slate-100'
+                                    }`}
+                                  >
+                                    <div className={`mb-1 text-[11px] font-medium ${isOwn ? 'text-white/70' : 'text-slate-400'}`}>
+                                      {getSenderLabel(message)}
+                                    </div>
+
                                 {message.is_file ? (
                                   <div className="space-y-2">
                                     <div className="flex items-center justify-between gap-3">
-                                      <div className="flex items-center gap-2 text-sm font-semibold">
+                                      <div className="flex items-center gap-2 text-sm font-medium">
                                         <span>{getFileIcon(message.file_type)}</span>
                                         <span>{message.file_name}</span>
                                       </div>
-                                      <span className="text-xs opacity-70">
+                                      <span className={`text-[11px] ${isOwn ? 'text-white/70' : 'text-slate-400'}`}>
                                         {formatFileSize(message.file_size)}
                                       </span>
                                     </div>
@@ -968,7 +968,7 @@ export default function ModernChatPage() {
                                         href={message.file_url}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="block overflow-hidden rounded-xl border border-white/10"
+                                        className="block overflow-hidden rounded-lg"
                                       >
                                         <img
                                           src={message.file_url}
@@ -986,7 +986,7 @@ export default function ModernChatPage() {
                                           } catch (e) {
                                             console.error('Error parsing shared post:', e)
                                             return (
-                                              <div className="p-3 bg-slate-700/50 rounded-lg text-slate-300 text-sm">
+                                              <div className="rounded-lg bg-[#1f2c33] p-3 text-sm text-slate-200">
                                                 📱 Post compartido (error al cargar preview)
                                               </div>
                                             )
@@ -997,12 +997,7 @@ export default function ModernChatPage() {
                                       <div className="space-y-2">
                                         <audio
                                           controls
-                                          className="w-full"
-                                          style={{ 
-                                            background: 'rgba(255, 255, 255, 0.1)',
-                                            borderRadius: '8px',
-                                            padding: '8px'
-                                          }}
+                                          className="w-full rounded-lg bg-white/5"
                                         >
                                           <source src={message.file_url} type={message.file_type} />
                                           Tu navegador no soporta el elemento de audio.
@@ -1010,9 +1005,9 @@ export default function ModernChatPage() {
                                         
                                         {/* Transcripción del audio */}
                                         {audioTranscriptions[message.id] && (
-                                          <div className="mt-2 p-3 bg-slate-700/50 rounded-lg border border-slate-600">
-                                            <div className="flex items-center gap-2 mb-2">
-                                              <span className="text-xs font-medium text-emerald-300">📝 Transcripción:</span>
+                                          <div className="mt-2 rounded-lg border border-emerald-500/30 bg-[#1f2c33] p-3">
+                                            <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-300">
+                                              <span>📝 Transcripción:</span>
                                             </div>
                                             <p className="text-sm text-slate-200">{audioTranscriptions[message.id]}</p>
                                           </div>
@@ -1164,12 +1159,14 @@ export default function ModernChatPage() {
                                   return null
                                 })()}
 
-                                <div className="mt-2 flex items-center justify-between text-xs opacity-60">
-                                  <span>{new Date(message.created_at).toLocaleString()}</span>
+                                <div className="mt-2 flex items-center justify-end gap-2 text-[10px]">
+                                  <span className={isOwn ? 'text-white/70' : 'text-slate-400'}>
+                                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
                                   {isOwn && (
                                     <button
                                       onClick={() => confirmDeleteMessage(message.id)}
-                                      className="ml-2 text-red-400 hover:text-red-300 opacity-70 hover:opacity-100 transition-all"
+                                      className="ml-1 text-white/60 transition hover:text-rose-300"
                                       title="Eliminar mensaje"
                                     >
                                       🗑️
@@ -1182,18 +1179,14 @@ export default function ModernChatPage() {
                         })}
 
                         {messages.length === 0 && (
-                          <div className="text-center py-12">
-                            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-700/50 flex items-center justify-center">
-                              <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="py-10 text-center text-sm text-slate-400">
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#1f2c33]">
+                              <svg className="h-8 w-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                               </svg>
                             </div>
-                            <p className="text-slate-400 text-sm">
-                              Aún no hay mensajes en este chat
-                            </p>
-                            <p className="text-slate-500 text-xs mt-1">
-                              ¡Sé el primero en escribir algo!
-                            </p>
+                            <p className="font-medium text-slate-300">Aún no hay mensajes en este chat</p>
+                            <p className="mt-1 text-xs text-slate-500">¡Sé el primero en escribir algo!</p>
                           </div>
                         )}
                         <div ref={messageEndRef} />
@@ -1201,8 +1194,8 @@ export default function ModernChatPage() {
                     </div>
 
                     {/* Message Input */}
-                    <div className="bg-slate-900/80 backdrop-blur-xl border-t border-slate-700/50 p-4 flex-shrink-0">
-                      <div className="max-w-4xl mx-auto">
+                    <div className="flex-shrink-0 border-t border-[#202c33] bg-[#111b21]/90 px-4 py-4">
+                      <div className="mx-auto flex max-w-3xl flex-col gap-3">
                         {showAudioRecorder && (
                           <div className="mb-4">
                             <AudioRecorder
@@ -1227,24 +1220,28 @@ export default function ModernChatPage() {
                             accept="image/*,application/pdf,.doc,.docx,.txt"
                             onChange={handleFileUpload}
                           />
-                          <Button
+                          <button
                             type="button"
-                            variant="secondary"
                             onClick={() => fileInputRef.current?.click()}
-                            className="shrink-0"
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
+                            aria-label="Adjuntar archivo"
                           >
-                            📎
-                          </Button>
-                          <Button
+                            <Paperclip className="h-5 w-5" />
+                          </button>
+                          <button
                             type="button"
-                            variant="secondary"
                             onClick={() => setShowAudioRecorder(!showAudioRecorder)}
-                            className="shrink-0"
+                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition ${
+                              showAudioRecorder
+                                ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400'
+                                : 'bg-[#202c33] text-slate-300 hover:bg-[#1f2c33] hover:text-emerald-200'
+                            }`}
+                            aria-label="Grabar audio"
                           >
-                            🎤
-                          </Button>
+                            <Mic className="h-5 w-5" />
+                          </button>
                           
-                          <div className="flex-1 relative">
+                          <div className="relative flex-1">
                             <Input
                               value={newMessage}
                               onChange={(event) => setNewMessage(event.target.value)}
@@ -1255,11 +1252,11 @@ export default function ModernChatPage() {
                                 }
                               }}
                               placeholder="Escribí un mensaje..."
-                              className="bg-slate-800/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:border-emerald-400/50 pr-24"
+                              className="w-full rounded-full border-0 bg-[#202c33] py-3 pl-5 pr-28 text-sm text-slate-200 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-emerald-500/40"
                             />
                             <button
                               type="button"
-                              className="absolute right-12 top-1/2 transform -translate-y-1/2 text-xl hover:text-emerald-400 transition-colors"
+                              className="absolute right-16 top-1/2 -translate-y-1/2 text-xl text-slate-300 transition hover:text-emerald-300"
                               onClick={() => setShowAudioTranscriber(!showAudioTranscriber)}
                               title="Transcribir voz"
                             >
@@ -1267,11 +1264,11 @@ export default function ModernChatPage() {
                             </button>
                             <button
                               type="button"
-                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xl hover:text-emerald-400 transition-colors"
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 transition hover:text-emerald-200"
                               onClick={() => setShowEmojiPicker((prev) => !prev)}
                               title="Agregar emoji"
                             >
-                              😊
+                              <Smile className="h-5 w-5" />
                             </button>
                             <EmojiPicker
                               isOpen={showEmojiPicker}
@@ -1283,9 +1280,9 @@ export default function ModernChatPage() {
                             />
                           </div>
                           
-                          <Button 
-                            onClick={handleSend} 
-                            className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold px-6"
+                          <Button
+                            onClick={handleSend}
+                            className="h-11 rounded-full bg-emerald-500 px-5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400"
                           >
                             Enviar
                           </Button>
