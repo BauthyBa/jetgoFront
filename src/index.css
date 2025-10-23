@@ -420,8 +420,100 @@ h1 {
   color: #86efac; /* green-300 */
   background-color: rgba(34, 197, 94, 0.1);
   border: 1px solid rgba(34, 197, 94, 0.5);
-  padding: 12px;
-  border-radius: 0.5rem;
-  margin-top: 16px;
-  font-size: 14px;
+}
+
+/* Global custom scrollbars */
+/* Firefox */
+* {
+scrollbar-width: thin;
+scrollbar-color: rgba(71, 85, 105, 0.45) rgba(2, 6, 23, 0.72); /* darker, subtler */
+}
+.dark * {
+scrollbar-color: rgba(71, 85, 105, 0.4) rgba(2, 6, 23, 0.8);
+}
+
+/* WebKit (Chrome, Edge, Safari) */
+/* Apply on global and common scrollable elements */
+::-webkit-scrollbar,
+body::-webkit-scrollbar,
+div::-webkit-scrollbar,
+section::-webkit-scrollbar,
+aside::-webkit-scrollbar,
+main::-webkit-scrollbar,
+textarea::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+div::-webkit-scrollbar-track,
+section::-webkit-scrollbar-track,
+aside::-webkit-scrollbar-track,
+main::-webkit-scrollbar-track,
+textarea::-webkit-scrollbar-track {
+  background: rgba(2, 6, 23, 0.8); /* much darker track */
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+div::-webkit-scrollbar-thumb,
+section::-webkit-scrollbar-thumb,
+aside::-webkit-scrollbar-thumb,
+main::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, rgba(51, 65, 85, 0.55), rgba(30, 41, 59, 0.55)); /* slate gradient, darker */
+  border-radius: 9999px; /* fully rounded */
+  border: 2px solid rgba(2, 6, 23, 0.85); /* darker border to blend */
+}
+::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+div::-webkit-scrollbar-thumb:hover,
+section::-webkit-scrollbar-thumb:hover,
+aside::-webkit-scrollbar-thumb:hover,
+main::-webkit-scrollbar-thumb:hover,
+textarea::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, rgba(51, 65, 85, 0.7), rgba(30, 41, 59, 0.7));
+}
+
+/* Hide scrollbar arrow buttons (WebKit) */
+::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button,
+div::-webkit-scrollbar-button,
+section::-webkit-scrollbar-button,
+aside::-webkit-scrollbar-button,
+main::-webkit-scrollbar-button,
+textarea::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Hide corner filler for overlapping scrollbars */
+::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner,
+div::-webkit-scrollbar-corner,
+section::-webkit-scrollbar-corner,
+aside::-webkit-scrollbar-corner,
+main::-webkit-scrollbar-corner,
+textarea::-webkit-scrollbar-corner { background: transparent; }
+
+/* Light mode tweaks */
+html:not(.dark) ::-webkit-scrollbar-track,
+html:not(.dark) body::-webkit-scrollbar-track,
+html:not(.dark) div::-webkit-scrollbar-track,
+html:not(.dark) section::-webkit-scrollbar-track,
+html:not(.dark) aside::-webkit-scrollbar-track,
+html:not(.dark) main::-webkit-scrollbar-track,
+html:not(.dark) textarea::-webkit-scrollbar-track {
+  background: rgba(2, 6, 23, 0.7); /* keep dark track even in light for subtlety */
+}
+html:not(.dark) ::-webkit-scrollbar-thumb,
+html:not(.dark) body::-webkit-scrollbar-thumb,
+html:not(.dark) div::-webkit-scrollbar-thumb,
+html:not(.dark) section::-webkit-scrollbar-thumb,
+html:not(.dark) aside::-webkit-scrollbar-thumb,
+html:not(.dark) main::-webkit-scrollbar-thumb,
+html:not(.dark) textarea::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, rgba(71, 85, 105, 0.5), rgba(51, 65, 85, 0.5));
+  border: 2px solid rgba(2, 6, 23, 0.8);
 }
