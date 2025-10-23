@@ -76,6 +76,41 @@ export default function SocialPage() {
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 2800)
   }
 
+  const goToUserProfile = (userId) => {
+    if (!userId) return
+    try {
+      navigate(`/profile/${userId}`)
+    } catch (e) {
+      console.error('Error navigating to profile:', e)
+    }
+  }
+
+  const handleSendFriendRequest = async (receiverId) => {
+    try {
+      if (!user?.id) {
+        showNotification('Inicia sesión', 'Debes iniciar sesión para enviar solicitudes', 'error')
+        return
+      }
+      if (!receiverId || receiverId === user.id || receiverId === user.userid) {
+        // No enviar solicitudes a uno mismo
+        return
+      }
+      // Optimista: marcar como pendiente
+      setFriendshipStatuses(prev => ({ ...prev, [receiverId]: 'pending' }))
+      await sendFriendRequest(user.id, receiverId)
+      showNotification('Solicitud enviada', 'Tu solicitud de amistad fue enviada')
+    } catch (error) {
+      console.error('Error enviando solicitud de amistad:', error)
+      // Revertir si falla
+      setFriendshipStatuses(prev => {
+        const copy = { ...prev }
+        delete copy[receiverId]
+        return copy
+      })
+      showNotification('Error', 'No se pudo enviar la solicitud', 'error')
+    }
+  }
+
   useEffect(() => {
     getCurrentUser()
     loadPosts()
@@ -256,12 +291,16 @@ export default function SocialPage() {
       }
       
       const { data: users } = await query.limit(5)
-      setSuggestedUsers(users || [])
+      // Excluirse a sí mismo y perfiles incompletos (sin nombre/apellido)
+      const cleaned = (users || [])
+        .filter(u => u?.userid && u.userid !== user.userid)
+        .filter(u => (u?.nombre || u?.apellido))
+      setSuggestedUsers(cleaned)
 
       // Cargar estados de amistad para usuarios sugeridos
-      if (users && users.length > 0) {
+      if (cleaned && cleaned.length > 0) {
         const statuses = {}
-        for (const suggestedUser of users) {
+        for (const suggestedUser of cleaned) {
           const { data: existingRequest } = await supabase
             .from('friend_requests')
             .select('status')
