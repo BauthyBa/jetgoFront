@@ -14,6 +14,12 @@ export default function FriendsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('received') // 'received', 'sent', 'friends'
+  const [toast, setToast] = useState({ show: false, type: 'success', title: '', message: '' })
+
+  const showNotification = (title, message, type = 'success') => {
+    setToast({ show: true, type, title, message })
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 2800)
+  }
 
   useEffect(() => {
     loadSession()
@@ -108,14 +114,18 @@ export default function FriendsPage() {
       const userId = profile.userid || profile.user_id || profile.id
       const response = await respondFriendRequest(requestId, action, userId)
       if (response.ok) {
-        alert(`Solicitud ${action === 'accept' ? 'aceptada' : 'rechazada'} exitosamente`)
+        showNotification(
+          action === 'accept' ? 'Solicitud aceptada' : 'Solicitud rechazada',
+          action === 'accept' ? 'Ahora son amigos 🎉' : 'La solicitud fue rechazada',
+          action === 'accept' ? 'success' : 'error'
+        )
         loadRequests() // Recargar lista
       } else {
-        alert(response.error || 'Error procesando solicitud')
+        showNotification('Error', response.error || 'Error procesando solicitud', 'error')
       }
     } catch (err) {
       console.error('Error procesando solicitud:', err)
-      alert('Error procesando solicitud')
+      showNotification('Error', 'Error procesando solicitud', 'error')
     }
   }
 
@@ -157,8 +167,9 @@ export default function FriendsPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gradient-hero text-foreground">
-      <div className="container mx-auto px-4 py-8 pt-24 max-w-5xl">
+      <div className="container mx-auto px-4 py-8 pt-24 max-w-5xl relative">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <div>
@@ -360,7 +371,24 @@ export default function FriendsPage() {
             </div>
           )
         )}
+        {toast.show && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[120]">
+            <div
+              className={`min-w-[280px] max-w-[92vw] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md ${
+                toast.type === 'error'
+                  ? 'bg-red-500/10 border-red-500/30 text-red-200'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+              }`}
+            >
+              <div className="font-semibold text-sm">{toast.title}</div>
+              {toast.message && (
+                <div className="text-xs mt-0.5 text-white/80">{toast.message}</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
+    </>
   )
 }

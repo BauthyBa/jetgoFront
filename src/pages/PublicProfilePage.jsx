@@ -13,7 +13,6 @@ import {
   Star, 
   Users, 
   MessageCircle, 
-  ArrowLeft, 
   Heart, 
   Share2, 
   MoreHorizontal,
@@ -502,7 +501,7 @@ const likePost = async (postId) => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header con botón de volver */}
         <div className="mb-6">
-          <BackButton fallback={-1} variant="ghost" />
+          <BackButton fallback="/social" variant="ghost" />
         </div>
 
         {/* Información principal */}
