@@ -9,6 +9,7 @@ import ChatExpenses from '@/components/ChatExpenses'
 import { getSession, supabase, updateUserMetadata } from '@/services/supabase'
 import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages } from '@/services/chat'
 import { listTrips as fetchTrips, leaveTrip } from '@/services/trips'
+import { getFeaturedImage } from '@/services/unsplash'
 import { respondToApplication } from '@/services/applications'
 import { api, upsertProfileToBackend } from '@/services/api'
 
@@ -33,6 +34,7 @@ export default function ChatsPage() {
   const [applicationStatuses, setApplicationStatuses] = useState({})
   const [applicationOrganizer, setApplicationOrganizer] = useState({})
   const [tripsBase, setTripsBase] = useState([])
+  const [tripImages, setTripImages] = useState({})
   const [chatInfoOpen, setChatInfoOpen] = useState(false)
   const [chatMembers, setChatMembers] = useState([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -171,6 +173,25 @@ export default function ChatsPage() {
       } catch (_e) {}
     }
   }, [])
+
+  useEffect(() => {
+    try {
+      const isPrivate = isPrivateRoom(activeRoom)
+      const appId = activeRoom?.application_id
+      const tripId = activeRoom?.trip_id
+      if (!isPrivate || !appId || !tripId) return
+      const isOrganizer = applicationOrganizer[appId] === true
+      if (!isOrganizer) return
+      if (tripImages[tripId]) return
+      const trip = (tripsBase || []).find((t) => String(t.id) === String(tripId))
+      const destination = trip?.destination || trip?.to || ''
+      if (!destination) return
+      ;(async () => {
+        const url = await getFeaturedImage(destination, { orientation: 'landscape', quality: 'regular' })
+        if (url) setTripImages((prev) => ({ ...prev, [tripId]: url }))
+      })()
+    } catch {}
+  }, [activeRoom?.trip_id, activeRoom?.application_id, applicationOrganizer, tripsBase])
 
   useEffect(() => {
     if (!showExpenses) {
@@ -793,11 +814,12 @@ export default function ChatsPage() {
                                         } catch {}
                                         const applicant = getSenderLabel(message)
                                         return (
-                                          <>
-                                            <div className="mt-3 text-[13px] italic text-slate-300">
-                                              {`${applicant} te envió una solicitud a ${tripName}${route}`}
-                                            </div>
-                                            <div className="mt-2 flex items-center justify-end gap-2">
+                                          <div className="mt-3 flex items-stretch gap-3">
+                                            <div className="flex-1">
+                                              <div className="text-[13px] italic text-slate-300">
+                                                {`${applicant} te envió una solicitud a ${tripName}${route}`}
+                                              </div>
+                                              <div className="mt-2 flex items-center justify-end gap-2">
                                               <Button
                                                 variant="destructive"
                                                 size="sm"
@@ -839,8 +861,14 @@ export default function ChatsPage() {
                                               >
                                                 Aceptar
                                               </Button>
+                                              </div>
                                             </div>
-                                          </>
+                                            {tripId && tripImages[tripId] && (
+                                              <div className="overflow-hidden rounded-lg border border-white/10 self-stretch">
+                                                <img src={tripImages[tripId]} alt={tripName} className="h-full w-28 object-cover" loading="lazy" />
+                                              </div>
+                                            )}
+                                          </div>
                                         )
                                       }
                                     } catch {

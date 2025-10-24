@@ -17,6 +17,7 @@ import { api, upsertProfileToBackend } from '@/services/api'
 import { inviteFriendToTrip } from '@/services/friends'
 import InviteFriendsModal from '@/components/InviteFriendsModal'
 import { transcriptionService } from '@/services/transcription'
+import { getFeaturedImage } from '@/services/unsplash'
 import { ArrowLeft, Camera, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
 
 function normalizeRoomName(room) {
@@ -40,6 +41,7 @@ export default function ModernChatPage() {
   const [applicationStatuses, setApplicationStatuses] = useState({})
   const [applicationOrganizer, setApplicationOrganizer] = useState({})
   const [tripsBase, setTripsBase] = useState([])
+  const [tripImages, setTripImages] = useState({})
   const [chatInfoOpen, setChatInfoOpen] = useState(false)
   const [chatMembers, setChatMembers] = useState([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -197,6 +199,25 @@ export default function ModernChatPage() {
       }
     })()
   }, [profile?.user_id])
+
+  useEffect(() => {
+    try {
+      const isPrivate = isPrivateRoom(activeRoom)
+      const appId = activeRoom?.application_id
+      const tripId = activeRoom?.trip_id
+      if (!isPrivate || !appId || !tripId) return
+      const isOrganizer = applicationOrganizer[appId] === true
+      if (!isOrganizer) return
+      if (tripImages[tripId]) return
+      const trip = (tripsBase || []).find((t) => String(t.id) === String(tripId))
+      const destination = trip?.destination || trip?.to || ''
+      if (!destination) return
+      ;(async () => {
+        const url = await getFeaturedImage(destination, { orientation: 'landscape', quality: 'regular' })
+        if (url) setTripImages((prev) => ({ ...prev, [tripId]: url }))
+      })()
+    } catch {}
+  }, [activeRoom?.trip_id, activeRoom?.application_id, applicationOrganizer, tripsBase])
 
   useEffect(() => {
     return () => {
@@ -1192,7 +1213,6 @@ export default function ModernChatPage() {
                                     // 4. NO es el mensaje del usuario actual (no es el aplicante)
                                     // 5. No está finalizada
                                     if (isPrivate && isOrganizer && isApplication && applicationId && !isFinal && !isOwnMessage) {
-                                      // Organizer view: show sentence then action buttons
                                       const tripId = activeRoom?.trip_id
                                       let tripName = 'Viaje'
                                       let route = ''
@@ -1203,60 +1223,67 @@ export default function ModernChatPage() {
                                             tripName = trip?.name || 'Viaje'
                                             const origin = trip?.origin || trip?.from
                                             const destination = trip?.destination || trip?.to
-                                            route = origin || destination ? ` • ${origin || '?'} → ${destination || '?'}` : ''
+                                            route = origin || destination ? ` • ${origin || '?' } → ${destination || '?'}` : ''
                                           }
                                         }
                                       } catch {}
                                       const applicant = getSenderLabel(message)
                                       return (
-                                        <>
-                                          <div className="mt-3 text-[13px] italic text-slate-300">
-                                            {`${applicant} te envió una solicitud a ${tripName}${route}`}
+                                        <div className="mt-3 flex items-stretch gap-3">
+                                          <div className="flex-1">
+                                            <div className="text-[13px] italic text-slate-300">
+                                              {`${applicant} te envió una solicitud a ${tripName}${route}`}
+                                            </div>
+                                            <div className="mt-2 flex items-center justify-end gap-2">
+                                              <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={async () => {
+                                                  try {
+                                                    await respondToApplication(applicationId, 'reject')
+                                                    setApplicationStatuses((prev) => ({
+                                                      ...prev,
+                                                      [applicationId]: 'rejected',
+                                                    }))
+                                                  } catch (actionError) {
+                                                    alert(
+                                                      actionError?.response?.data?.error ||
+                                                        actionError?.message ||
+                                                        'No se pudo rechazar la solicitud',
+                                                    )
+                                                  }
+                                                }}
+                                              >
+                                                Rechazar
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                onClick={async () => {
+                                                  try {
+                                                    await respondToApplication(applicationId, 'accept')
+                                                    setApplicationStatuses((prev) => ({
+                                                      ...prev,
+                                                      [applicationId]: 'accepted',
+                                                    }))
+                                                  } catch (actionError) {
+                                                    alert(
+                                                      actionError?.response?.data?.error ||
+                                                        actionError?.message ||
+                                                        'No se pudo aceptar la solicitud',
+                                                    )
+                                                  }
+                                                }}
+                                              >
+                                                Aceptar
+                                              </Button>
+                                            </div>
                                           </div>
-                                          <div className="mt-2 flex items-center justify-end gap-2">
-                                          <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={async () => {
-                                              try {
-                                                await respondToApplication(applicationId, 'reject')
-                                                setApplicationStatuses((prev) => ({
-                                                  ...prev,
-                                                  [applicationId]: 'rejected',
-                                                }))
-                                              } catch (actionError) {
-                                                alert(
-                                                  actionError?.response?.data?.error ||
-                                                    actionError?.message ||
-                                                    'No se pudo rechazar la solicitud',
-                                                )
-                                              }
-                                            }}
-                                          >
-                                            Rechazar
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            onClick={async () => {
-                                              try {
-                                                await respondToApplication(applicationId, 'accept')
-                                                setApplicationStatuses((prev) => ({
-                                                  ...prev,
-                                                  [applicationId]: 'accepted',
-                                                }))
-                                              } catch (actionError) {
-                                                alert(
-                                                  actionError?.response?.data?.error ||
-                                                    actionError?.message ||
-                                                    'No se pudo aceptar la solicitud',
-                                                )
-                                              }
-                                            }}
-                                          >
-                                            Aceptar
-                                          </Button>
-                                          </div>
-                                        </>
+                                          {tripId && tripImages[tripId] && (
+                                            <div className="overflow-hidden rounded-lg border border-white/10 self-stretch">
+                                              <img src={tripImages[tripId]} alt={tripName} className="h-full w-28 object-cover" loading="lazy" />
+                                            </div>
+                                          )}
+                                        </div>
                                       )
                                     }
                                   } catch {
