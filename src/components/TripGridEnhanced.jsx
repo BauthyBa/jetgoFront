@@ -16,7 +16,8 @@ export default function TripGridEnhanced({
   onApply, 
   hasAppliedFn,
   showViewToggle = true,
-  showFilters = true
+  showFilters = true,
+  hideApply = false,
 }) {
   const [viewMode, setViewMode] = useState('card')
   const [searchTerm, setSearchTerm] = useState('')
@@ -144,6 +145,7 @@ export default function TripGridEnhanced({
               isOwner={!!isOwnerFn && isOwnerFn(trip)}
               onApply={onApply ? () => onApply(trip) : undefined}
               hasApplied={!!hasAppliedFn && hasAppliedFn(trip)}
+              hideApply={hideApply}
             />
           ))}
         </div>
