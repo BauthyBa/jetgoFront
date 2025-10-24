@@ -78,8 +78,17 @@ export async function createTrip(payload) {
 }
 
 // Update trip (frontend expects backend endpoint to exist; if not, caller should handle 404)
-export async function updateTrip(payload) {
-  const { data } = await api.post('/trips/update/', payload)
+export async function updateTrip(tripId, payload) {
+  const { data } = await api.post('/trips/update/', { 
+    trip_id: tripId, 
+    ...payload 
+  })
+  return data
+}
+
+// Delete trip
+export async function deleteTrip(tripId) {
+  const { data } = await api.post('/trips/delete/', { trip_id: tripId })
   return data
 }
 

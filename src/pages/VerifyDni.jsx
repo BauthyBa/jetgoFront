@@ -18,7 +18,7 @@ export default function VerifyDni() {
           <p className="text-slate-400 text-sm">Para completar tu registro, verificá tu identidad escaneando el DNI.</p>
         </div>
         <div className="embedded-register">
-          <Register embedded skipPassword />
+          <Register embedded />
         </div>
       </div>
     </div>

@@ -22,3 +22,22 @@ export async function getUserApplications(userId) {
     return []
   }
 }
+
+export async function getApplicationsByTrip(tripId) {
+  const { data } = await api.get(`/applications/trip/${tripId}/`)
+  try {
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.applications)) return data.applications
+    return []
+  } catch {
+    return []
+  }
+}
+
+export async function updateApplicationStatus(applicationId, status) {
+  const { data } = await api.post('/applications/respond/', { 
+    application_id: applicationId, 
+    action: status 
+  })
+  return data
+}

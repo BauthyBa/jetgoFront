@@ -12,8 +12,8 @@ export const ROUTES = {
   MODERN_CHAT: '/modern-chat',
   AMIGOS: '/amigos',
   SOCIAL: '/social',
-  PROFILE: '/profile',
   CLIMA: '/clima',
+  PROFILE: '/profile',
   
   // Rutas de autenticación
   LOGIN: '/login',

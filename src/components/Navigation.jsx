@@ -100,11 +100,17 @@ export default function Navigation() {
   const navItems = useMemo(
     () => [
       {
-        label: 'Mis viajes',
+        label: 'Explorar viajes',
         path: ROUTES.VIAJES,
         to: `${ROUTES.VIAJES}?view=search`,
         icon: MapPin,
-        isActive: (pathname) => pathname === ROUTES.VIAJES || pathname.startsWith('/trip'),
+        isActive: (pathname) => pathname === ROUTES.VIAJES && !pathname.startsWith(ROUTES.MIS_VIAJES),
+      },
+      {
+        label: 'Mis viajes',
+        path: ROUTES.MIS_VIAJES,
+        icon: MapPin,
+        isActive: (pathname) => pathname === ROUTES.MIS_VIAJES,
       },
       {
         label: 'Chats',
