@@ -8,6 +8,8 @@ import ConnectionStatus from '@/components/ConnectionStatus'
 import AudioRecorder from '@/components/AudioRecorder'
 import AudioTranscriber from '@/components/AudioTranscriber'
 import CameraCapture from '@/components/CameraCapture'
+import LocationCapture from '@/components/LocationCapture'
+import SimpleLocationMap from '@/components/SimpleLocationMap'
 import SharedPostPreview from '@/components/SharedPostPreview'
 import { getSession, supabase, updateUserMetadata } from '@/services/supabase'
 import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages } from '@/services/chat'
@@ -17,7 +19,7 @@ import { api, upsertProfileToBackend } from '@/services/api'
 import { inviteFriendToTrip } from '@/services/friends'
 import InviteFriendsModal from '@/components/InviteFriendsModal'
 import { transcriptionService } from '@/services/transcription'
-import { ArrowLeft, Camera, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
+import { ArrowLeft, Camera, MapPin, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
 
 function normalizeRoomName(room) {
   return (room?.display_name || room?.name || '').trim()
@@ -55,6 +57,7 @@ export default function ModernChatPage() {
   const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false)
   const [messageToDelete, setMessageToDelete] = useState(null)
   const [showCamera, setShowCamera] = useState(false)
+  const [showLocationCapture, setShowLocationCapture] = useState(false)
   const fileInputRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
@@ -519,6 +522,33 @@ export default function ModernChatPage() {
       alert('Error subiendo imagen. Intenta nuevamente.')
     } finally {
       setShowCamera(false)
+    }
+  }
+
+  const handleLocationSend = async (locationData) => {
+    try {
+      if (!activeRoomId || !profile?.user_id) return
+
+      const messageContent = JSON.stringify({
+        type: 'location',
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        address: locationData.address,
+        timestamp: locationData.timestamp,
+        isLive: locationData.isLive
+      })
+
+      await sendMessage(activeRoomId, messageContent, 'location')
+      
+      // Actualizar mensajes
+      const updatedMessages = await fetchMessages(activeRoomId)
+      setMessages(updatedMessages)
+      
+    } catch (error) {
+      console.error('Error sending location:', error)
+      alert('Error enviando ubicación. Intenta nuevamente.')
+    } finally {
+      setShowLocationCapture(false)
     }
   }
 
@@ -1125,6 +1155,45 @@ export default function ModernChatPage() {
                                       </a>
                                     )}
                                   </div>
+                                ) : message.message_type === 'location' || (() => {
+                                  try {
+                                    const parsed = JSON.parse(message.content)
+                                    return parsed.type === 'location'
+                                  } catch {
+                                    return false
+                                  }
+                                })() ? (
+                                  <div className="space-y-2">
+                                    {(() => {
+                                      try {
+                                        console.log('🔍 DEBUGGING LOCATION MESSAGE:', message)
+                                        const locationData = JSON.parse(message.content)
+                                        console.log('📍 LOCATION DATA:', locationData)
+                                        console.log('🗺️ RENDERING MAP WITH:', {
+                                          latitude: locationData.latitude,
+                                          longitude: locationData.longitude,
+                                          address: locationData.address
+                                        })
+                                        return (
+                                          <SimpleLocationMap
+                                            latitude={locationData.latitude}
+                                            longitude={locationData.longitude}
+                                            address={locationData.address}
+                                            timestamp={locationData.timestamp}
+                                            isLive={locationData.isLive}
+                                          />
+                                        )
+                                      } catch (e) {
+                                        console.error('❌ Error parsing location data:', e)
+                                        console.error('📄 Message content:', message.content)
+                                        return (
+                                          <div className="rounded-lg bg-[#1f2c33] p-3 text-sm text-slate-200">
+                                            📍 Ubicación compartida (error al cargar)
+                                          </div>
+                                        )
+                                      }
+                                    })()}
+                                  </div>
                                 ) : (
                                   (() => {
                                     // Show applicant message; if organizer, remove inline 'Viaje:' header to avoid duplication
@@ -1344,6 +1413,14 @@ export default function ModernChatPage() {
                           </button>
                           <button
                             type="button"
+                            onClick={() => setShowLocationCapture(true)}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
+                            aria-label="Compartir ubicación"
+                          >
+                            <MapPin className="h-5 w-5" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setShowAudioRecorder(!showAudioRecorder)}
                             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition ${
                               showAudioRecorder
@@ -1416,6 +1493,14 @@ export default function ModernChatPage() {
         <CameraCapture
           onCapture={handleCameraCapture}
           onCancel={() => setShowCamera(false)}
+        />
+      )}
+
+      {/* Location Capture Modal */}
+      {showLocationCapture && (
+        <LocationCapture
+          onLocationSend={handleLocationSend}
+          onCancel={() => setShowLocationCapture(false)}
         />
       )}
 
