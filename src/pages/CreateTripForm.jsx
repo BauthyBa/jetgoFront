@@ -418,7 +418,7 @@ export default function CreateTripForm() {
                     required
                   />
                   {(originSuggestions.length > 0 || loadingSuggestions) && (
-                    <ul className="absolute z-20 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
+                    <ul className="absolute z-50 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto shadow-2xl">
                       {loadingSuggestions ? (
                         <li className="p-3 text-slate-400 text-center">
                           <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
@@ -458,7 +458,7 @@ export default function CreateTripForm() {
                     required
                   />
                   {(destinationSuggestions.length > 0 || loadingSuggestions) && (
-                    <ul className="absolute z-20 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
+                    <ul className="absolute z-50 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto shadow-2xl">
                       {loadingSuggestions ? (
                         <li className="p-3 text-slate-400 text-center">
                           <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
@@ -635,7 +635,7 @@ export default function CreateTripForm() {
                     className="bg-slate-700 border-slate-600 text-white"
                   />
                   {countrySuggestions.length > 0 && (
-                    <ul className="absolute z-20 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
+                    <ul className="absolute z-50 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto shadow-2xl">
                       {countrySuggestions.map((item, idx) => (
                         <li
                           key={`c_${idx}_${item.place_id}`}
