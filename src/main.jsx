@@ -24,6 +24,7 @@ import ProfilePage from './pages/ProfilePage.jsx'
 import ReviewsPage from './pages/ReviewsPage.jsx'
 import AccountSettingsPage from './pages/AccountSettingsPage.jsx'
 import SocialPage from './pages/SocialPage.jsx'
+import MisViajesPage from './pages/MisViajesPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 
 const router = createBrowserRouter([
@@ -63,6 +64,10 @@ const router = createBrowserRouter([
       { 
         path: 'social', 
         element: <ProtectedRoute><SocialPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'mis-viajes', 
+        element: <ProtectedRoute><MisViajesPage /></ProtectedRoute> 
       },
       { 
         path: 'crear-viaje', 

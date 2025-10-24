@@ -499,13 +499,7 @@ export default function ViajesPage() {
                       </Button>
                       <Button
                         variant="secondary"
-                        onClick={() => {
-                          const mine = (tripsBase || []).filter((t) => t.creatorId && t.creatorId === profile.id)
-                          setTrips(mine)
-                          setShowMineOnly(true)
-                          setVisibleCount(6)
-                          navigate(`${ROUTES.VIAJES}?view=mine`)
-                        }}
+                        onClick={() => navigate(ROUTES.MIS_VIAJES)}
                         className="w-full justify-start"
                       >
                         Mis viajes

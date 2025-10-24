@@ -8,7 +8,7 @@ import { upsertProfileToBackend } from '../services/api'
 import { signInWithGoogle, supabase } from '../services/supabase'
 import BackButton from '../components/BackButton'
 
-export default function Register({ embedded = false }) {
+export default function Register({ embedded = false, skipPassword = false }) {
   const location = useLocation()
   const navigate = useNavigate()
   const googleMode = new URLSearchParams(location.search).get('mode') === 'google'
@@ -252,7 +252,7 @@ export default function Register({ embedded = false }) {
       if (form.birth_date !== parsed.birthISO) mismatches.push('Fecha de nacimiento')
       if (mismatches.length) throw new Error(`Los siguientes campos no coinciden con el DNI: ${mismatches.join(', ')}`)
 
-      if (googleMode) {
+      if (googleMode || skipPassword) {
         try {
           const session = await getSession()
           const supaEmail = session?.user?.email || ''
@@ -390,7 +390,7 @@ export default function Register({ embedded = false }) {
               <label style={{ fontSize: '18px', marginBottom: '12px' }}>Fecha de nacimiento</label>
               <input type="date" name="birth_date" value={form.birth_date} onChange={handleChange} required style={{ padding: '16px', fontSize: '18px' }} />
             </div>
-            {!googleMode && (
+            {!googleMode && !skipPassword && (
               <>
                 <div className="field" style={{ marginBottom: '24px' }}>
                   <label style={{ fontSize: '18px', marginBottom: '12px' }}>Correo</label>
@@ -481,7 +481,9 @@ export default function Register({ embedded = false }) {
             </div>
             <input type="hidden" name="dni_front_payload" value={form.dni_front_payload} />
             <div className="actions" style={{ marginTop: '36px', gap: '20px' }}>
-              <button className="btn" type="submit" disabled={loading || scanning || !termsAccepted} style={{ padding: '18px 24px', fontSize: '18px' }}>{googleMode ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (loading ? 'Enviando...' : (scanning ? 'Leyendo...' : 'Crear cuenta'))}</button>
+              <button className="btn" type="submit" disabled={loading || scanning || !termsAccepted} style={{ padding: '18px 24px', fontSize: '18px' }}>
+                {skipPassword ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (googleMode ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (loading ? 'Enviando...' : (scanning ? 'Leyendo...' : 'Crear cuenta')))}
+              </button>
               <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); if (imgRef.current) imgRef.current.src = ''; if (backImgRef.current) backImgRef.current.src = ''; }} style={{ padding: '18px 24px', fontSize: '18px' }}>Limpiar</button>
               <span className="muted" style={{ fontSize: '18px' }}>{scanning ? 'Procesando imagen...' : ''}</span>
             </div>

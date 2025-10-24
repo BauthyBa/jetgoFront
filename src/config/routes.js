@@ -7,6 +7,7 @@ export const ROUTES = {
   // Rutas principales
   HOME: '/',
   VIAJES: '/viajes',
+  MIS_VIAJES: '/mis-viajes',
   CHATS: '/chats',
   MODERN_CHAT: '/modern-chat',
   AMIGOS: '/amigos',

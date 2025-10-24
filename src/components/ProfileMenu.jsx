@@ -243,12 +243,20 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
               // Logged in menu
               <>
                 <Link
-                  to="/viajes?view=search"
+                  to="/mis-viajes"
                   className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   <Car className="w-4 h-4" />
                   Mis viajes
+                </Link>
+                <Link
+                  to="/viajes?view=search"
+                  className="flex items-center gap-3 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Car className="w-4 h-4" />
+                  Buscar viajes
                 </Link>
                 <Link
                   to="/modern-chat"
