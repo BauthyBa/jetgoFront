@@ -721,11 +721,32 @@ export default function ChatsPage() {
                                       )}
                                     </div>
                                   ) : (
-                                    displayContent && (
-                                      <div className="mt-2 text-sm text-slate-200 whitespace-pre-wrap break-words">
-                                        {displayContent}
-                                      </div>
-                                    )
+                                    (() => {
+                                      // Show applicant message; if organizer, remove any inline "Viaje:" header to avoid duplication
+                                      let isOrganizer = false
+                                      try {
+                                        const isPrivate = isPrivateRoom(activeRoom)
+                                        if (isPrivate && activeRoom?.application_id) {
+                                          const cached = applicationOrganizer[activeRoom.application_id]
+                                          if (typeof cached === 'boolean') isOrganizer = cached
+                                        }
+                                      } catch {}
+
+                                      let finalContent = displayContent
+                                      try {
+                                        if (
+                                          isOrganizer &&
+                                          typeof finalContent === 'string' &&
+                                          /^\[?Viaje:\s.*?/i.test(finalContent)
+                                        ) {
+                                          finalContent = finalContent.replace(/^\[?Viaje:\s.*?\]?\s*\n?\n?/i, '')
+                                        }
+                                      } catch {}
+
+                                      return finalContent ? (
+                                        <div className="mt-2 text-sm text-slate-200 whitespace-pre-wrap break-words">{finalContent}</div>
+                                      ) : null
+                                    })()
                                   )}
 
                                   {(() => {
@@ -755,50 +776,71 @@ export default function ChatsPage() {
                                         )
                                       }
                                       if (isPrivate && isOrganizer && isApplication && applicationId && !isFinal) {
+                                        // Organizer view: show sentence line, then action buttons
+                                        const tripId = activeRoom?.trip_id
+                                        let tripName = 'Viaje'
+                                        let route = ''
+                                        try {
+                                          if (tripId) {
+                                            const trip = (tripsBase || []).find((t) => String(t.id) === String(tripId))
+                                            if (trip) {
+                                              tripName = trip?.name || 'Viaje'
+                                              const origin = trip?.origin || trip?.from
+                                              const destination = trip?.destination || trip?.to
+                                              route = origin || destination ? ` • ${origin || '?'} → ${destination || '?'}` : ''
+                                            }
+                                          }
+                                        } catch {}
+                                        const applicant = getSenderLabel(message)
                                         return (
-                                          <div className="mt-3 flex items-center justify-end gap-2">
-                                            <Button
-                                              variant="destructive"
-                                              size="sm"
-                                              onClick={async () => {
-                                                try {
-                                                  await respondToApplication(applicationId, 'reject')
-                                                  setApplicationStatuses((prev) => ({
-                                                    ...prev,
-                                                    [applicationId]: 'rejected',
-                                                  }))
-                                                } catch (actionError) {
-                                                  alert(
-                                                    actionError?.response?.data?.error ||
-                                                      actionError?.message ||
-                                                      'No se pudo rechazar la solicitud',
-                                                  )
-                                                }
-                                              }}
-                                            >
-                                              Rechazar
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              onClick={async () => {
-                                                try {
-                                                  await respondToApplication(applicationId, 'accept')
-                                                  setApplicationStatuses((prev) => ({
-                                                    ...prev,
-                                                    [applicationId]: 'accepted',
-                                                  }))
-                                                } catch (actionError) {
-                                                  alert(
-                                                    actionError?.response?.data?.error ||
-                                                      actionError?.message ||
-                                                      'No se pudo aceptar la solicitud',
-                                                  )
-                                                }
-                                              }}
-                                            >
-                                              Aceptar
-                                            </Button>
-                                          </div>
+                                          <>
+                                            <div className="mt-3 text-[13px] italic text-slate-300">
+                                              {`${applicant} te envió una solicitud a ${tripName}${route}`}
+                                            </div>
+                                            <div className="mt-2 flex items-center justify-end gap-2">
+                                              <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={async () => {
+                                                  try {
+                                                    await respondToApplication(applicationId, 'reject')
+                                                    setApplicationStatuses((prev) => ({
+                                                      ...prev,
+                                                      [applicationId]: 'rejected',
+                                                    }))
+                                                  } catch (actionError) {
+                                                    alert(
+                                                      actionError?.response?.data?.error ||
+                                                        actionError?.message ||
+                                                        'No se pudo rechazar la solicitud',
+                                                    )
+                                                  }
+                                                }}
+                                              >
+                                                Rechazar
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                onClick={async () => {
+                                                  try {
+                                                    await respondToApplication(applicationId, 'accept')
+                                                    setApplicationStatuses((prev) => ({
+                                                      ...prev,
+                                                      [applicationId]: 'accepted',
+                                                    }))
+                                                  } catch (actionError) {
+                                                    alert(
+                                                      actionError?.response?.data?.error ||
+                                                        actionError?.message ||
+                                                        'No se pudo aceptar la solicitud',
+                                                    )
+                                                  }
+                                                }}
+                                              >
+                                                Aceptar
+                                              </Button>
+                                            </div>
+                                          </>
                                         )
                                       }
                                     } catch {

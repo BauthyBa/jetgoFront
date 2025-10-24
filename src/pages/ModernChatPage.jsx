@@ -1062,11 +1062,32 @@ export default function ModernChatPage() {
                                     )}
                                   </div>
                                 ) : (
-                                  displayContent && (
-                                    <div className="text-sm whitespace-pre-wrap break-words">
-                                      {displayContent}
-                                    </div>
-                                  )
+                                  (() => {
+                                    // Show applicant message; if organizer, remove inline 'Viaje:' header to avoid duplication
+                                    let isOrganizer = false
+                                    try {
+                                      const isPrivate = isPrivateRoom(activeRoom)
+                                      if (isPrivate && activeRoom?.application_id) {
+                                        const cached = applicationOrganizer[activeRoom.application_id]
+                                        if (typeof cached === 'boolean') isOrganizer = cached
+                                      }
+                                    } catch {}
+
+                                    let finalContent = displayContent
+                                    try {
+                                      if (
+                                        isOrganizer &&
+                                        typeof finalContent === 'string' &&
+                                        /^\[?Viaje:\s.*?/i.test(finalContent)
+                                      ) {
+                                        finalContent = finalContent.replace(/^\[?Viaje:\s.*?\]?\s*\n?\n?/i, '')
+                                      }
+                                    } catch {}
+
+                                    return finalContent ? (
+                                      <div className="text-sm whitespace-pre-wrap break-words">{finalContent}</div>
+                                    ) : null
+                                  })()
                                 )}
 
                                 {(() => {
@@ -1107,8 +1128,28 @@ export default function ModernChatPage() {
                                     // 4. NO es el mensaje del usuario actual (no es el aplicante)
                                     // 5. No está finalizada
                                     if (isPrivate && isOrganizer && isApplication && applicationId && !isFinal && !isOwnMessage) {
+                                      // Organizer view: show sentence then action buttons
+                                      const tripId = activeRoom?.trip_id
+                                      let tripName = 'Viaje'
+                                      let route = ''
+                                      try {
+                                        if (tripId) {
+                                          const trip = (tripsBase || []).find((t) => String(t.id) === String(tripId))
+                                          if (trip) {
+                                            tripName = trip?.name || 'Viaje'
+                                            const origin = trip?.origin || trip?.from
+                                            const destination = trip?.destination || trip?.to
+                                            route = origin || destination ? ` • ${origin || '?'} → ${destination || '?'}` : ''
+                                          }
+                                        }
+                                      } catch {}
+                                      const applicant = getSenderLabel(message)
                                       return (
-                                        <div className="mt-3 flex items-center justify-end gap-2">
+                                        <>
+                                          <div className="mt-3 text-[13px] italic text-slate-300">
+                                            {`${applicant} te envió una solicitud a ${tripName}${route}`}
+                                          </div>
+                                          <div className="mt-2 flex items-center justify-end gap-2">
                                           <Button
                                             variant="destructive"
                                             size="sm"
@@ -1150,7 +1191,8 @@ export default function ModernChatPage() {
                                           >
                                             Aceptar
                                           </Button>
-                                        </div>
+                                          </div>
+                                        </>
                                       )
                                     }
                                   } catch {
