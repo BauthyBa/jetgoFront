@@ -80,7 +80,9 @@ export default function Layout() {
           !location.pathname.startsWith('/amigos') &&
           !location.pathname.startsWith('/clima') &&
           !location.pathname.startsWith('/viajes') &&
-          !location.pathname.startsWith('/crear-viaje') && (
+          !location.pathname.startsWith('/crear-viaje') &&
+          !location.pathname.startsWith('/profile') &&
+          !location.pathname.startsWith('/u/') && (
           <div className="sticky top-0 z-30" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BackButton fallback="/" />
