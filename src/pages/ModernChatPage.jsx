@@ -481,7 +481,7 @@ export default function ModernChatPage() {
       formData.append('room_id', activeRoomId)
       formData.append('user_id', profile.user_id)
 
-      const response = await fetch('https://jetgoback.onrender.com/api/chat/upload-file/', {
+      const response = await fetch('https://jetgoback.onrender.com/api/chat/upload-camera/', {
         method: 'POST',
         body: formData,
         mode: 'cors',
@@ -494,6 +494,7 @@ export default function ModernChatPage() {
 
       const data = await response.json()
       if (data.status === 'success') {
+        // El endpoint ya crea el mensaje automáticamente, solo actualizamos la lista
         const updatedMessages = await fetchMessages(activeRoomId)
         setMessages(updatedMessages)
       }
