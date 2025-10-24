@@ -23,7 +23,6 @@ import {
 import API_CONFIG from '@/config/api'
 import { extractHashtags, linkPostHashtags, relinkPostHashtags } from '@/services/hashtags'
 import { sendFriendRequest } from '@/services/friends'
-import BackButton from '@/components/BackButton'
 import HashtagParser from '@/components/HashtagParser'
 import TrendingHashtags from '@/components/TrendingHashtags'
 import { listTrips } from '@/services/trips'
@@ -947,7 +946,6 @@ export default function SocialPage() {
         )}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <BackButton fallback="/dashboard" variant="minimal">{null}</BackButton>
             <div>
               <h1 className="text-2xl font-bold text-white md:text-3xl">Comunidad JetGo</h1>
               <p className="text-sm text-slate-300 md:text-base truncate whitespace-nowrap overflow-hidden md:max-w-sm lg:max-w-md">

@@ -64,6 +64,7 @@ export default function ModernChatPage() {
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
   const typingTimeoutRef = useRef({})
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const displayName =
     profile?.meta?.first_name && profile?.meta?.last_name
@@ -811,9 +812,10 @@ export default function ModernChatPage() {
         </div>
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => setSidebarOpen((o) => !o)}
           className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-[#202c33] hover:text-emerald-400"
-          aria-label="Volver"
+          aria-label="Alternar panel"
+          title="Mostrar/ocultar lista de chats"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -877,13 +879,28 @@ export default function ModernChatPage() {
       <ConnectionStatus />
 
       <div className="flex h-full flex-1">
-        {/* Sidebar */}
-        <div className="flex h-full w-[340px] flex-col border-r border-[#202c33] bg-[#111b21]">
+        {/* Sidebar (animated width) */}
+        <div
+          className={`flex h-full flex-col border-r bg-[#111b21] transition-[width] duration-300 ${
+            sidebarOpen ? 'w-[340px] border-[#202c33]' : 'w-0 overflow-hidden border-transparent'
+          }`}
+        >
           {sidebarContent}
         </div>
 
         {/* Main Chat Area */}
-        <div className="flex h-full flex-1 flex-col">
+        <div className="relative flex h-full flex-1 flex-col">
+          {!sidebarOpen && (
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="absolute left-3 top-24 z-10 inline-flex items-center gap-2 rounded-full bg-[#202c33] px-3 py-1.5 text-sm text-slate-200 shadow hover:text-emerald-400"
+              aria-label="Abrir lista de chats"
+            >
+              <ArrowLeft className="h-4 w-4 rotate-180" />
+              Chats
+            </button>
+          )}
           {!activeRoomId ? (
             <div className="flex flex-1 items-center justify-center bg-[radial-gradient(#ffffff08_1px,transparent_1px)] bg-[length:36px_36px]">
               <div className="space-y-6 text-center">

@@ -76,7 +76,11 @@ export default function Layout() {
           !location.pathname.startsWith('/dashboard') &&
           !location.pathname.startsWith('/social') &&
           !location.pathname.startsWith('/modern-chat') &&
-          !location.pathname.startsWith('/chats') && (
+          !location.pathname.startsWith('/chats') &&
+          !location.pathname.startsWith('/amigos') &&
+          !location.pathname.startsWith('/clima') &&
+          !location.pathname.startsWith('/viajes') &&
+          !location.pathname.startsWith('/crear-viaje') && (
           <div className="sticky top-0 z-30" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BackButton fallback="/" />
