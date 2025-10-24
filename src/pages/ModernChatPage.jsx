@@ -321,7 +321,17 @@ export default function ModernChatPage() {
       }
 
       const initialMessages = await fetchMessages(roomId)
-      setMessages(initialMessages)
+      const filteredInitial = (initialMessages || []).filter((m) => {
+        try {
+          const c = m?.content
+          const isStatus = typeof c === 'string' && c.startsWith('APP_STATUS|')
+          const isEmptyText = !m?.is_file && (!c || !String(c).trim())
+          return !isStatus && !isEmptyText
+        } catch {
+          return true
+        }
+      })
+      setMessages(filteredInitial)
       await updateApplicationStatusesFromMessages(initialMessages)
       await resolveNamesForMessages(initialMessages)
 
@@ -357,6 +367,12 @@ export default function ModernChatPage() {
       } catch (_e) {}
 
       const unsubscribe = subscribeToRoomMessages(roomId, (msg) => {
+        try {
+          const c = msg?.content
+          const isStatus = typeof c === 'string' && c.startsWith('APP_STATUS|')
+          const isEmptyText = !msg?.is_file && (!c || !String(c).trim())
+          if (isStatus || isEmptyText) return
+        } catch {}
         setMessages((prev) => [...prev, msg])
         updateApplicationStatusesFromMessages([msg])
         resolveNamesForMessages([msg])
