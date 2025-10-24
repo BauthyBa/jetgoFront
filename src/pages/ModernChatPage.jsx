@@ -7,6 +7,7 @@ import ChatExpenses from '@/components/ChatExpenses'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import AudioRecorder from '@/components/AudioRecorder'
 import AudioTranscriber from '@/components/AudioTranscriber'
+import CameraCapture from '@/components/CameraCapture'
 import SharedPostPreview from '@/components/SharedPostPreview'
 import { getSession, supabase, updateUserMetadata } from '@/services/supabase'
 import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages } from '@/services/chat'
@@ -16,7 +17,7 @@ import { api, upsertProfileToBackend } from '@/services/api'
 import { inviteFriendToTrip } from '@/services/friends'
 import InviteFriendsModal from '@/components/InviteFriendsModal'
 import { transcriptionService } from '@/services/transcription'
-import { ArrowLeft, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
+import { ArrowLeft, Camera, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
 
 function normalizeRoomName(room) {
   return (room?.display_name || room?.name || '').trim()
@@ -53,6 +54,7 @@ export default function ModernChatPage() {
   const [audioTranscriptions, setAudioTranscriptions] = useState({})
   const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false)
   const [messageToDelete, setMessageToDelete] = useState(null)
+  const [showCamera, setShowCamera] = useState(false)
   const fileInputRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
@@ -455,6 +457,51 @@ export default function ModernChatPage() {
       alert('Error subiendo archivo. Intenta nuevamente.')
     } finally {
       if (event.target) event.target.value = ''
+    }
+  }
+
+  const handleCameraCapture = async (imageBlob) => {
+    try {
+      if (!imageBlob || !activeRoomId || !profile?.user_id) return
+
+      console.log('📸 Camera capture debug:', {
+        blobType: imageBlob.type,
+        blobSize: imageBlob.size,
+        roomId: activeRoomId,
+        userId: profile.user_id
+      })
+
+      if (imageBlob.size > 10 * 1024 * 1024) {
+        alert('La imagen es demasiado grande. Máximo 10MB.')
+        return
+      }
+
+      const formData = new FormData()
+      formData.append('file', imageBlob, 'camera-photo.jpg')
+      formData.append('room_id', activeRoomId)
+      formData.append('user_id', profile.user_id)
+
+      const response = await fetch('https://jetgoback.onrender.com/api/chat/upload-file/', {
+        method: 'POST',
+        body: formData,
+        mode: 'cors',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error subiendo imagen')
+      }
+
+      const data = await response.json()
+      if (data.status === 'success') {
+        const updatedMessages = await fetchMessages(activeRoomId)
+        setMessages(updatedMessages)
+      }
+    } catch (uploadError) {
+      console.error('Error uploading camera image:', uploadError)
+      alert('Error subiendo imagen. Intenta nuevamente.')
+    } finally {
+      setShowCamera(false)
     }
   }
 
@@ -1272,6 +1319,14 @@ export default function ModernChatPage() {
                           </button>
                           <button
                             type="button"
+                            onClick={() => setShowCamera(true)}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
+                            aria-label="Tomar foto"
+                          >
+                            <Camera className="h-5 w-5" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setShowAudioRecorder(!showAudioRecorder)}
                             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition ${
                               showAudioRecorder
@@ -1338,6 +1393,14 @@ export default function ModernChatPage() {
           )}
         </div>
       </div>
+
+      {/* Camera Capture Modal */}
+      {showCamera && (
+        <CameraCapture
+          onCapture={handleCameraCapture}
+          onCancel={() => setShowCamera(false)}
+        />
+      )}
 
       {/* Chat Info Modal */}
       {chatInfoOpen && (
