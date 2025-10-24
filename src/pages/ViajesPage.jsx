@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import TarjetaViaje from '@/components/TarjetaViaje'
 import TripGrid from '@/components/TripGrid'
 import TripListHorizontal from '@/components/TripListHorizontal'
+import TripGridEnhanced from '@/components/TripGridEnhanced'
 import ApplyToTripModal from '@/components/ApplyToTripModal'
  
 
@@ -351,6 +352,11 @@ export default function ViajesPage() {
     setApplyModal({ open: true, trip })
   }
 
+  const handleEditTrip = (trip) => {
+    // Navegar a la página de edición del viaje
+    navigate(`${ROUTES.CREATE_TRIP}?edit=${trip.id}`)
+  }
+
   const isMemberFn = (trip) => {
     try {
       return Array.isArray(rooms) && rooms.some((r) => (
@@ -667,51 +673,21 @@ export default function ViajesPage() {
                   </div>
                 </div>
               ) : (
-                <div>
-                  {profile ? (
-                    <TripListHorizontal
-                      trips={(showMineOnly ? filteredTrips : filteredTrips.filter((t) => !(t.creatorId && t.creatorId === profile.id))).slice(0, visibleCount)}
-                      joiningId={joiningId}
-                      leavingId={leavingId}
-                      onJoin={handleJoin}
-                      onApply={handleApply}
-                      onLeave={handleLeave}
-                      canEdit={(t) => t.creatorId && t.creatorId === profile.id}
-                      isMemberFn={isMemberFn}
-                      isOwnerFn={isOwnerFn}
-                      hasAppliedFn={hasAppliedFn}
-                    />
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredTrips.map((trip) => (
-                        <TarjetaViaje 
-                          key={trip.id} 
-                          viaje={trip} 
-                          creadorNombre={creatorsInfo[trip.creatorId] || 'Usuario'}
-                          onApply={handleApply}
-                          hasApplied={hasAppliedFn(trip)}
-                          isOwner={isOwnerFn(trip)}
-                          isMember={isMemberFn(trip)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Botón cargar más */}
-                  {(() => { 
-                    const list = showMineOnly ? filteredTrips : filteredTrips.filter((t) => !(t.creatorId && t.creatorId === profile?.id))
-                    return list.length > 0 && visibleCount < list.length 
-                  })() && (
-                    <div className="flex justify-center mt-8">
-                      <Button 
-                        onClick={() => setVisibleCount((v) => v + 6)}
-                        variant="secondary"
-                      >
-                        Cargar más
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <TripGridEnhanced
+                  trips={showMineOnly ? filteredTrips : filteredTrips.filter((t) => !(t.creatorId && t.creatorId === profile?.id))}
+                  joiningId={joiningId}
+                  leavingId={leavingId}
+                  onJoin={handleJoin}
+                  onApply={handleApply}
+                  onLeave={handleLeave}
+                  onEdit={handleEditTrip}
+                  canEdit={(t) => t.creatorId && t.creatorId === profile?.id}
+                  isMemberFn={isMemberFn}
+                  isOwnerFn={isOwnerFn}
+                  hasAppliedFn={hasAppliedFn}
+                  showViewToggle={true}
+                  showFilters={true}
+                />
               )}
             </div>
           </div>
