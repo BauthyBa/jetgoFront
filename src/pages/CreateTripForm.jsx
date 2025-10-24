@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useDebounce } from '@/hooks/useDebounce'
 import { 
   ArrowLeft, 
   MapPin, 
@@ -23,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea'
 import CurrencySelect from '@/components/CurrencySelect'
 import { getSession } from '@/services/supabase'
 import { createTrip } from '@/services/trips'
+import { searchCities, searchCountries } from '@/services/nominatim'
 import ROUTES from '@/config/routes'
 
 export default function CreateTripForm() {
@@ -59,6 +61,12 @@ export default function CreateTripForm() {
   const [destinationQuery, setDestinationQuery] = useState('')
   const [countryQuery, setCountryQuery] = useState('')
   const [isoCountry, setIsoCountry] = useState('')
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+
+  // Debounce para las consultas
+  const debouncedOriginQuery = useDebounce(originQuery, 300)
+  const debouncedDestinationQuery = useDebounce(destinationQuery, 300)
+  const debouncedCountryQuery = useDebounce(countryQuery, 300)
 
   // Cargar perfil
   useEffect(() => {
@@ -81,39 +89,70 @@ export default function CreateTripForm() {
     loadProfile()
   }, [navigate])
 
-  // Funciones de autocompletado (simplificadas para el ejemplo)
+  // Efectos para manejar el debounce de las consultas
+  useEffect(() => {
+    if (debouncedOriginQuery) {
+      fetchCities(debouncedOriginQuery, 'origin')
+    }
+  }, [debouncedOriginQuery])
+
+  useEffect(() => {
+    if (debouncedDestinationQuery) {
+      fetchCities(debouncedDestinationQuery, 'destination')
+    }
+  }, [debouncedDestinationQuery])
+
+  useEffect(() => {
+    if (debouncedCountryQuery) {
+      fetchCountries(debouncedCountryQuery)
+    }
+  }, [debouncedCountryQuery])
+
+  // Funciones de autocompletado con Nominatim
   const fetchCities = async (query, type) => {
-    if (query.length < 3) return
+    if (query.length < 2) {
+      if (type === 'origin') {
+        setOriginSuggestions([])
+      } else if (type === 'destination') {
+        setDestinationSuggestions([])
+      }
+      return
+    }
     
+    setLoadingSuggestions(true)
     try {
-      // Aquí iría la lógica real de autocompletado
-      // Por ahora simulamos con datos estáticos
-      const mockSuggestions = [
-        { place_id: '1', display_name: `${query} - Ciudad` },
-        { place_id: '2', display_name: `${query} - Aeropuerto` }
-      ]
+      const suggestions = await searchCities(query, { limit: 8 })
       
       if (type === 'origin') {
-        setOriginSuggestions(mockSuggestions)
+        setOriginSuggestions(suggestions)
       } else if (type === 'destination') {
-        setDestinationSuggestions(mockSuggestions)
+        setDestinationSuggestions(suggestions)
       }
     } catch (error) {
       console.error('Error fetching cities:', error)
+      // En caso de error, limpiar sugerencias
+      if (type === 'origin') {
+        setOriginSuggestions([])
+      } else if (type === 'destination') {
+        setDestinationSuggestions([])
+      }
+    } finally {
+      setLoadingSuggestions(false)
     }
   }
 
   const fetchCountries = async (query) => {
-    if (query.length < 2) return
+    if (query.length < 2) {
+      setCountrySuggestions([])
+      return
+    }
     
     try {
-      // Aquí iría la lógica real de autocompletado de países
-      const mockSuggestions = [
-        { place_id: '1', display_name: `${query} - País`, address: { country_code: 'AR' } }
-      ]
-      setCountrySuggestions(mockSuggestions)
+      const suggestions = await searchCountries(query, { limit: 5 })
+      setCountrySuggestions(suggestions)
     } catch (error) {
       console.error('Error fetching countries:', error)
+      setCountrySuggestions([])
     }
   }
 
@@ -373,27 +412,33 @@ export default function CreateTripForm() {
                       const v = e.target.value
                       setTrip({ ...trip, origin: v })
                       setOriginQuery(v)
-                      fetchCities(v, 'origin')
                     }}
                     placeholder="Ciudad de origen"
                     className="bg-slate-700 border-slate-600 text-white"
                     required
                   />
-                  {originSuggestions.length > 0 && (
+                  {(originSuggestions.length > 0 || loadingSuggestions) && (
                     <ul className="absolute z-20 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
-                      {originSuggestions.map((item, idx) => (
-                        <li
-                          key={`o_${idx}_${item.place_id}`}
-                          className="p-3 cursor-pointer hover:bg-slate-600 text-slate-200"
-                          onClick={() => {
-                            setTrip({ ...trip, origin: item.display_name })
-                            setOriginQuery(item.display_name)
-                            setOriginSuggestions([])
-                          }}
-                        >
-                          {item.display_name}
+                      {loadingSuggestions ? (
+                        <li className="p-3 text-slate-400 text-center">
+                          <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
+                          Buscando lugares...
                         </li>
-                      ))}
+                      ) : (
+                        originSuggestions.map((item, idx) => (
+                          <li
+                            key={`o_${idx}_${item.place_id}`}
+                            className="p-3 cursor-pointer hover:bg-slate-600 text-slate-200"
+                            onClick={() => {
+                              setTrip({ ...trip, origin: item.display_name })
+                              setOriginQuery(item.display_name)
+                              setOriginSuggestions([])
+                            }}
+                          >
+                            {item.display_name}
+                          </li>
+                        ))
+                      )}
                     </ul>
                   )}
                 </div>
@@ -407,27 +452,33 @@ export default function CreateTripForm() {
                       const v = e.target.value
                       setTrip({ ...trip, destination: v })
                       setDestinationQuery(v)
-                      fetchCities(v, 'destination')
                     }}
                     placeholder="Ciudad de destino"
                     className="bg-slate-700 border-slate-600 text-white"
                     required
                   />
-                  {destinationSuggestions.length > 0 && (
+                  {(destinationSuggestions.length > 0 || loadingSuggestions) && (
                     <ul className="absolute z-20 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto">
-                      {destinationSuggestions.map((item, idx) => (
-                        <li
-                          key={`d_${idx}_${item.place_id}`}
-                          className="p-3 cursor-pointer hover:bg-slate-600 text-slate-200"
-                          onClick={() => {
-                            setTrip({ ...trip, destination: item.display_name })
-                            setDestinationQuery(item.display_name)
-                            setDestinationSuggestions([])
-                          }}
-                        >
-                          {item.display_name}
+                      {loadingSuggestions ? (
+                        <li className="p-3 text-slate-400 text-center">
+                          <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
+                          Buscando lugares...
                         </li>
-                      ))}
+                      ) : (
+                        destinationSuggestions.map((item, idx) => (
+                          <li
+                            key={`d_${idx}_${item.place_id}`}
+                            className="p-3 cursor-pointer hover:bg-slate-600 text-slate-200"
+                            onClick={() => {
+                              setTrip({ ...trip, destination: item.display_name })
+                              setDestinationQuery(item.display_name)
+                              setDestinationSuggestions([])
+                            }}
+                          >
+                            {item.display_name}
+                          </li>
+                        ))
+                      )}
                     </ul>
                   )}
                 </div>
@@ -579,7 +630,6 @@ export default function CreateTripForm() {
                       setTrip({ ...trip, country: v })
                       setCountryQuery(v)
                       setIsoCountry('')
-                      fetchCountries(v)
                     }}
                     placeholder="Argentina"
                     className="bg-slate-700 border-slate-600 text-white"
