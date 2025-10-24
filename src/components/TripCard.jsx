@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 
-export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEdit, canEdit, isMember, isOwner, onApply, hasApplied }) {
+export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEdit, canEdit, isMember, isOwner, onApply, hasApplied, hideApply }) {
   if (!trip) return null
   const dateRange = trip.startDate
     ? (trip.endDate ? `${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}` : new Date(trip.startDate).toLocaleDateString())
@@ -51,29 +51,31 @@ export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEd
           <button className="btn secondary" type="button" onClick={onEdit}>Editar</button>
         )}
         <div style={{ flex: 1 }} />
-        {isMember ? (
-          <button className="btn secondary" type="button" disabled={leaving} onClick={onLeave}>
-            {isOwner ? (leaving ? 'Eliminando…' : 'Eliminar viaje') : (leaving ? 'Saliendo…' : 'Abandonar')}
-          </button>
-        ) : hasApplied ? (
-          <button
-            className="btn secondary"
-            type="button"
-            disabled={true}
-            title="Ya enviaste una solicitud para este viaje"
-          >
-            Solicitud enviada
-          </button>
-        ) : (
-          <button
-            className="btn"
-            type="button"
-            disabled={joining || (trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants)}
-            onClick={onApply || onJoin}
-            title={(trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants) ? 'Cupos completos' : ''}
-          >
-            {joining ? 'Aplicando…' : (trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants ? 'Sin cupo' : 'Aplicar')}
-          </button>
+        {!hideApply && (
+          isMember ? (
+            <button className="btn secondary" type="button" disabled={leaving} onClick={onLeave}>
+              {isOwner ? (leaving ? 'Eliminando…' : 'Eliminar viaje') : (leaving ? 'Saliendo…' : 'Abandonar')}
+            </button>
+          ) : hasApplied ? (
+            <button
+              className="btn secondary"
+              type="button"
+              disabled={true}
+              title="Ya enviaste una solicitud para este viaje"
+            >
+              Solicitud enviada
+            </button>
+          ) : (
+            <button
+              className="btn"
+              type="button"
+              disabled={joining || (trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants)}
+              onClick={onApply || onJoin}
+              title={(trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants) ? 'Cupos completos' : ''}
+            >
+              {joining ? 'Aplicando…' : (trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants ? 'Sin cupo' : 'Aplicar')}
+            </button>
+          )
         )}
       </div>
     </div>

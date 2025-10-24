@@ -330,6 +330,7 @@ export default function HeroSection() {
                     }}
                     showViewToggle={true}
                     showFilters={false}
+                    hideApply={true}
                   />
                   {trips.length > visibleCount && (
                     <div className="flex justify-center mt-6">

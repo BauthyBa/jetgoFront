@@ -30,7 +30,8 @@ export default function TripCardEnhanced({
   isOwner, 
   onApply, 
   hasApplied,
-  viewMode = 'card' // 'card' o 'list'
+  viewMode = 'card', // 'card' o 'list'
+  hideApply,
 }) {
   const [destinationImage, setDestinationImage] = useState(null)
   const [imageLoading, setImageLoading] = useState(false)
@@ -218,35 +219,36 @@ export default function TripCardEnhanced({
                 Editar
               </button>
             )}
-            
-            {isMember ? (
-              <button 
-                className="btn secondary flex-1" 
-                type="button" 
-                disabled={leaving} 
-                onClick={onLeave}
-              >
-                {isOwner ? (leaving ? 'Eliminando…' : 'Eliminar') : (leaving ? 'Saliendo…' : 'Abandonar')}
-              </button>
-            ) : hasApplied ? (
-              <button
-                className="btn secondary flex-1"
-                type="button"
-                disabled={true}
-                title="Ya enviaste una solicitud para este viaje"
-              >
-                Solicitud enviada
-              </button>
-            ) : (
-              <button
-                className={`btn flex-1 ${isFull ? 'opacity-50 cursor-not-allowed' : ''}`}
-                type="button"
-                disabled={joining || isFull}
-                onClick={onApply || onJoin}
-                title={isFull ? 'Cupos completos' : ''}
-              >
-                {joining ? 'Aplicando…' : (isFull ? 'Sin cupo' : 'Aplicar')}
-              </button>
+            {!hideApply && (
+              isMember ? (
+                <button 
+                  className="btn secondary flex-1" 
+                  type="button" 
+                  disabled={leaving} 
+                  onClick={onLeave}
+                >
+                  {isOwner ? (leaving ? 'Eliminando…' : 'Eliminar') : (leaving ? 'Saliendo…' : 'Abandonar')}
+                </button>
+              ) : hasApplied ? (
+                <button
+                  className="btn secondary flex-1"
+                  type="button"
+                  disabled={true}
+                  title="Ya enviaste una solicitud para este viaje"
+                >
+                  Solicitud enviada
+                </button>
+              ) : (
+                <button
+                  className={`btn flex-1 ${isFull ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  type="button"
+                  disabled={joining || isFull}
+                  onClick={onApply || onJoin}
+                  title={isFull ? 'Cupos completos' : ''}
+                >
+                  {joining ? 'Aplicando…' : (isFull ? 'Sin cupo' : 'Aplicar')}
+                </button>
+              )
             )}
           </div>
         </div>
@@ -397,35 +399,36 @@ export default function TripCardEnhanced({
               Editar
             </button>
           )}
-          
-          {isMember ? (
-            <button 
-              className="btn secondary w-full" 
-              type="button" 
-              disabled={leaving} 
-              onClick={onLeave}
-            >
-              {isOwner ? (leaving ? 'Eliminando…' : 'Eliminar viaje') : (leaving ? 'Saliendo…' : 'Abandonar')}
-            </button>
-          ) : hasApplied ? (
-            <button
-              className="btn secondary w-full"
-              type="button"
-              disabled={true}
-              title="Ya enviaste una solicitud para este viaje"
-            >
-              Solicitud enviada
-            </button>
-          ) : (
-            <button
-              className={`btn w-full ${isFull ? 'opacity-50 cursor-not-allowed' : ''}`}
-              type="button"
-              disabled={joining || isFull}
-              onClick={onApply || onJoin}
-              title={isFull ? 'Cupos completos' : ''}
-            >
-              {joining ? 'Aplicando…' : (isFull ? 'Sin cupo' : 'Aplicar')}
-            </button>
+          {!hideApply && (
+            isMember ? (
+              <button 
+                className="btn secondary w-full" 
+                type="button" 
+                disabled={leaving} 
+                onClick={onLeave}
+              >
+                {isOwner ? (leaving ? 'Eliminando…' : 'Eliminar viaje') : (leaving ? 'Saliendo…' : 'Abandonar')}
+              </button>
+            ) : hasApplied ? (
+              <button
+                className="btn secondary w-full"
+                type="button"
+                disabled={true}
+                title="Ya enviaste una solicitud para este viaje"
+              >
+                Solicitud enviada
+              </button>
+            ) : (
+              <button
+                className={`btn w-full ${isFull ? 'opacity-50 cursor-not-allowed' : ''}`}
+                type="button"
+                disabled={joining || isFull}
+                onClick={onApply || onJoin}
+                title={isFull ? 'Cupos completos' : ''}
+              >
+                {joining ? 'Aplicando…' : (isFull ? 'Sin cupo' : 'Aplicar')}
+              </button>
+            )
           )}
         </div>
       </div>
