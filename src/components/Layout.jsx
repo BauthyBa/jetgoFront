@@ -26,50 +26,68 @@ export default function Layout() {
   }, [])
   
   const isRoot = location.pathname === '/'
-  const hideHeaderOn = ['/verify-dni', '/dashboard', '/chats', '/modern-chat', '/login', '/signup', '/u/', '/trip', '/viajes', '/crear-viaje', '/profile', '/amigos']
+  const hideHeaderOn = [
+    '/verify-dni',
+    '/dashboard',
+    '/chats',
+    '/modern-chat',
+    '/login',
+    '/signup',
+    '/register',
+    '/u/',
+    '/trip',
+    '/viajes',
+    '/crear-viaje',
+    '/profile',
+    '/amigos',
+    '/social',
+    '/clima',
+  ]
   const hideHeader = hideHeaderOn.some((p) => location.pathname.startsWith(p))
+  const hideNavigationOn = ['/login', '/signup', '/register', '/forgot-password', '/reset-password', '/verify-dni']
+  const showNavigation = !hideNavigationOn.some((p) => location.pathname.startsWith(p))
   
-  const showNavigation =
-    isRoot ||
-    location.pathname === '/viajes' ||
-    location.pathname === '/amigos' ||
-    location.pathname === '/social' ||
-    location.pathname.startsWith('/crear-viaje')
-
   return (
-    <div>
-      {!isRoot && !hideHeader && (
-        <header className="header">
-          <div className="header-inner">
-            <nav className="nav">
-              <Link to="/#como-funciona">Cómo funciona</Link>
-              <Link to="/#beneficios">Beneficios</Link>
-              <Link to="/#testimonios">Testimonios</Link>
-              {!loggedIn && null}
-            </nav>
-            <Link to="/" className="brand" aria-label="JetGo">
-              <img src="/jetgo.png?v=2" alt="" style={{ height: '1.1em', width: 'auto', verticalAlign: 'middle', marginRight: 8 }} />
-              JetGo
-            </Link>
-            <div style={{ marginLeft: 'auto' }}>
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-      )}
+    <div className="min-h-screen bg-slate-950 text-slate-100 transition-[padding-left] duration-300 md:pl-[var(--sidebar-width)]">
       {showNavigation && <Navigation />}
-      {/* Compact back bar for views without main header and not dashboard */}
-      {!isRoot && hideHeader && !location.pathname.startsWith('/dashboard') && (
-        <div className="sticky top-0 z-30" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BackButton fallback="/" />
+      <div className="flex min-h-screen w-full flex-col">
+        {!isRoot && !hideHeader && (
+          <header className="header">
+            <div className="header-inner">
+              <nav className="nav">
+                <Link to="/#como-funciona">Cómo funciona</Link>
+                <Link to="/#beneficios">Beneficios</Link>
+                <Link to="/#testimonios">Testimonios</Link>
+                {!loggedIn && null}
+              </nav>
+              <Link to="/" className="brand" aria-label="JetGo">
+                <img src="/jetgo.png?v=2" alt="" style={{ height: '1.1em', width: 'auto', verticalAlign: 'middle', marginRight: 8 }} />
+                JetGo
+              </Link>
+              <div style={{ marginLeft: 'auto' }}>
+                <ThemeToggle />
+              </div>
+            </div>
+          </header>
+        )}
+        {/* Compact back bar for views without main header and not dashboard */}
+        {!isRoot &&
+          hideHeader &&
+          !location.pathname.startsWith('/dashboard') &&
+          !location.pathname.startsWith('/social') &&
+          !location.pathname.startsWith('/modern-chat') &&
+          !location.pathname.startsWith('/chats') && (
+          <div className="sticky top-0 z-30" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BackButton fallback="/" />
+            </div>
+            <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(148,163,184,0.25), rgba(148,163,184,0.06))' }} />
           </div>
-          <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(148,163,184,0.25), rgba(148,163,184,0.06))' }} />
-        </div>
-      )}
-      <main className={isRoot || hideHeader ? "" : "container"}>
-        <Outlet />
-      </main>
+        )}
+        <main className={`flex-1 w-full ${isRoot || hideHeader ? '' : 'container'}`}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

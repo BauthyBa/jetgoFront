@@ -1,4 +1,3 @@
-import Navigation from '@/components/Navigation'
 import HeroSection from '@/components/HeroSection'
 import Benefits from '@/components/Benefits'
 import HowItWorks from '@/components/HowItWorks'
@@ -8,8 +7,7 @@ import Reveal from '@/components/Reveal'
 
 export default function Landing() {
   return (
-    <div className="min-h-screen text-foreground bg-gradient-hero">
-      <Navigation />
+    <div className="min-h-screen bg-gradient-hero text-foreground">
       <HeroSection />
       <Reveal>
         <HowItWorks />

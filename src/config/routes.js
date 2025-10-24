@@ -13,6 +13,7 @@ export const ROUTES = {
   AMIGOS: '/amigos',
   SOCIAL: '/social',
   PROFILE: '/profile',
+  CLIMA: '/clima',
   
   // Rutas de autenticación
   LOGIN: '/login',

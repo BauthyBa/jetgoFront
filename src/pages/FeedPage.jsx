@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSession } from '@/services/supabase'
 import SocialFeed from '@/components/SocialFeed'
-import Navigation from '@/components/Navigation'
 import { ArrowLeft, Activity } from 'lucide-react'
 import BackButton from '@/components/BackButton'
 
@@ -47,9 +46,7 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <Navigation />
-      
-      <div className="container mx-auto px-4 py-8 pt-24">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <BackButton fallback="/dashboard" variant="ghost" />

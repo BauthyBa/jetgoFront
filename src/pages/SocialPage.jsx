@@ -1,16 +1,39 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile, Plus, PlayCircle, ChevronLeft, ChevronRight, X, Home, Bell, Search, Settings, Users, MapPin, UserPlus, UserCheck, Trash2, Image as ImageIcon } from 'lucide-react'
+import {
+  Heart,
+  MessageCircle,
+  Send,
+  Bookmark,
+  MoreHorizontal,
+  Smile,
+  Plus,
+  PlayCircle,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Search,
+  Settings,
+  UserPlus,
+  UserCheck,
+  Trash2,
+  Image as ImageIcon,
+} from 'lucide-react'
 import API_CONFIG from '@/config/api'
+import { extractHashtags, linkPostHashtags, relinkPostHashtags } from '@/services/hashtags'
 import { sendFriendRequest } from '@/services/friends'
 import BackButton from '@/components/BackButton'
+import HashtagParser from '@/components/HashtagParser'
+import TrendingHashtags from '@/components/TrendingHashtags'
+import { listTrips } from '@/services/trips'
 
 export default function SocialPage() {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [posts, setPosts] = useState([])
   const [stories, setStories] = useState([])
+  const [storyGroups, setStoryGroups] = useState([])
   const [suggestedUsers, setSuggestedUsers] = useState([])
   const [suggestedTrips, setSuggestedTrips] = useState([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +53,7 @@ export default function SocialPage() {
   const [showStoryViewer, setShowStoryViewer] = useState(false)
   const [currentStory, setCurrentStory] = useState(null)
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0)
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0)
   const [friendshipStatuses, setFriendshipStatuses] = useState({})
   const [showPostMenu, setShowPostMenu] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -39,6 +63,54 @@ export default function SocialPage() {
   const [newPostFile, setNewPostFile] = useState(null)
   const [newPostPreview, setNewPostPreview] = useState(null)
   const [creatingPost, setCreatingPost] = useState(false)
+  const [showEditPostModal, setShowEditPostModal] = useState(false)
+  const [editingPostId, setEditingPostId] = useState(null)
+  const [editingPostContent, setEditingPostContent] = useState('')
+  const [seenUsers, setSeenUsers] = useState({})
+  const [storyProgress, setStoryProgress] = useState(0)
+  const [fadeIn, setFadeIn] = useState(false)
+  const [toast, setToast] = useState({ show: false, type: 'success', title: '', message: '' })
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const showNotification = (title, message, type = 'success') => {
+    setToast({ show: true, type, title, message })
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 2800)
+  }
+
+  const goToUserProfile = (userId) => {
+    if (!userId) return
+    try {
+      navigate(`/profile/${userId}`)
+    } catch (e) {
+      console.error('Error navigating to profile:', e)
+    }
+  }
+
+  const handleSendFriendRequest = async (receiverId) => {
+    try {
+      if (!user?.id) {
+        showNotification('Inicia sesión', 'Debes iniciar sesión para enviar solicitudes', 'error')
+        return
+      }
+      if (!receiverId || receiverId === user.id || receiverId === user.userid) {
+        // No enviar solicitudes a uno mismo
+        return
+      }
+      // Optimista: marcar como pendiente
+      setFriendshipStatuses(prev => ({ ...prev, [receiverId]: 'pending' }))
+      await sendFriendRequest(user.id, receiverId)
+      showNotification('Solicitud enviada', 'Tu solicitud de amistad fue enviada')
+    } catch (error) {
+      console.error('Error enviando solicitud de amistad:', error)
+      // Revertir si falla
+      setFriendshipStatuses(prev => {
+        const copy = { ...prev }
+        delete copy[receiverId]
+        return copy
+      })
+      showNotification('Error', 'No se pudo enviar la solicitud', 'error')
+    }
+  }
 
   useEffect(() => {
     getCurrentUser()
@@ -86,8 +158,34 @@ export default function SocialPage() {
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
       const response = await fetch(url)
       if (response.ok) {
-      const data = await response.json()
-      setPosts(data.posts || [])
+        const data = await response.json()
+        const posts = data.posts || []
+        
+        // Enriquecer posts con datos de usuario si no están completos
+        const enrichedPosts = await Promise.all(posts.map(async (post) => {
+          if (post.author && post.author.avatar_url) {
+            return post // Ya tiene datos completos
+          }
+          
+          // Buscar datos del usuario en Supabase
+          const { data: userData } = await supabase
+            .from('User')
+            .select('userid, nombre, apellido, avatar_url')
+            .eq('userid', post.user_id)
+            .single()
+          
+          return {
+            ...post,
+            author: userData ? {
+              userid: userData.userid,
+              nombre: userData.nombre,
+              apellido: userData.apellido,
+              avatar_url: userData.avatar_url
+            } : post.author
+          }
+        }))
+        
+        setPosts(enrichedPosts)
       }
     } catch (error) {
       console.error('Error loading posts:', error)
@@ -108,6 +206,7 @@ export default function SocialPage() {
         // Si no hay usuario logueado, no mostrar historias
         if (!user?.userid) {
           setStories([])
+          setStoryGroups([])
           return
         }
 
@@ -128,14 +227,40 @@ export default function SocialPage() {
         // Filtrar historias: solo de amigos o propias
         const filteredStories = allStories.filter(story => {
           const storyUserId = story.user_id || story.author?.userid || story.author?.id
-          // Mostrar si es propia o de un amigo
           return storyUserId === user.userid || friendIds.has(storyUserId)
         })
 
+        // Agrupar por usuario para el visor/carrusel
+        const groupsMap = new Map()
+        for (const s of filteredStories) {
+          const storyUserId = s.user_id || s.author?.userid || s.author?.id
+          if (!storyUserId) continue
+          if (!groupsMap.has(storyUserId)) {
+            groupsMap.set(storyUserId, {
+              userId: storyUserId,
+              author: s.author || null,
+              stories: []
+            })
+          }
+          groupsMap.get(storyUserId).stories.push(s)
+        }
+
+        const groups = Array.from(groupsMap.values())
+        setStoryGroups(groups)
         setStories(filteredStories)
       }
     } catch (error) {
       console.error('Error loading stories:', error)
+    }
+  }
+
+  const openMyStoriesOrCreate = () => {
+    if (!user?.userid) return openStoryModal()
+    const idx = storyGroups.findIndex(g => g.userId === user.userid)
+    if (idx >= 0 && (storyGroups[idx]?.stories?.length || 0) > 0) {
+      openStoryViewer(idx)
+    } else {
+      openStoryModal()
     }
   }
 
@@ -167,12 +292,16 @@ export default function SocialPage() {
       }
       
       const { data: users } = await query.limit(5)
-      setSuggestedUsers(users || [])
+      // Excluirse a sí mismo y perfiles incompletos (sin nombre/apellido)
+      const cleaned = (users || [])
+        .filter(u => u?.userid && u.userid !== user.userid)
+        .filter(u => (u?.nombre || u?.apellido))
+      setSuggestedUsers(cleaned)
 
       // Cargar estados de amistad para usuarios sugeridos
-      if (users && users.length > 0) {
+      if (cleaned && cleaned.length > 0) {
         const statuses = {}
-        for (const suggestedUser of users) {
+        for (const suggestedUser of cleaned) {
           const { data: existingRequest } = await supabase
             .from('friend_requests')
             .select('status')
@@ -184,45 +313,66 @@ export default function SocialPage() {
         setFriendshipStatuses(statuses)
       }
 
-      // Cargar viajes del usuario (usar trip_members, no trip_participants)
-      const { data: userTripMemberships } = await supabase
-        .from('trip_members')
-        .select('trip_id')
-        .eq('user_id', user.userid)
-      
-      const userTripIds = userTripMemberships?.map(t => t.trip_id) || []
+      // Usar la misma fuente de datos que /viajes
+      const allTrips = await listTrips()
+      console.log('All trips loaded (via listTrips):', allTrips?.length)
+      let baseTrips = allTrips || []
 
-      console.log('User trip IDs:', userTripIds)
+      // Enriquecer con datos del creador
+      const enrichedTrips = await Promise.all(baseTrips.map(async (trip) => {
+        const creatorId = trip.creatorId || trip.user_id || trip.created_by
+        if (!creatorId) return trip
+        const { data: creator } = await supabase
+          .from('User')
+          .select('userid, nombre, apellido, avatar_url')
+          .eq('userid', creatorId)
+          .single()
+        return { ...trip, creator }
+      }))
 
-      // Sugerir viajes activos y disponibles
-      let tripQuery = supabase
-        .from('trips')
-        .select('id, name, destination, image_url, budget_min, budget_max, created_at, status')
-        .order('created_at', { ascending: false })
-      
-      // Filtrar por status si existe el campo
-      // Si no existe, la query seguirá funcionando
-      try {
-        tripQuery = tripQuery.or('status.is.null,status.eq.active')
-      } catch (e) {
-        // Si falla, continuar sin el filtro de status
+      console.log('Filtered trips (public, active, not joined):', enrichedTrips.length)
+
+      // Fallback visible: si sigue vacío, mostrar demos
+      let finalTrips = enrichedTrips
+      if (!finalTrips || finalTrips.length === 0) {
+        console.warn('No trips found; using demo fallback for UI visibility')
+        finalTrips = [
+          {
+            id: 'demo-1',
+            name: 'Aventura en Patagonia',
+            destination: 'El Chaltén, Argentina',
+            image_url: 'https://images.unsplash.com/photo-1548786811-ddb3b4b50d1a?q=80&w=1200&auto=format&fit=crop',
+            budget_min: 200,
+            creator: { userid: user?.userid || 'demo-user', nombre: 'Demo', apellido: 'User', avatar_url: user?.avatar_url || '' }
+          },
+          {
+            id: 'demo-2',
+            name: 'Playas del Nordeste',
+            destination: 'Maceió, Brasil',
+            image_url: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?q=80&w=1200&auto=format&fit=crop',
+            budget_min: 150,
+            creator: { userid: 'demo-2u', nombre: 'María', apellido: 'Lopez', avatar_url: '' }
+          },
+          {
+            id: 'demo-3',
+            name: 'City Break en Madrid',
+            destination: 'Madrid, España',
+            image_url: 'https://images.unsplash.com/photo-1543783207-ec64e4d95325?q=80&w=1200&auto=format&fit=crop',
+            budget_min: 300,
+            creator: { userid: 'demo-3u', nombre: 'José', apellido: 'Perez', avatar_url: '' }
+          }
+        ]
       }
-      
-      const { data: allTrips, error: tripsError } = await tripQuery.limit(20)
-      
-      if (tripsError) {
-        console.error('Error loading trips:', tripsError)
-      }
-
-      console.log('All trips loaded:', allTrips?.length)
-
-      // Filtrar viajes en los que el usuario NO está
-      const filteredTrips = (allTrips || []).filter(trip => !userTripIds.includes(trip.id))
-      
-      console.log('Filtered trips (not joined):', filteredTrips.length)
 
       // Tomar los primeros 5
-      setSuggestedTrips(filteredTrips.slice(0, 5))
+      setSuggestedTrips(finalTrips.slice(0, 5).map(t => ({
+        id: t.id,
+        name: t.name,
+        destination: t.destination,
+        image_url: t.imageUrl || t.image_url,
+        budget_min: t.budgetMin ?? t.budget_min,
+        creator: t.creator || null,
+      })))
     } catch (error) {
       console.error('Error loading suggestions:', error)
     }
@@ -274,9 +424,35 @@ export default function SocialPage() {
       
       if (response.ok) {
         const data = await response.json()
+        const comments = data.comments || []
+        
+        // Enriquecer comentarios con datos de usuario
+        const enrichedComments = await Promise.all(comments.map(async (comment) => {
+          if (comment.author && comment.author.avatar_url) {
+            return comment // Ya tiene datos completos
+          }
+          
+          // Buscar datos del usuario en Supabase
+          const { data: userData } = await supabase
+            .from('User')
+            .select('userid, nombre, apellido, avatar_url')
+            .eq('userid', comment.user_id)
+            .single()
+          
+          return {
+            ...comment,
+            author: userData ? {
+              userid: userData.userid,
+              nombre: userData.nombre,
+              apellido: userData.apellido,
+              avatar_url: userData.avatar_url
+            } : comment.author
+          }
+        }))
+        
         setComments(prev => ({
           ...prev,
-          [postId]: data.comments || []
+          [postId]: enrichedComments
         }))
       }
     } catch (error) {
@@ -287,7 +463,7 @@ export default function SocialPage() {
   const createComment = async (postId) => {
     try {
       if (!user?.id) {
-        alert('Debes iniciar sesión para comentar')
+        showNotification('Inicia sesión', 'Debes iniciar sesión para comentar', 'error')
         return
       }
 
@@ -330,6 +506,40 @@ export default function SocialPage() {
     setShowPostMenu(null)
   }
 
+  const openEditPostModal = (post) => {
+    setEditingPostId(post.id)
+    setEditingPostContent(post.content || '')
+    setShowPostMenu(null)
+    setShowEditPostModal(true)
+  }
+
+  const saveEditPost = async () => {
+    try {
+      if (!editingPostId) return
+      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${editingPostId}/`
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editingPostContent })
+      })
+      if (response.ok) {
+        // Relink hashtags
+        try { await relinkPostHashtags(editingPostId, editingPostContent) } catch {}
+        // Update local state
+        setPosts(prev => prev.map(p => p.id === editingPostId ? { ...p, content: editingPostContent } : p))
+        setShowEditPostModal(false)
+        setEditingPostId(null)
+        setEditingPostContent('')
+      } else {
+        const err = await response.json().catch(() => ({}))
+        alert(err.error || 'No se pudo editar el post')
+      }
+    } catch (e) {
+      console.error('Error editing post:', e)
+      alert('Error al editar el post')
+    }
+  }
+
   const deletePost = async () => {
     if (!postToDelete) return
 
@@ -353,7 +563,7 @@ export default function SocialPage() {
       }
     } catch (error) {
       console.error('Error deleting post:', error)
-      alert('Error al eliminar el post')
+      showNotification('Error', 'Error al eliminar el post', 'error')
       setShowDeleteConfirm(false)
       setPostToDelete(null)
     }
@@ -465,36 +675,103 @@ export default function SocialPage() {
         })
 
       if (!error) {
-        alert('Post compartido exitosamente!')
+        showNotification('Compartido', 'Post compartido exitosamente!')
         setShowShareModal(false)
         setSelectedPost(null)
       } else {
         console.error('Error sharing post:', error)
-        alert('Error al compartir el post')
+        showNotification('Error al compartir', 'No se pudo compartir el post', 'error')
       }
     } catch (error) {
       console.error('Error sharing to chat:', error)
-      alert('Error al compartir el post')
+      showNotification('Error al compartir', 'No se pudo compartir el post', 'error')
     }
   }
 
-  const openStoryModal = () => {
-    setShowStoryModal(true)
+  const openStoryViewer = (groupIndex) => {
+    if (storyGroups.length > 0 && storyGroups[groupIndex]?.stories?.length > 0) {
+      setCurrentGroupIndex(groupIndex)
+      setCurrentStoryIndex(0)
+      setCurrentStory(storyGroups[groupIndex].stories[0])
+      setShowStoryViewer(true)
+    }
   }
 
-  const closeStoryModal = () => {
-    setShowStoryModal(false)
-    setStoryFile(null)
-    setStoryPreview(null)
-    setStoryContent('')
+  const openStoryViewerByUser = (userId) => {
+    const idx = storyGroups.findIndex(g => g.userId === userId)
+    if (idx >= 0) {
+      openStoryViewer(idx)
+    }
   }
+
+  const closeStoryViewer = () => {
+    // Marcar grupo actual como visto
+    const group = storyGroups[currentGroupIndex]
+    if (group?.userId) {
+      setSeenUsers(prev => ({ ...prev, [group.userId]: true }))
+    }
+    setShowStoryViewer(false)
+    setCurrentStory(null)
+    setCurrentStoryIndex(0)
+  }
+
+  const nextStory = () => {
+    const group = storyGroups[currentGroupIndex]
+    if (!group) return
+    if (currentStoryIndex < group.stories.length - 1) {
+      const nextIndex = currentStoryIndex + 1
+      setCurrentStoryIndex(nextIndex)
+      setCurrentStory(group.stories[nextIndex])
+    } else {
+      // Al terminar las stories del grupo, marcar como visto
+      if (group?.userId) {
+        setSeenUsers(prev => ({ ...prev, [group.userId]: true }))
+      }
+      closeStoryViewer()
+    }
+  }
+
+  const prevStory = () => {
+    const group = storyGroups[currentGroupIndex]
+    if (!group) return
+    if (currentStoryIndex > 0) {
+      const prevIndex = currentStoryIndex - 1
+      setCurrentStoryIndex(prevIndex)
+      setCurrentStory(group.stories[prevIndex])
+    }
+  }
+
+  // Auto-advance timer and fade-in animation
+  useEffect(() => {
+    if (!showStoryViewer || !currentStory) return
+    setStoryProgress(0)
+    setFadeIn(false)
+    const fadeTimer = setTimeout(() => setFadeIn(true), 10)
+
+    const start = Date.now()
+    const durationMs = 15000 // 15s
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start
+      const pct = Math.min(100, (elapsed / durationMs) * 100)
+      setStoryProgress(pct)
+      if (elapsed >= durationMs) {
+        clearInterval(interval)
+        nextStory()
+      }
+    }, 100)
+
+    return () => {
+      clearInterval(interval)
+      clearTimeout(fadeTimer)
+    }
+  }, [showStoryViewer, currentStory, currentStoryIndex, currentGroupIndex])
 
   const handleStoryFileChange = (e) => {
     const file = e.target.files[0]
     if (file) {
       // Validar tipo de archivo
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        alert('Solo se permiten imágenes y videos')
+        showNotification('Formato no permitido', 'Solo se permiten imágenes y videos', 'error')
         return
       }
 
@@ -509,147 +786,53 @@ export default function SocialPage() {
     }
   }
 
+  const openStoryModal = () => {
+    setShowStoryModal(true)
+  }
+
+  const closeStoryModal = () => {
+    setShowStoryModal(false)
+    setStoryFile(null)
+    setStoryPreview(null)
+    setStoryContent('')
+  }
+
   const createStory = async () => {
     try {
       if (!user?.id) {
-        alert('Debes iniciar sesión para crear una historia')
+        showNotification('Inicia sesión', 'Debes iniciar sesión para crear una historia', 'error')
         return
       }
-      
+
       if (!storyFile) {
-        alert('Debes seleccionar una imagen o video')
+        showNotification('Archivo requerido', 'Debes seleccionar una imagen o video', 'error')
         return
       }
 
       setUploadingStory(true)
 
-      // Crear FormData
       const formData = new FormData()
       formData.append('user_id', user.id)
       formData.append('content', storyContent)
       formData.append('file', storyFile)
 
-      // Enviar al backend
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.STORIES)
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData
-      })
+      const response = await fetch(url, { method: 'POST', body: formData })
 
       if (response.ok) {
-        const result = await response.json()
-        console.log('Historia creada:', result)
-        alert('¡Historia creada exitosamente!')
+        await response.json().catch(() => null)
+        showNotification('Historia publicada', '¡Tu historia se publicó correctamente!')
         closeStoryModal()
-        // Recargar stories después de un pequeño delay para asegurar que se guardó
-        setTimeout(() => {
-          loadStories()
-        }, 500)
+        setTimeout(() => { loadStories() }, 500)
       } else {
-        const errorData = await response.json()
-        console.error('Error al crear historia:', errorData)
-        alert(`Error: ${errorData.error || 'No se pudo crear la historia'}`)
+        const errorData = await response.json().catch(() => ({}))
+        showNotification('Error al publicar', errorData.error || 'No se pudo crear la historia', 'error')
       }
     } catch (error) {
       console.error('Error creating story:', error)
-      alert('Error al crear la historia')
+      showNotification('Error al publicar', 'Error al crear la historia', 'error')
     } finally {
       setUploadingStory(false)
-    }
-  }
-
-  const insertEmoji = (postId, emoji) => {
-    setNewComment(prev => ({
-      ...prev,
-      [postId]: (prev[postId] || '') + emoji
-    }))
-    setShowEmojiPicker(prev => ({
-      ...prev,
-      [postId]: false
-    }))
-  }
-
-  const goToUserProfile = (userId) => {
-    navigate(`/profile/${userId}`)
-  }
-
-  const handleSendFriendRequest = async (receiverId) => {
-    if (!user?.id) return
-    
-    try {
-      // Primero verificar si existe una solicitud rechazada o eliminada
-      const { data: existingRequest } = await supabase
-        .from('friend_requests')
-        .select('id, status')
-        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`)
-        .maybeSingle()
-
-      if (existingRequest) {
-        // Si existe y está rechazada, actualizar a pending
-        if (existingRequest.status === 'rejected') {
-          const { error: updateError } = await supabase
-            .from('friend_requests')
-            .update({ 
-              status: 'pending',
-              sender_id: user.id,
-              receiver_id: receiverId,
-              created_at: new Date().toISOString()
-            })
-            .eq('id', existingRequest.id)
-
-          if (updateError) {
-            console.error('Error actualizando solicitud:', updateError)
-            throw updateError
-          }
-        } else if (existingRequest.status === 'pending') {
-          // Ya está pendiente, no hacer nada
-          return
-        }
-      } else {
-        // No existe, crear una nueva
-        await sendFriendRequest(user.id, receiverId)
-      }
-      
-      // Actualizar el estado local
-      setFriendshipStatuses(prev => ({
-        ...prev,
-        [receiverId]: 'pending'
-      }))
-    } catch (error) {
-      console.error('Error sending friend request:', error)
-      alert('Error al enviar la solicitud de amistad')
-    }
-  }
-
-  const openStoryViewer = (storyIndex) => {
-    if (stories.length > 0) {
-      setCurrentStoryIndex(storyIndex)
-      setCurrentStory(stories[storyIndex])
-      setShowStoryViewer(true)
-    }
-  }
-
-  const closeStoryViewer = () => {
-    setShowStoryViewer(false)
-    setCurrentStory(null)
-    setCurrentStoryIndex(0)
-  }
-
-  const nextStory = () => {
-    if (currentStoryIndex < stories.length - 1) {
-      const nextIndex = currentStoryIndex + 1
-      setCurrentStoryIndex(nextIndex)
-      setCurrentStory(stories[nextIndex])
-    } else {
-      closeStoryViewer()
-    }
-  }
-
-  const prevStory = () => {
-    if (currentStoryIndex > 0) {
-      const prevIndex = currentStoryIndex - 1
-      setCurrentStoryIndex(prevIndex)
-      setCurrentStory(stories[prevIndex])
     }
   }
 
@@ -658,7 +841,7 @@ export default function SocialPage() {
     if (file) {
       // Validar tipo de archivo
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        alert('Solo se permiten imágenes y videos')
+        showNotification('Formato no permitido', 'Solo se permiten imágenes y videos', 'error')
         return
       }
 
@@ -683,12 +866,12 @@ export default function SocialPage() {
   const createPost = async () => {
     try {
       if (!user?.id) {
-        alert('Debes iniciar sesión para crear un post')
+        showNotification('Inicia sesión', 'Debes iniciar sesión para crear un post', 'error')
         return
       }
 
       if (!newPostContent.trim() && !newPostFile) {
-        alert('Debes agregar contenido o una imagen/video')
+        showNotification('Contenido requerido', 'Agrega texto o una imagen/video', 'error')
         return
       }
 
@@ -711,6 +894,9 @@ export default function SocialPage() {
 
       if (response.ok) {
         const result = await response.json()
+        // Vincular hashtags al post
+        try { await linkPostHashtags(result?.id, newPostContent) } catch {}
+        // UI feedback
         console.log('Post creado:', result)
         alert('¡Post creado exitosamente!')
         closeCreatePostModal()
@@ -719,277 +905,192 @@ export default function SocialPage() {
       } else {
         const errorData = await response.json()
         console.error('Error al crear post:', errorData)
-        alert(`Error: ${errorData.error || 'No se pudo crear el post'}`)
+        showNotification('Error al publicar', errorData.error || 'No se pudo crear el post', 'error')
       }
     } catch (error) {
       console.error('Error creating post:', error)
-      alert('Error al crear el post')
+      showNotification('Error al publicar', 'Error al crear el post', 'error')
     } finally {
       setCreatingPost(false)
     }
   }
 
+  // Derived filtered lists for search
+  const query = (searchQuery || '').trim().toLowerCase()
+  const visibleSuggestedUsers = query
+    ? suggestedUsers.filter(u => `${u?.nombre || ''} ${u?.apellido || ''}`.toLowerCase().includes(query))
+    : suggestedUsers
+  // Do not filter trips by search; search is for users only
+  const visibleSuggestedTrips = suggestedTrips
+  // Do not filter posts by search; search is for users (and trips) only
+  const visiblePosts = posts
+
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Social Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/50 shadow-2xl">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Botón de volver */}
-            <div className="flex items-center gap-4">
-              <BackButton fallback="/dashboard" variant="ghost" />
-              {/* Logo */}
-              <Link to="/" className="flex items-center gap-2 group">
-              <img src="/jetgo.png?v=2" alt="JetGo" className="w-10 h-10" />
-              <span className="text-2xl font-bold text-white group-hover:text-emerald-400 transition-colors">
-                JetGo
-              </span>
-            </Link>
-
+      <div className="flex flex-col gap-6 px-4 py-6 pb-24 md:px-8 md:pb-16 xl:px-12 max-w-5xl mx-auto">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <BackButton fallback="/dashboard" variant="minimal">{null}</BackButton>
+            <div>
+              <h1 className="text-2xl font-bold text-white md:text-3xl">Comunidad JetGo</h1>
+              <p className="text-sm text-slate-300 md:text-base">
+                Conectate con otros viajeros, compartí historias y coordiná tus próximos viajes.
+              </p>
             </div>
-
-            {/* Search Bar - Desktop */}
-            <div className="hidden md:flex flex-1 max-w-md mx-8">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar usuarios, viajes..."
-                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Navigation Icons */}
-              <div className="flex items-center gap-2">
-              {/* Home */}
-              <Link
-                to="/social"
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group"
-                title="Inicio"
-              >
-                <Home className="w-6 h-6 text-emerald-400" />
-              </Link>
-
-              {/* Trips */}
-              <Link
-                to="/viajes"
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group"
-                title="Mis Viajes"
-              >
-                <MapPin className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-              </Link>
-
-              {/* Friends */}
-              <Link
-                to="/amigos"
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group"
-                title="Amigos"
-              >
-                <Users className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-              </Link>
-
-              {/* Messages */}
-              <Link
-                to="/modern-chat"
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group relative"
-                title="Mensajes"
-              >
-                <MessageCircle className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-              </Link>
-
-              {/* Notifications */}
-                <button
-                className="p-2.5 rounded-xl hover:bg-slate-800/50 transition-colors group relative"
-                title="Notificaciones"
-              >
-                <Bell className="w-6 h-6 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
-
-              {/* Create Post */}
-              <button
-                onClick={() => setShowCreatePostModal(true)}
-                className="hidden md:flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white px-4 py-2 rounded-xl font-semibold transition-all shadow-lg shadow-emerald-500/20"
-              >
-                <Plus className="w-5 h-5" />
-                Crear Post
-              </button>
-
-              {/* Profile Avatar */}
-              <Link
-                to="/profile"
-                className="ml-2 relative group"
-                title="Perfil"
-              >
-                <div className="w-10 h-10 rounded-full ring-2 ring-emerald-500/30 group-hover:ring-emerald-500 transition-all overflow-hidden">
-                  {user?.avatar_url ? (
-                    <img 
-                      src={user.avatar_url} 
-                      alt={user.nombre || 'Perfil'}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">
-                        {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-                      </span>
-            </div>
-                  )}
           </div>
-              </Link>
-        </div>
-      </div>
-
-          {/* Search Bar - Mobile */}
-          <div className="md:hidden pb-3">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <div className="relative w-full sm:w-72 md:w-96">
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar..."
-                className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                placeholder="Buscar usuarios..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-700/50 bg-slate-800/50 px-11 py-2.5 text-white placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
               />
-                    </div>
-                  </div>
-                      </div>
-      </nav>
-
-      {/* Mobile Bottom Navigation - Solo iconos inferiores */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800/50 bg-slate-900/95 backdrop-blur-xl md:hidden">
-        <div className="flex justify-around items-center h-16 px-2">
-          <Link
-            to="/social"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-emerald-400"
-          >
-            <Home className="w-6 h-6" />
-            <span className="text-xs font-medium">Social</span>
-          </Link>
-          <Link
-            to="/viajes"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
-          >
-            <MapPin className="w-6 h-6" />
-            <span className="text-xs font-medium">Viajes</span>
-          </Link>
-          <Link
-            to="/amigos"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
-          >
-            <Users className="w-6 h-6" />
-            <span className="text-xs font-medium">Amigos</span>
-          </Link>
-          <Link
-            to="/modern-chat"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
-          >
-            <MessageCircle className="w-6 h-6" />
-            <span className="text-xs font-medium">Chats</span>
-          </Link>
-          <Link
-            to="/profile"
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-slate-300 hover:text-emerald-400 transition-colors"
-          >
-            <div className="w-6 h-6 rounded-full ring-2 ring-slate-600 overflow-hidden">
-              {user?.avatar_url ? (
-                <img 
-                  src={user.avatar_url} 
-                  alt="Perfil"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-xs">
-                    {user?.nombre?.charAt(0)?.toUpperCase() || 'U'}
-                  </span>
-                    </div>
-              )}
-                </div>
-            <span className="text-xs font-medium">Perfil</span>
-          </Link>
+            </div>
+            <button
+              onClick={() => setShowCreatePostModal(true)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:from-emerald-500 hover:to-emerald-400"
+            >
+              <Plus className="h-5 w-5" />
+              <span className="hidden sm:inline">Crear Post</span>
+            </button>
+          </div>
         </div>
-      </nav>
 
-      <div className="pt-20 md:pt-24 pb-20 md:pb-12">
-        <div className="w-full mx-auto px-4 md:px-6">
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 md:gap-8">
+        <div className="grid grid-cols-1 gap-6 md:gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
 
             {/* Feed Principal */}
-            <div className="w-full">
+            <div className="w-full max-w-2xl mx-auto">
 
               {/* Stories */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl">
-              <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1">
-                {/* Tu Story */}
-                <div 
-                  onClick={openStoryModal}
-                  className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
-                >
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-pink-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-blue-500/30">
-                      <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
-                        <div className="w-full h-full rounded-full overflow-hidden">
-                          {user?.avatar_url ? (
-                            <img 
-                              src={user.avatar_url} 
-                              alt={user.nombre || 'Tu perfil'}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                              <span className="text-white font-bold text-xl">
-                                {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-                              </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-                    <div className="absolute bottom-0 right-0 w-7 h-7 bg-blue-500 rounded-full border-3 border-slate-900 flex items-center justify-center shadow-lg">
-                      <Plus className="w-4 h-4 text-white" />
-                    </div>
-                  </div>
-                  <span className="text-xs text-slate-200 font-semibold">Tu historia</span>
-                </div>
-
-                {/* Stories de otros usuarios */}
-                {stories.map((story, index) => (
+                <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1">
+                  {/* Tu Story */}
                   <div 
-                    key={story.id} 
+                    onClick={openMyStoriesOrCreate}
                     className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
                   >
-                    <div 
-                      onClick={() => openStoryViewer(index)}
-                      className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-pink-500/30"
-                    >
-                      <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
-                        <div className="w-full h-full rounded-full overflow-hidden">
-                          {story.author?.avatar_url ? (
-                            <img 
-                              src={story.author.avatar_url} 
-                              alt={story.author.nombre}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-pink-600 to-orange-600 flex items-center justify-center">
-                              <span className="text-white font-bold text-xl">
-                                {story.author?.nombre?.charAt(0) || 'U'}
-                              </span>
+                    <div className="relative">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-pink-500 p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg shadow-blue-500/30">
+                        <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
+                          <div className="w-full h-full rounded-full overflow-hidden">
+                            {user?.avatar_url ? (
+                              <img 
+                                src={user.avatar_url} 
+                                alt={user.nombre || 'Tu perfil'}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                                <span className="text-white font-bold text-xl">
+                                  {user?.nombre?.charAt(0)?.toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-            )}
+                      <div
+                        onClick={(e) => { e.stopPropagation(); openStoryModal() }}
+                        className="absolute bottom-0 right-0 w-7 h-7 bg-blue-500 rounded-full border-3 border-slate-900 flex items-center justify-center shadow-lg cursor-pointer active:scale-95"
+                        aria-label="Crear historia"
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <Plus className="w-4 h-4 text-white" />
+                      </div>
                     </div>
-                    </div>
-                    </div>
-                    <span 
-                      onClick={() => goToUserProfile(story.user_id || story.author?.userid)}
-                      className="text-xs text-slate-200 font-semibold truncate w-20 text-center hover:text-emerald-400 transition-colors"
-                    >
-                      {story.author?.nombre || 'Usuario'}
-                    </span>
+                    <span className="text-xs text-slate-200 font-semibold">Tu historia</span>
                   </div>
-                ))}
+
+                  {/* Stories de otros usuarios (agrupadas por usuario) */}
+                  {storyGroups.filter(g => g.userId !== user?.userid).map((group) => (
+                    <div
+                      key={group.userId}
+                      className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group"
+                    >
+                      <div
+                        onClick={() => openStoryViewerByUser(group.userId)}
+                        className={`w-20 h-20 rounded-full p-[2.5px] group-hover:scale-110 transition-all duration-300 shadow-lg ${
+                          seenUsers[group.userId]
+                            ? 'bg-gradient-to-tr from-slate-600 via-slate-500 to-slate-400 shadow-slate-500/30'
+                            : 'bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500 shadow-pink-500/30'
+                        }`}
+                      >
+                        <div className="w-full h-full rounded-full bg-slate-900 p-[2.5px]">
+                          <div className="w-full h-full rounded-full overflow-hidden">
+                            {group.author?.avatar_url ? (
+                              <img
+                                src={group.author.avatar_url}
+                                alt={group.author?.nombre || 'Usuario'}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-pink-600 to-orange-600 flex items-center justify-center">
+                                <span className="text-white font-bold text-xl">
+                                  {group.author?.nombre?.charAt(0) || 'U'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        onClick={() => goToUserProfile(group.userId)}
+                        className="text-xs text-slate-200 font-semibold truncate w-20 text-center hover:text-emerald-400 transition-colors"
+                      >
+                        {group.author?.nombre || 'Usuario'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              </div>
+
+              {/* User Search Results (when searching) */}
+              {query && visibleSuggestedUsers.length > 0 && (
+                <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-2xl">
+                  <h3 className="text-white font-semibold mb-4">Resultados de usuarios</h3>
+                  <div className="space-y-3">
+                    {visibleSuggestedUsers.map((u) => (
+                      <div key={u.userid} className="flex items-center justify-between">
+                        <div 
+                          onClick={() => goToUserProfile(u.userid)}
+                          className="flex items-center gap-3 min-w-0 cursor-pointer"
+                        >
+                          <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-cyan-600 ring-2 ring-emerald-500/20 shadow-md flex-shrink-0">
+                            {u.avatar_url ? (
+                              <img src={u.avatar_url} alt={u.nombre} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
+                                {u.nombre?.charAt(0) || 'U'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-white font-medium truncate">{u.nombre} {u.apellido}</p>
+                            {u.bio && <p className="text-slate-400 text-xs truncate">{u.bio}</p>}
+                          </div>
+                        </div>
+                        {friendshipStatuses[u.userid] === 'accepted' ? (
+                          <span className="text-green-400 text-xs px-3 py-1 bg-green-500/10 rounded-lg">Amigos</span>
+                        ) : friendshipStatuses[u.userid] === 'pending' ? (
+                          <span className="text-yellow-400 text-xs px-3 py-1 bg-yellow-500/10 rounded-lg">Pendiente</span>
+                        ) : (
+                          <button
+                            onClick={() => handleSendFriendRequest(u.userid)}
+                            className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg"
+                          >
+                            Agregar
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Posts Feed */}
               <div className="space-y-6 pb-8">
@@ -998,14 +1099,14 @@ export default function SocialPage() {
                   <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                   <p className="text-slate-400 mt-4">Cargando posts...</p>
                 </div>
-              ) : posts.length === 0 ? (
+              ) : visiblePosts.length === 0 ? (
                 <div className="text-center py-24 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
                   <div className="text-6xl mb-4">📱</div>
                   <p className="text-slate-200 text-xl font-bold mb-2">Nada nuevo por acá</p>
                   <p className="text-slate-400 text-sm">¡Sé el primero en compartir algo increíble!</p>
               </div>
             ) : (
-                posts.map((post) => (
+                visiblePosts.map((post) => (
                   <div key={post.id} className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden hover:border-slate-600/70 transition-all duration-300 shadow-2xl hover:shadow-blue-500/10">
                     {/* Post Header */}
                     <div className="flex items-center justify-between p-5">
@@ -1050,15 +1151,23 @@ export default function SocialPage() {
                         {/* Menú desplegable */}
                         {showPostMenu === post.id && (
                           <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10 min-w-[180px]">
-                            {/* Solo mostrar eliminar si es el autor */}
+                            {/* Solo autor: editar y eliminar */}
                             {post.user_id === user?.id && (
-                              <button
-                                onClick={() => confirmDeletePost(post.id)}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-slate-700 transition-colors text-sm font-medium"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Eliminar post
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => openEditPostModal(post)}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-700 transition-colors text-sm font-medium"
+                                >
+                                  ✏️ Editar post
+                                </button>
+                                <button
+                                  onClick={() => confirmDeletePost(post.id)}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-slate-700 transition-colors text-sm font-medium"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Eliminar post
+                                </button>
+                              </>
                             )}
                             <button
                               onClick={() => setShowPostMenu(null)}
@@ -1133,7 +1242,7 @@ export default function SocialPage() {
                           <span className="font-bold text-white mr-2">
                             {post.author?.nombre}
                           </span>
-                          {post.content}
+                          <HashtagParser text={post.content} />
                         </p>
                       )}
 
@@ -1276,72 +1385,74 @@ export default function SocialPage() {
                     <p className="text-blue-400 text-xs font-medium">Ver perfil</p>
                   </div>
                 </div>
-            </div>
+              </div>
 
-              {/* Sugerencias de Usuarios */}
-              <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
-                <div className="flex items-center justify-between mb-5">
-                  <p className="text-white font-bold text-sm">Sugerencias para ti</p>
-                  <button className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
-                    Ver todo
-                  </button>
-                </div>
-            <div className="space-y-4">
-                  {suggestedUsers.slice(0, 5).map((suggestedUser) => (
-                    <div key={suggestedUser.userid} className="flex items-center justify-between group">
-                      <div 
-                        onClick={() => goToUserProfile(suggestedUser.userid)}
-                        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                      >
-                        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-cyan-600 ring-2 ring-emerald-500/20 shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
-                          {suggestedUser.avatar_url ? (
-                            <img 
-                              src={suggestedUser.avatar_url} 
-                              alt={suggestedUser.nombre}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
-                              {suggestedUser.nombre?.charAt(0) || 'U'}
-          </div>
-        )}
+              {/* Sugerencias de Usuarios (hidden while searching) */}
+              {!query && (
+                <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
+                  <div className="flex items-center justify-between mb-5">
+                    <p className="text-white font-bold text-sm">Sugerencias para ti</p>
+                    <button className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
+                      Ver todo
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {visibleSuggestedUsers.slice(0, 5).map((suggestedUser) => (
+                      <div key={suggestedUser.userid} className="flex items-center justify-between group">
+                        <div 
+                          onClick={() => goToUserProfile(suggestedUser.userid)}
+                          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                        >
+                          <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-cyan-600 ring-2 ring-emerald-500/20 shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
+                            {suggestedUser.avatar_url ? (
+                              <img 
+                                src={suggestedUser.avatar_url} 
+                                alt={suggestedUser.nombre}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
+                                {suggestedUser.nombre?.charAt(0) || 'U'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-bold text-sm truncate">
+                              {suggestedUser.nombre} {suggestedUser.apellido}
+                            </p>
+                            <p className="text-slate-400 text-xs truncate">
+                              {suggestedUser.bio ? suggestedUser.bio.substring(0, 20) + '...' : 'Nuevo en JetGo'}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white font-bold text-sm truncate">
-                            {suggestedUser.nombre} {suggestedUser.apellido}
-                          </p>
-                          <p className="text-slate-400 text-xs truncate">
-                            {suggestedUser.bio ? suggestedUser.bio.substring(0, 20) + '...' : 'Nuevo en JetGo'}
-                          </p>
-                        </div>
+                        {friendshipStatuses[suggestedUser.userid] === 'accepted' ? (
+                          <button
+                            className="text-green-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-green-500/10 rounded-lg flex items-center gap-1.5 cursor-default"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            Amigos
+                          </button>
+                        ) : friendshipStatuses[suggestedUser.userid] === 'pending' ? (
+                          <button 
+                            className="text-yellow-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-yellow-500/10 rounded-lg cursor-not-allowed"
+                            disabled
+                          >
+                            Pendiente
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => handleSendFriendRequest(suggestedUser.userid)}
+                            className="text-blue-400 hover:text-blue-300 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg flex items-center gap-1.5"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            Agregar
+                          </button>
+                        )}
                       </div>
-                      {friendshipStatuses[suggestedUser.userid] === 'accepted' ? (
-              <button
-                          className="text-green-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-green-500/10 rounded-lg flex items-center gap-1.5 cursor-default"
-              >
-                          <UserCheck className="w-3.5 h-3.5" />
-                          Amigos
-              </button>
-                      ) : friendshipStatuses[suggestedUser.userid] === 'pending' ? (
-                        <button 
-                          className="text-yellow-400 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-yellow-500/10 rounded-lg cursor-not-allowed"
-                          disabled
-                        >
-                          Pendiente
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => handleSendFriendRequest(suggestedUser.userid)}
-                          className="text-blue-400 hover:text-blue-300 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg flex items-center gap-1.5"
-                        >
-                          <UserPlus className="w-3.5 h-3.5" />
-                          Agregar
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-            </div>
+              )}
 
               {/* Sugerencias de Viajes */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
@@ -1352,7 +1463,7 @@ export default function SocialPage() {
                   </button>
                 </div>
             <div className="space-y-3">
-                  {suggestedTrips.length === 0 ? (
+                  {visibleSuggestedTrips.length === 0 ? (
                     <div className="text-center py-6">
                       <p className="text-slate-400 text-sm">No hay viajes disponibles</p>
                       <button 
@@ -1363,7 +1474,7 @@ export default function SocialPage() {
                       </button>
                     </div>
                   ) : (
-                    suggestedTrips.map((trip) => (
+                    visibleSuggestedTrips.map((trip) => (
                     <div 
                       key={trip.id} 
                       className="bg-slate-800/50 rounded-xl overflow-hidden cursor-pointer hover:bg-slate-700/50 transition-all duration-300 border border-slate-700/30 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 group"
@@ -1382,7 +1493,26 @@ export default function SocialPage() {
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-bold text-sm mb-1 truncate">{trip.name}</p>
-                          <p className="text-slate-400 text-xs mb-2 truncate">{trip.destination}</p>
+                          <p className="text-slate-400 text-xs truncate">{trip.destination}</p>
+                          {trip.creator && (
+                            <div
+                              className="flex items-center gap-2 mt-1 cursor-pointer group/creator"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/profile/${trip.creator.userid}`) }}
+                            >
+                              <div className="w-5 h-5 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 ring-1 ring-blue-500/30 flex-shrink-0">
+                                {trip.creator.avatar_url ? (
+                                  <img src={trip.creator.avatar_url} alt={trip.creator.nombre} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold">
+                                    {trip.creator.nombre?.charAt(0) || 'U'}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-slate-400 text-[11px] group-hover/creator:text-slate-200 transition-colors">
+                                por {trip.creator.nombre} {trip.creator.apellido}
+                              </span>
+                            </div>
+                          )}
                           {trip.budget_min && (
                             <div className="inline-block px-2 py-0.5 bg-emerald-500/20 rounded-full">
                               <p className="text-emerald-400 text-xs font-bold">
@@ -1397,9 +1527,13 @@ export default function SocialPage() {
                   )}
                 </div>
               </div>
+
+              {/* Hashtags Trending */}
+              <div className="mt-6">
+                <TrendingHashtags />
+              </div>
             </div>
           </div>
-        </div>
         </div>
       </div>
 
@@ -1461,6 +1595,50 @@ export default function SocialPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar post */}
+      {showEditPostModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-slate-700 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-slate-700/50">
+              <h3 className="text-white font-bold text-lg">Editar post</h3>
+            </div>
+            <div className="p-5 space-y-4">
+              <textarea
+                value={editingPostContent}
+                onChange={(e) => setEditingPostContent(e.target.value)}
+                placeholder="Edita el contenido de tu post"
+                className="w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 rounded-xl px-4 py-3 min-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                maxLength={500}
+              />
+              {editingPostContent && extractHashtags(editingPostContent).length > 0 && (
+                <div className="mt-2 text-sm">
+                  <span className="text-slate-400 mr-2">Hashtags:</span>
+                  {extractHashtags(editingPostContent).map((h, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 text-blue-300 rounded-full mr-2 mb-2">
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end border-t border-slate-700">
+              <button
+                onClick={() => { setShowEditPostModal(false); setEditingPostId(null); setEditingPostContent('') }}
+                className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveEditPost}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors"
+              >
+                Guardar cambios
+              </button>
             </div>
           </div>
         </div>
@@ -1630,34 +1808,32 @@ export default function SocialPage() {
 
               {/* Barra de progreso */}
               <div className="flex gap-1 mt-3">
-                {stories.map((_, idx) => (
-                  <div
-                    key={idx}
-                    className={`h-0.5 flex-1 rounded-full ${
-                      idx === currentStoryIndex ? 'bg-white' : 
-                      idx < currentStoryIndex ? 'bg-white/80' : 'bg-white/30'
-                    }`}
-                  />
+                {storyGroups[currentGroupIndex]?.stories?.map((_, idx) => (
+                  <div key={idx} className="flex-1 h-1 rounded-full bg-white/20 overflow-hidden">
+                    <div
+                      className="h-full bg-white/80 transition-[width] duration-150 ease-linear"
+                      style={{ width: idx < currentStoryIndex ? '100%' : idx === currentStoryIndex ? `${Math.max(0, Math.min(100, storyProgress))}%` : '0%' }}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
 
             {/* Media (imagen o video) */}
-            <div className="w-full h-full flex items-center justify-center bg-black">
-              {currentStory.media_type === 'image' ? (
-                <img 
-                  src={currentStory.media_url} 
-                  alt="Story"
-                  className="max-w-full max-h-full object-contain"
-                />
-              ) : (
-                <video 
-                  src={currentStory.media_url}
-                  controls
-                  autoPlay
-                  className="max-w-full max-h-full object-contain"
-                />
-              )}
+            <div className={`w-full h-full flex items-center justify-center bg-black transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}>
+              {(() => {
+                const imgUrl = currentStory.media_url || currentStory.image_url
+                const vidUrl = currentStory.video_url && !currentStory.image_url ? currentStory.video_url : null
+                const isImage = (currentStory.media_type === 'image') || (!!imgUrl && !vidUrl)
+                if (isImage) {
+                  return (
+                    <img src={imgUrl} alt="Story" className="max-w-full max-h-full object-contain" />
+                  )
+                }
+                return (
+                  <video src={vidUrl || currentStory.media_url} controls autoPlay className="max-w-full max-h-full object-contain" />
+                )
+              })()}
             </div>
 
             {/* Texto de la story (si existe) */}
@@ -1671,7 +1847,7 @@ export default function SocialPage() {
           </div>
 
           {/* Botón siguiente */}
-          {currentStoryIndex < stories.length - 1 && (
+          {currentStoryIndex < (storyGroups[currentGroupIndex]?.stories?.length || 0) - 1 && (
                 <button
               onClick={nextStory}
               className="absolute right-6 z-50 text-white hover:scale-110 transition-transform bg-black/30 rounded-full p-2"
@@ -1724,7 +1900,7 @@ export default function SocialPage() {
                 </div>
               </div>
 
-              {/* Content textarea */}
+              {/* Content textarea + hashtag preview */}
               <textarea
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
@@ -1732,6 +1908,16 @@ export default function SocialPage() {
                 className="w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 rounded-xl px-4 py-3 min-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
                 maxLength={500}
               />
+              {newPostContent && extractHashtags(newPostContent).length > 0 && (
+                <div className="mt-2 text-sm">
+                  <span className="text-slate-400 mr-2">Hashtags:</span>
+                  {extractHashtags(newPostContent).map((h, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 text-blue-300 rounded-full mr-2 mb-2">
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Preview de imagen/video */}
               {newPostPreview && (
@@ -1861,6 +2047,25 @@ export default function SocialPage() {
           </div>
         </div>
       )}
+
+      {/* Toast notifications */}
+      {toast.show && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120]">
+          <div
+            className={`min-w-[280px] max-w-[92vw] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md ${
+              toast.type === 'error'
+                ? 'bg-red-500/10 border-red-500/30 text-red-200'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+            }`}
+          >
+            <div className="font-semibold text-sm">{toast.title}</div>
+            {toast.message && (
+              <div className="text-xs mt-0.5 text-white/80">{toast.message}</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+    </>
   )
 }

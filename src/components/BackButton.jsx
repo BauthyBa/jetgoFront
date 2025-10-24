@@ -6,7 +6,7 @@ export default function BackButton({
   variant = 'default',
   size = 'default',
   className = '',
-  children = 'Volver'
+  children = null
 }) {
   const navigate = useNavigate()
   
@@ -52,7 +52,7 @@ export default function BackButton({
       aria-label="Volver"
     >
       <ArrowLeft className={iconSizes[size]} />
-      <span>{children}</span>
+      {children ? <span>{children}</span> : null}
     </button>
   )
 }
