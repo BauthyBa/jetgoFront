@@ -517,31 +517,74 @@ export default function ModernChatPage() {
         return
       }
 
-      const formData = new FormData()
-      formData.append('file', imageBlob, 'camera-photo.jpg')
-      formData.append('room_id', activeRoomId)
-      formData.append('user_id', profile.user_id)
+      const endpoints = [
+        'https://jetgoback.onrender.com/api/chat/upload-camera/',
+        'https://jetgoback.onrender.com/api/chat/upload-file/',
+      ]
 
-      const response = await fetch('https://jetgoback.onrender.com/api/chat/upload-camera/', {
-        method: 'POST',
-        body: formData,
-        mode: 'cors',
-      })
+      let lastError = null
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Error subiendo imagen')
+      for (const endpoint of endpoints) {
+        try {
+          const formData = new FormData()
+          formData.append('file', imageBlob, 'camera-photo.jpg')
+          formData.append('room_id', activeRoomId)
+          formData.append('user_id', profile.user_id)
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+            mode: 'cors',
+          })
+
+          const rawBody = await response.text()
+          let parsedBody = null
+          if (rawBody) {
+            try {
+              parsedBody = JSON.parse(rawBody)
+            } catch (_parseErr) {
+              parsedBody = rawBody
+            }
+          }
+
+          if (!response.ok) {
+            const message =
+              (parsedBody && typeof parsedBody === 'object' && parsedBody !== null && (parsedBody.error || parsedBody.detail)) ||
+              (typeof parsedBody === 'string' ? parsedBody : null) ||
+              `Error HTTP ${response.status}`
+            throw new Error(message)
+          }
+
+          const status =
+            parsedBody && typeof parsedBody === 'object' && parsedBody !== null
+              ? parsedBody.status
+              : null
+
+          if (status && status !== 'success') {
+            const message =
+              parsedBody.error ||
+              parsedBody.message ||
+              'Error subiendo imagen'
+            throw new Error(message)
+          }
+
+          // El endpoint crea el mensaje; traemos los mensajes actualizados
+          const updatedMessages = await fetchMessages(activeRoomId)
+          setMessages(updatedMessages)
+          return
+        } catch (attemptError) {
+          console.warn(`Camera upload failed via ${endpoint}`, attemptError)
+          lastError = attemptError
+        }
       }
 
-      const data = await response.json()
-      if (data.status === 'success') {
-        // El endpoint ya crea el mensaje automáticamente, solo actualizamos la lista
-        const updatedMessages = await fetchMessages(activeRoomId)
-        setMessages(updatedMessages)
+      if (lastError) {
+        throw lastError
       }
+      throw new Error('Error subiendo imagen. Intenta nuevamente.')
     } catch (uploadError) {
       console.error('Error uploading camera image:', uploadError)
-      alert('Error subiendo imagen. Intenta nuevamente.')
+      alert(uploadError.message || 'Error subiendo imagen. Intenta nuevamente.')
     } finally {
       setShowCamera(false)
     }
