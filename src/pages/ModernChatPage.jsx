@@ -60,6 +60,10 @@ export default function ModernChatPage() {
   const [messageToDelete, setMessageToDelete] = useState(null)
   const [showCamera, setShowCamera] = useState(false)
   const [showLocationCapture, setShowLocationCapture] = useState(false)
+  const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState(false)
+  const [memberToRemove, setMemberToRemove] = useState(null)
+  const [userWasRemoved, setUserWasRemoved] = useState(false)
+  const [showRemovedModal, setShowRemovedModal] = useState(false)
   const fileInputRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
@@ -237,6 +241,20 @@ export default function ModernChatPage() {
     }
   }, [messages, showExpenses, activeRoomId])
 
+  // Verificar si el usuario fue eliminado del grupo
+  useEffect(() => {
+    if (activeRoomId && profile?.user_id && !userWasRemoved) {
+      const interval = setInterval(async () => {
+        const wasRemoved = await checkIfUserWasRemoved()
+        if (wasRemoved) {
+          clearInterval(interval)
+        }
+      }, 5000) // Verificar cada 5 segundos
+
+      return () => clearInterval(interval)
+    }
+  }, [activeRoomId, profile?.user_id, userWasRemoved])
+
   const filteredRooms = useMemo(() => {
     const query = roomQuery.trim().toLowerCase()
     if (!query) return rooms
@@ -412,6 +430,13 @@ export default function ModernChatPage() {
     try {
       if (!activeRoomId) return
       if (!newMessage.trim()) return
+      
+      // Verificar si el usuario fue eliminado antes de enviar
+      if (userWasRemoved) {
+        alert('Fuiste eliminado del grupo. No puedes enviar mensajes.')
+        return
+      }
+      
       await sendMessage(activeRoomId, newMessage)
       setNewMessage('')
       setShowEmojiPicker(false)
@@ -444,6 +469,124 @@ export default function ModernChatPage() {
       alert('Error al eliminar el mensaje')
       setShowDeleteMessageConfirm(false)
       setMessageToDelete(null)
+    }
+  }
+
+  const confirmRemoveMember = (member) => {
+    setMemberToRemove(member)
+    setShowRemoveMemberConfirm(true)
+  }
+
+  const removeMember = async () => {
+    if (!memberToRemove || !activeRoomId) return
+
+    try {
+      console.log('🗑️ Eliminando miembro:', memberToRemove)
+      
+      // Eliminar del chat_members
+      const { error: chatError } = await supabase
+        .from('chat_members')
+        .delete()
+        .eq('room_id', activeRoomId)
+        .eq('user_id', memberToRemove.user_id)
+      
+      if (chatError) {
+        console.error('Error eliminando de chat_members:', chatError)
+        throw chatError
+      }
+
+      // Si es un viaje, también eliminar del trip_members
+      if (activeRoom?.trip_id) {
+        const { error: tripError } = await supabase
+          .from('trip_members')
+          .delete()
+          .eq('trip_id', activeRoom.trip_id)
+          .eq('user_id', memberToRemove.user_id)
+        
+        if (tripError) {
+          console.error('Error eliminando de trip_members:', tripError)
+          throw tripError
+        }
+      }
+
+      // Enviar mensaje de sistema
+      const systemMessage = `👤 ${memberToRemove.name || 'Usuario'} fue eliminado del grupo por el organizador`
+      await sendMessage(activeRoomId, systemMessage, 'system')
+
+      // Actualizar la lista de miembros
+      setChatMembers(prev => prev.filter(m => m.user_id !== memberToRemove.user_id))
+      
+      setShowRemoveMemberConfirm(false)
+      setMemberToRemove(null)
+      
+      // Recargar mensajes para mostrar el mensaje de sistema
+      const updatedMessages = await fetchMessages(activeRoomId)
+      setMessages(updatedMessages)
+      
+      console.log('✅ Miembro eliminado exitosamente')
+      
+    } catch (err) {
+      console.error('Error al eliminar miembro:', err)
+      alert('Error al eliminar el miembro: ' + (err.message || 'Error desconocido'))
+      setShowRemoveMemberConfirm(false)
+      setMemberToRemove(null)
+    }
+  }
+
+  // Función para verificar si el usuario actual fue eliminado del grupo
+  const checkIfUserWasRemoved = async () => {
+    if (!activeRoomId || !profile?.user_id) return
+
+    try {
+      const { data: membership, error } = await supabase
+        .from('chat_members')
+        .select('user_id')
+        .eq('room_id', activeRoomId)
+        .eq('user_id', profile.user_id)
+        .single()
+
+      if (error && error.code === 'PGRST116') {
+        // Usuario no encontrado en chat_members, fue eliminado
+        console.log('🚫 Usuario fue eliminado del grupo')
+        setUserWasRemoved(true)
+        setShowRemovedModal(true)
+        return true
+      }
+
+      return false
+    } catch (err) {
+      console.error('Error verificando membresía:', err)
+      return false
+    }
+  }
+
+  // Función para eliminar el chat para el usuario eliminado
+  const removeChatForRemovedUser = async () => {
+    try {
+      // Eliminar la sala del usuario
+      const { error } = await supabase
+        .from('chat_rooms')
+        .delete()
+        .eq('id', activeRoomId)
+
+      if (error) {
+        console.error('Error eliminando sala:', error)
+      }
+
+      // Cerrar el chat y volver a la lista
+      setActiveRoomId(null)
+      setActiveRoom(null)
+      setMessages([])
+      setShowRemovedModal(false)
+      setUserWasRemoved(false)
+
+      // Recargar la lista de salas
+      const reloadedRooms = await listRoomsForUser(profile.user_id)
+      setRooms(reloadedRooms)
+
+    } catch (err) {
+      console.error('Error eliminando chat:', err)
+      alert('Error al eliminar el chat')
     }
   }
 
@@ -1617,25 +1760,52 @@ export default function ModernChatPage() {
               )}
 
               {(chatMembers || []).length > 0 &&
-                chatMembers.map((member) => (
-                  <button
-                    key={member.user_id}
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-emerald-400/50 hover:bg-emerald-500/10"
-                    onClick={() => {
-                      try {
-                        if (!member?.user_id) return
-                        navigate(`/u/${member.user_id}`)
-                        setChatInfoOpen(false)
-                      } catch {
-                        /* noop */
-                      }
-                    }}
-                  >
-                    <span className="font-semibold text-white">{member.name || 'Usuario'}</span>
-                    <span className="text-sm text-slate-400">Ver perfil</span>
-                  </button>
-                ))}
+                chatMembers.map((member) => {
+                  // Verificar si el usuario actual es organizador
+                  const isOwner = activeRoom?.trip_id && (tripsBase || []).some(
+                    (trip) => String(trip.id) === String(activeRoom.trip_id) && trip.creatorId === profile?.user_id,
+                  )
+                  const isCurrentUser = member.user_id === profile?.user_id
+                  const canRemove = isOwner && !isCurrentUser && activeRoom?.trip_id
+
+                  return (
+                    <div
+                      key={member.user_id}
+                      className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-emerald-400/50 hover:bg-emerald-500/10"
+                    >
+                      <button
+                        type="button"
+                        className="flex-1 text-left"
+                        onClick={() => {
+                          try {
+                            if (!member?.user_id) return
+                            navigate(`/u/${member.user_id}`)
+                            setChatInfoOpen(false)
+                          } catch {
+                            /* noop */
+                          }
+                        }}
+                      >
+                        <span className="font-semibold text-white">{member.name || 'Usuario'}</span>
+                        <span className="text-sm text-slate-400 ml-2">Ver perfil</span>
+                      </button>
+                      
+                      {canRemove && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            confirmRemoveMember(member)
+                          }}
+                          className="ml-3 px-3 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 rounded-lg transition-colors"
+                          title="Eliminar del grupo"
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
             </div>
 
             {activeRoom?.trip_id && (
@@ -1763,6 +1933,91 @@ export default function ModernChatPage() {
               >
                 <span>🗑️</span>
                 Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para eliminar miembro */}
+      {showRemoveMemberConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 border-b border-red-500/30 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-red-500/20 p-2 rounded-full">
+                  <span className="text-2xl">👤</span>
+                </div>
+                <h3 className="text-xl font-bold text-white">Eliminar Miembro</h3>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-6">
+              <p className="text-slate-300 text-base leading-relaxed">
+                ¿Estás seguro de que quieres eliminar a <strong className="text-white">{memberToRemove?.name || 'Usuario'}</strong> del grupo?
+              </p>
+              <p className="text-slate-400 text-sm mt-2">
+                Esta acción no se puede deshacer y se enviará una notificación al chat.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowRemoveMemberConfirm(false)
+                  setMemberToRemove(null)
+                }}
+                className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={removeMember}
+                className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+              >
+                <span>👤</span>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para usuario eliminado */}
+      {showRemovedModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 border-b border-red-500/30 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-red-500/20 p-2 rounded-full">
+                  <span className="text-2xl">🚫</span>
+                </div>
+                <h3 className="text-xl font-bold text-white">Fuiste Eliminado del Grupo</h3>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-6">
+              <p className="text-slate-300 text-base leading-relaxed">
+                El organizador te eliminó de este grupo. Ya no puedes enviar mensajes ni ver el contenido del chat.
+              </p>
+              <p className="text-slate-400 text-sm mt-2">
+                Puedes eliminar este chat de tu lista para limpiar tu interfaz.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end">
+              <button
+                onClick={removeChatForRemovedUser}
+                className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+              >
+                <span>🗑️</span>
+                Eliminar Chat
               </button>
             </div>
           </div>
