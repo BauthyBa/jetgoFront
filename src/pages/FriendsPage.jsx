@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSession, supabase } from '@/services/supabase'
 import { getFriendRequests, respondFriendRequest, getFriends, sendFriendRequest } from '@/services/friends'
@@ -20,6 +20,21 @@ export default function FriendsPage() {
   const [friendshipStatuses, setFriendshipStatuses] = useState({})
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
+
+  // Seleccionar 3 usuarios recomendados al azar cada vez que cambia suggestedUsers
+  const randomSuggestedUsers = useMemo(() => {
+    try {
+      const copy = Array.isArray(suggestedUsers) ? [...suggestedUsers] : []
+      // Fisher–Yates shuffle (no muta el estado original)
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[copy[i], copy[j]] = [copy[j], copy[i]]
+      }
+      return copy.slice(0, 3)
+    } catch {
+      return (suggestedUsers || []).slice(0, 3)
+    }
+  }, [suggestedUsers])
 
   const showNotification = (title, message, type = 'success') => {
     setToast({ show: true, type, title, message })
@@ -361,7 +376,7 @@ export default function FriendsPage() {
               <p className="text-white font-bold text-base">Usuarios recomendados</p>
             </div>
             <div className="space-y-3">
-              {suggestedUsers.slice(0, 8).map((u) => (
+              {randomSuggestedUsers.map((u) => (
                 <div key={u.userid} className="flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-11 h-11 rounded-full overflow-hidden bg-slate-700/80 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-slate-600/40">

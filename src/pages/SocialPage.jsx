@@ -83,6 +83,24 @@ export default function SocialPage() {
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 2800)
   }
 
+  // Helpers para persistir likes por usuario en localStorage
+  const getLikesKey = (uid) => `liked_posts_${uid}`
+  const loadLikedFromStorage = (uid) => {
+    try {
+      if (!uid) return new Set()
+      const raw = localStorage.getItem(getLikesKey(uid))
+      const arr = raw ? JSON.parse(raw) : []
+      return new Set(Array.isArray(arr) ? arr : [])
+    } catch { return new Set() }
+  }
+  const saveLikedToStorage = (uid, likedSet) => {
+    try {
+      if (!uid) return
+      const arr = Array.from(likedSet || [])
+      localStorage.setItem(getLikesKey(uid), JSON.stringify(arr))
+    } catch {}
+  }
+
   const hidePost = (postId) => {
     setHiddenPosts(prev => {
       const next = new Set(prev)
@@ -169,6 +187,14 @@ export default function SocialPage() {
     getCurrentUser()
     loadPosts()
   }, [])
+
+  // Cargar likes guardados cuando tengamos usuario
+  useEffect(() => {
+    if (!user?.userid && !user?.id) return
+    const uid = user.userid || user.id
+    const stored = loadLikedFromStorage(uid)
+    if (stored && stored.size > 0) setLikedPosts(stored)
+  }, [user?.userid, user?.id])
 
   useEffect(() => {
     if (user?.userid) {
@@ -452,12 +478,19 @@ export default function SocialPage() {
       if (response.ok) {
         const data = await response.json()
         if (data.action === 'liked') {
-          setLikedPosts(prev => new Set([...prev, postId]))
+          setLikedPosts(prev => {
+            const next = new Set([...prev, postId])
+            const uid = user?.userid || user?.id
+            saveLikedToStorage(uid, next)
+            return next
+          })
         } else {
           setLikedPosts(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(postId)
-            return newSet
+            const next = new Set(prev)
+            next.delete(postId)
+            const uid = user?.userid || user?.id
+            saveLikedToStorage(uid, next)
+            return next
           })
         }
         loadPosts()
