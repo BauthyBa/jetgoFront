@@ -21,6 +21,7 @@ import InviteFriendsModal from '@/components/InviteFriendsModal'
 import { transcriptionService } from '@/services/transcription'
 import { getFeaturedImage } from '@/services/unsplash'
 import { ArrowLeft, Camera, MapPin, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
+import { useNotifications } from '@/hooks/useNotifications'
 
 function normalizeRoomName(room) {
   return (room?.display_name || room?.name || '').trim()
@@ -69,6 +70,7 @@ export default function ModernChatPage() {
   const messageEndRef = useRef(null)
   const typingTimeoutRef = useRef({})
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { markRoomAsRead } = useNotifications()
 
   const displayName =
     profile?.meta?.first_name && profile?.meta?.last_name
@@ -255,6 +257,13 @@ export default function ModernChatPage() {
       messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, showExpenses, activeRoomId])
+
+  // Marcar notificaciones del chat como leídas cuando entras
+  useEffect(() => {
+    if (activeRoomId && markRoomAsRead) {
+      markRoomAsRead(activeRoomId)
+    }
+  }, [activeRoomId, markRoomAsRead])
 
   // Verificar si el usuario fue eliminado del grupo
   useEffect(() => {
