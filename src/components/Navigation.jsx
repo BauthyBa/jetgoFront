@@ -100,48 +100,42 @@ export default function Navigation() {
   const navItems = useMemo(
     () => [
       {
-        label: 'Explorar viajes',
+        label: 'Viajes',
         path: ROUTES.VIAJES,
         to: `${ROUTES.VIAJES}?view=search`,
         icon: MapPin,
-        isActive: (pathname) => pathname === ROUTES.VIAJES && !pathname.startsWith(ROUTES.MIS_VIAJES),
-      },
-      {
-        label: 'Mis viajes',
-        path: ROUTES.MIS_VIAJES,
-        icon: MapPin,
-        isActive: (pathname) => pathname === ROUTES.MIS_VIAJES,
+        isActive: (loc) => loc.pathname === ROUTES.VIAJES,
       },
       {
         label: 'Chats',
         path: ROUTES.MODERN_CHAT,
         icon: MessageCircle,
-        isActive: (pathname) =>
-          pathname === ROUTES.CHATS || pathname.startsWith(ROUTES.MODERN_CHAT) || pathname.startsWith(ROUTES.DASHBOARD),
+        isActive: (loc) =>
+          loc.pathname === ROUTES.CHATS || loc.pathname.startsWith(ROUTES.MODERN_CHAT) || loc.pathname.startsWith(ROUTES.DASHBOARD),
       },
       {
         label: 'Perfil',
         path: ROUTES.PROFILE,
         icon: UserRound,
-        isActive: (pathname) => pathname.startsWith(ROUTES.PROFILE),
+        isActive: (loc) => loc.pathname.startsWith(ROUTES.PROFILE),
       },
       {
         label: 'Amigos',
         path: ROUTES.AMIGOS,
         icon: Users,
-        isActive: (pathname) => pathname.startsWith(ROUTES.AMIGOS),
+        isActive: (loc) => loc.pathname.startsWith(ROUTES.AMIGOS),
       },
       {
         label: 'Social',
         path: ROUTES.SOCIAL,
         icon: Heart,
-        isActive: (pathname) => pathname.startsWith(ROUTES.SOCIAL),
+        isActive: (loc) => loc.pathname.startsWith(ROUTES.SOCIAL),
       },
       {
         label: 'Clima',
         path: ROUTES.CLIMA,
         icon: CloudSun,
-        isActive: (pathname) => pathname.startsWith(ROUTES.CLIMA),
+        isActive: (loc) => loc.pathname.startsWith(ROUTES.CLIMA),
       },
     ],
     [],
@@ -208,7 +202,7 @@ export default function Navigation() {
             <nav className="space-y-1 pb-6">
               {desktopNavItems.map((item) => {
                 const Icon = item.icon
-                const active = item.isActive(location.pathname)
+                const active = item.isActive(location)
                 return (
                   <Link
                     key={item.path}
@@ -260,7 +254,7 @@ export default function Navigation() {
           <div className="mx-auto flex max-w-xl justify-around px-2 py-2">
             {navItems.map((item) => {
               const Icon = item.icon
-              const active = item.isActive(location.pathname)
+              const active = item.isActive(location)
               return (
                 <Link
                   key={item.path}

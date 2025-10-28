@@ -1157,7 +1157,7 @@ export default function SocialPage() {
                             onClick={() => handleSendFriendRequest(u.userid)}
                             className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg"
                           >
-                            Agregar
+                            Agregar amigo
                           </button>
                         )}
                       </div>
@@ -1475,7 +1475,7 @@ export default function SocialPage() {
               {!query && (
                 <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
                   <div className="flex items-center justify-between mb-5">
-                    <p className="text-white font-bold text-sm">Sugerencias para ti</p>
+                    <p className="text-white font-bold text-sm">Usuarios recomendados</p>
                     <button className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
                       Ver todo
                     </button>
@@ -1529,7 +1529,7 @@ export default function SocialPage() {
                             className="text-blue-400 hover:text-blue-300 font-bold text-xs transition-colors flex-shrink-0 px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg flex items-center gap-1.5"
                           >
                             <UserPlus className="w-3.5 h-3.5" />
-                            Agregar
+                            Agregar amigo
                           </button>
                         )}
                       </div>

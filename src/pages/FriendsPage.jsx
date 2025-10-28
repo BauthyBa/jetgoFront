@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getSession } from '@/services/supabase'
-import { getFriendRequests, respondFriendRequest, getFriends } from '@/services/friends'
-import { UserPlus, Check, X, Clock, Users, ArrowLeft } from 'lucide-react'
+import { getSession, supabase } from '@/services/supabase'
+import { getFriendRequests, respondFriendRequest, getFriends, sendFriendRequest } from '@/services/friends'
+import { UserPlus, Check, X, Clock, Users, ArrowLeft, Search } from 'lucide-react'
 import GlassCard from '@/components/GlassCard'
  
 
@@ -15,6 +15,11 @@ export default function FriendsPage() {
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('received') // 'received', 'sent', 'friends'
   const [toast, setToast] = useState({ show: false, type: 'success', title: '', message: '' })
+  const [searchQuery, setSearchQuery] = useState('')
+  const [suggestedUsers, setSuggestedUsers] = useState([])
+  const [friendshipStatuses, setFriendshipStatuses] = useState({})
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
 
   const showNotification = (title, message, type = 'success') => {
     setToast({ show: true, type, title, message })
@@ -32,7 +37,24 @@ export default function FriendsPage() {
     } else {
       loadRequests()
     }
+    loadSuggestions()
   }, [profile, activeTab])
+
+  // Buscar en toda la base por nombre/apellido cuando hay query
+  useEffect(() => {
+    if (!profile?.userid) return
+    const q = (searchQuery || '').trim()
+    if (q.length < 2) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+    setSearchLoading(true)
+    const timer = setTimeout(() => {
+      loadSearchResults(q)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery, profile])
 
   const loadSession = async () => {
     try {
@@ -156,6 +178,107 @@ export default function FriendsPage() {
     }
   }
 
+  const handleSendFriend = async (receiverId) => {
+    try {
+      if (!profile?.userid) return
+      if (!receiverId || receiverId === profile.userid) return
+      setFriendshipStatuses(prev => ({ ...prev, [receiverId]: 'pending' }))
+      await sendFriendRequest(profile.userid, receiverId)
+      showNotification('Solicitud enviada', 'Tu solicitud de amistad fue enviada')
+    } catch (e) {
+      setFriendshipStatuses(prev => {
+        const copy = { ...prev }
+        delete copy[receiverId]
+        return copy
+      })
+      showNotification('Error', 'No se pudo enviar la solicitud', 'error')
+    }
+  }
+
+  const loadSuggestions = async () => {
+    try {
+      if (!profile?.userid) return
+
+      const { data: accepted } = await supabase
+        .from('friend_requests')
+        .select('sender_id, receiver_id')
+        .or(`sender_id.eq.${profile.userid},receiver_id.eq.${profile.userid}`)
+        .eq('status', 'accepted')
+
+      const friendIds = new Set()
+      accepted?.forEach(req => {
+        friendIds.add(req.sender_id === profile.userid ? req.receiver_id : req.sender_id)
+      })
+      friendIds.add(profile.userid)
+
+      let query = supabase
+        .from('User')
+        .select('userid, nombre, apellido, avatar_url, bio')
+
+      if (friendIds.size > 0) {
+        query = query.not('userid', 'in', `(${Array.from(friendIds).join(',')})`)
+      }
+
+      const { data: users } = await query.limit(10)
+      const cleaned = (users || [])
+        .filter(u => u?.userid && u.userid !== profile.userid)
+        .filter(u => (u?.nombre || u?.apellido))
+      setSuggestedUsers(cleaned)
+
+      if (cleaned && cleaned.length > 0) {
+        const statuses = {}
+        for (const u of cleaned) {
+          const { data: existing } = await supabase
+            .from('friend_requests')
+            .select('status')
+            .or(`and(sender_id.eq.${profile.userid},receiver_id.eq.${u.userid}),and(sender_id.eq.${u.userid},receiver_id.eq.${profile.userid})`)
+            .single()
+          statuses[u.userid] = existing?.status || null
+        }
+        setFriendshipStatuses(statuses)
+      }
+    } catch (e) {
+      // Silent fail for suggestions
+    }
+  }
+
+  const loadSearchResults = async (q) => {
+    try {
+      if (!profile?.userid) return
+      // Buscar por nombre o apellido en toda la tabla User
+      let query = supabase
+        .from('User')
+        .select('userid, nombre, apellido, avatar_url, bio')
+        .or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%`)
+        .limit(25)
+
+      const { data: users, error } = await query
+      if (error) throw error
+
+      const results = (users || [])
+        .filter(u => u?.userid && u.userid !== profile.userid)
+      setSearchResults(results)
+
+      // Calcular estados de amistad para los resultados
+      if (results.length > 0) {
+        const statuses = { ...friendshipStatuses }
+        for (const u of results) {
+          const { data: existing } = await supabase
+            .from('friend_requests')
+            .select('status')
+            .or(`and(sender_id.eq.${profile.userid},receiver_id.eq.${u.userid}),and(sender_id.eq.${u.userid},receiver_id.eq.${profile.userid})`)
+            .single()
+          statuses[u.userid] = existing?.status || null
+        }
+        setFriendshipStatuses(statuses)
+      }
+    } catch (_e) {
+      setSearchResults([])
+    } finally {
+      setSearchLoading(false)
+    }
+  }
+
   if (!profile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -169,18 +292,112 @@ export default function FriendsPage() {
   return (
     <>
     <div className="min-h-screen bg-gradient-hero text-foreground">
-      <div className="container mx-auto px-4 py-8 pt-24 max-w-5xl relative">
+      <div className="container mx-auto px-4 py-10 pt-28 max-w-3xl relative">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Amigos</h1>
-            <p className="text-white/70">Gestiona tus conexiones y solicitudes</p>
+        <div className="flex flex-col items-center text-center gap-2 mb-8">
+          <h1 className="text-3xl font-bold text-white">Amigos</h1>
+          <p className="text-white/70">Gestiona tus conexiones y solicitudes</p>
+        </div>
+
+        <div className="mb-6">
+          <div className="relative w-full sm:w-3/4 md:w-2/3 mx-auto">
+            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar usuarios..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-12 rounded-2xl border border-slate-700/50 bg-slate-800/60 px-11 text-white placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 shadow-inner"
+            />
           </div>
         </div>
 
+        {searchQuery.trim() && (
+          <GlassCard className="p-6 mb-6 max-w-2xl mx-auto">
+            <h3 className="text-white font-semibold mb-4">Resultados de usuarios</h3>
+            <div className="space-y-3">
+              {searchLoading ? (
+                <p className="text-slate-400 text-sm">Buscando...</p>
+              ) : searchResults.length === 0 ? (
+                <p className="text-slate-400 text-sm">Sin resultados</p>
+              ) : (
+                searchResults.map((u) => (
+                  <div key={u.userid} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-11 h-11 rounded-full overflow-hidden bg-slate-700/80 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-slate-600/40">
+                        {u.avatar_url ? (
+                          <img src={u.avatar_url} alt={u.nombre} className="w-full h-full object-cover" />
+                        ) : (
+                          <span>{u.nombre?.charAt(0) || 'U'}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white font-semibold truncate">{u.nombre} {u.apellido}</p>
+                        {u.bio && <p className="text-slate-400 text-xs truncate">{u.bio}</p>}
+                      </div>
+                    </div>
+                    {friendshipStatuses[u.userid] === 'accepted' ? (
+                      <span className="text-green-400 text-xs px-3 py-1.5 bg-green-500/10 rounded-lg">Amigos</span>
+                    ) : friendshipStatuses[u.userid] === 'pending' ? (
+                      <span className="text-yellow-400 text-xs px-3 py-1.5 bg-yellow-500/10 rounded-lg">Pendiente</span>
+                    ) : (
+                      <button
+                        onClick={() => handleSendFriend(u.userid)}
+                        className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg shadow"
+                      >
+                        Agregar amigo
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </GlassCard>
+        )}
+
+        {!searchQuery.trim() && suggestedUsers.length > 0 && (
+          <GlassCard className="p-6 mb-6 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-white font-bold text-base">Usuarios recomendados</p>
+            </div>
+            <div className="space-y-3">
+              {suggestedUsers.slice(0, 8).map((u) => (
+                <div key={u.userid} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-full overflow-hidden bg-slate-700/80 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-slate-600/40">
+                      {u.avatar_url ? (
+                        <img src={u.avatar_url} alt={u.nombre} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{u.nombre?.charAt(0) || 'U'}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white font-semibold text-sm truncate">{u.nombre} {u.apellido}</p>
+                      <p className="text-slate-400 text-xs truncate">{u.bio ? (u.bio.length > 24 ? u.bio.substring(0, 24) + '...' : u.bio) : 'Nuevo en JetGo'}</p>
+                    </div>
+                  </div>
+                  {friendshipStatuses[u.userid] === 'accepted' ? (
+                    <span className="text-green-400 text-xs px-3 py-1.5 bg-green-500/10 rounded-lg">Amigos</span>
+                  ) : friendshipStatuses[u.userid] === 'pending' ? (
+                    <span className="text-yellow-400 text-xs px-3 py-1.5 bg-yellow-500/10 rounded-lg">Pendiente</span>
+                  ) : (
+                    <button 
+                      onClick={() => handleSendFriend(u.userid)}
+                      className="text-blue-400 hover:text-blue-300 font-bold text-xs transition-colors px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg flex items-center gap-1.5 shadow"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Agregar amigo
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        )}
+
         {/* Tabs */}
-        <GlassCard className="p-4 mb-6">
-          <div className="flex flex-wrap gap-2">
+        <GlassCard className="p-4 mb-6 max-w-2xl mx-auto">
+          <div className="flex flex-wrap gap-2 justify-center">
             <button
               onClick={() => setActiveTab('received')}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
@@ -228,7 +445,7 @@ export default function FriendsPage() {
         {activeTab === 'friends' ? (
           // Friends Tab
           error ? (
-            <GlassCard className="p-6">
+            <GlassCard className="p-6 max-w-2xl mx-auto">
               <div className="text-red-400 text-center">
                 <p>{error}</p>
                 <button
@@ -240,16 +457,16 @@ export default function FriendsPage() {
               </div>
             </GlassCard>
           ) : loading ? (
-            <GlassCard className="p-8 text-center">
+            <GlassCard className="p-8 text-center max-w-2xl mx-auto">
               <div className="text-white">Cargando amigos...</div>
             </GlassCard>
           ) : friends.length === 0 ? (
-            <GlassCard className="p-8 text-center">
+            <GlassCard className="p-8 text-center max-w-2xl mx-auto">
               <Users className="w-12 h-12 text-slate-500 mx-auto mb-4" />
               <p className="text-slate-400">No tienes amigos aún</p>
             </GlassCard>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-w-2xl mx-auto">
               {friends.map((friend) => (
                 <GlassCard key={friend.id} className="p-4">
                   <div className="flex items-center gap-3">
@@ -272,7 +489,7 @@ export default function FriendsPage() {
         ) : (
           // Requests Tabs
           error ? (
-            <GlassCard className="p-6">
+            <GlassCard className="p-6 max-w-2xl mx-auto">
               <div className="text-red-400 text-center">
                 <p>{error}</p>
                 <button
@@ -284,11 +501,11 @@ export default function FriendsPage() {
               </div>
             </GlassCard>
           ) : loading ? (
-            <GlassCard className="p-8 text-center">
+            <GlassCard className="p-8 text-center max-w-2xl mx-auto">
               <div className="text-white">Cargando solicitudes...</div>
             </GlassCard>
           ) : requests.length === 0 ? (
-            <GlassCard className="p-8 text-center">
+            <GlassCard className="p-8 text-center max-w-2xl mx-auto">
               <UserPlus className="w-12 h-12 text-slate-500 mx-auto mb-4" />
               <p className="text-slate-400">
                 {activeTab === 'received' 
@@ -298,7 +515,7 @@ export default function FriendsPage() {
               </p>
             </GlassCard>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-w-2xl mx-auto">
               {requests.map((request) => (
                 <GlassCard key={request.id} className="p-5 hover:bg-white/5 transition-colors">
                   <div className="flex items-center justify-between">
