@@ -3,8 +3,10 @@ import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { getSession, supabase } from '@/services/supabase'
 import { getUserAvatar as getUserAvatarApi } from '@/services/api'
-import { MapPin, MessageCircle, Users, Heart, CloudSun, ChevronLeft, ChevronRight, Search, Plus, UserRound } from 'lucide-react'
+import { MapPin, MessageCircle, Users, Heart, CloudSun, ChevronLeft, ChevronRight, Search, Plus, UserRound, Bell } from 'lucide-react'
 import ROUTES from '@/config/routes'
+import { useNotifications } from '@/hooks/useNotifications'
+import FloatingNotificationPanel from './FloatingNotificationPanel'
 
 const EXPANDED_WIDTH = 288
 const COLLAPSED_WIDTH = 80
@@ -14,7 +16,9 @@ export default function Navigation() {
   const [user, setUser] = useState(null)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [userProfile, setUserProfile] = useState(null)
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false)
   const location = useLocation()
+  const { unreadCount, markAllAsRead } = useNotifications()
 
   useEffect(() => {
     try {
@@ -216,6 +220,23 @@ export default function Navigation() {
                   </Link>
                 )
               })}
+              
+              {/* Botón de Notificaciones */}
+              <button
+                type="button"
+                onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition w-full text-slate-200 hover:bg-white/5 hover:text-white ${isCollapsed ? 'justify-center' : ''}`}
+              >
+                <div className="relative">
+                  <Bell className="h-5 w-5 text-slate-300" />
+                  {unreadCount > 0 && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </div>
+                  )}
+                </div>
+                {!isCollapsed && <span>Notificaciones</span>}
+              </button>
             </nav>
           </div>
 
@@ -268,9 +289,36 @@ export default function Navigation() {
                 </Link>
               )
             })}
+            
+            {/* Botón de Notificaciones Móvil */}
+            <button
+              type="button"
+              onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
+              className="flex flex-1 flex-col items-center rounded-xl px-3 py-2 text-xs font-medium transition-colors text-slate-200 hover:text-emerald-200"
+            >
+              <div className="relative">
+                <Bell className="h-5 w-5 text-slate-200" />
+                {unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </div>
+                )}
+              </div>
+              <span className="mt-1">Notif.</span>
+            </button>
           </div>
         </nav>
       )}
+
+      {/* Panel de Notificaciones */}
+      <FloatingNotificationPanel
+        isOpen={isNotificationPanelOpen}
+        onClose={() => setIsNotificationPanelOpen(false)}
+        onNavigate={(path) => {
+          setIsNotificationPanelOpen(false)
+          window.location.href = path
+        }}
+      />
     </>
   )
 }

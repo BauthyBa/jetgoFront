@@ -127,15 +127,21 @@ export default function TripCardEnhanced({
           {/* Overlay con información básica */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent">
             <div className="absolute bottom-4 left-4 right-4">
-              <h3 className="text-xl font-bold text-white mb-1 line-clamp-1">
-                {trip.name}
-              </h3>
-              <div className="flex items-center gap-2 text-white/90">
-                <MapPin className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm truncate">
-                  {trip.origin} → {trip.destination}
-                </span>
-              </div>
+              <Link
+                to={`/trip/${trip.id}`}
+                className="block text-white hover:text-emerald-300 transition-colors"
+                title={`Ver detalles de ${trip.name}`}
+              >
+                <h3 className="text-xl font-bold mb-1 line-clamp-1">
+                  {trip.name}
+                </h3>
+                <div className="flex items-center gap-2 text-white/90">
+                  <MapPin className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm truncate">
+                    {trip.origin} → {trip.destination}
+                  </span>
+                </div>
+              </Link>
             </div>
           </div>
         </div>

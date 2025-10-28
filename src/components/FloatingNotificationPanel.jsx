@@ -12,6 +12,55 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
   const [currentUser, setCurrentUser] = useState(null)
   const panelRef = useRef(null)
 
+  // Funciones de persistencia
+  const getReadNotifications = () => {
+    try {
+      const read = localStorage.getItem('readNotifications')
+      return read ? JSON.parse(read) : []
+    } catch {
+      return []
+    }
+  }
+
+  const getDeletedNotifications = () => {
+    try {
+      const deleted = localStorage.getItem('deletedNotifications')
+      return deleted ? JSON.parse(deleted) : []
+    } catch {
+      return []
+    }
+  }
+
+  const saveReadNotification = (notificationId) => {
+    try {
+      const read = getReadNotifications()
+      if (!read.includes(notificationId)) {
+        read.push(notificationId)
+        localStorage.setItem('readNotifications', JSON.stringify(read))
+      }
+    } catch (err) {
+      console.error('Error saving read notification:', err)
+    }
+  }
+
+  const saveAllAsRead = (notificationIds) => {
+    try {
+      const read = getReadNotifications()
+      const newRead = [...new Set([...read, ...notificationIds])]
+      localStorage.setItem('readNotifications', JSON.stringify(newRead))
+    } catch (err) {
+      console.error('Error saving all as read:', err)
+    }
+  }
+
+  const saveDeletedNotifications = (notificationIds) => {
+    try {
+      localStorage.setItem('deletedNotifications', JSON.stringify(notificationIds))
+    } catch (err) {
+      console.error('Error saving deleted notifications:', err)
+    }
+  }
+
   // Cargar usuario actual
   useEffect(() => {
     async function getCurrentUser() {
@@ -116,8 +165,18 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
           }
         }))
 
-        setNotifications(notifications)
-        setUnreadCount(notifications.filter(n => !n.read).length)
+        // Filtrar notificaciones eliminadas y marcar las leídas
+        const readIds = getReadNotifications()
+        const deletedIds = getDeletedNotifications()
+        const filteredNotifications = notifications
+          .filter(n => !deletedIds.includes(n.id))
+          .map(n => ({
+            ...n,
+            read: readIds.includes(n.id)
+          }))
+
+        setNotifications(filteredNotifications)
+        setUnreadCount(filteredNotifications.filter(n => !n.read).length)
       }
     } catch (err) {
       console.error('Error loading notifications:', err)
@@ -213,8 +272,14 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
               }
             }))
 
-            setNotifications(prev => [...newNotifications, ...prev])
-            setUnreadCount(prev => prev + newNotifications.length)
+            // Filtrar notificaciones eliminadas
+            const deletedIds = getDeletedNotifications()
+            const filteredNew = newNotifications.filter(n => !deletedIds.includes(n.id))
+
+            if (filteredNew.length > 0) {
+              setNotifications(prev => [...filteredNew, ...prev])
+              setUnreadCount(prev => prev + filteredNew.length)
+            }
           }
         }
       } catch (err) {
@@ -268,6 +333,7 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
 
   // Marcar notificación como leída
   const markAsRead = (notificationId) => {
+    saveReadNotification(notificationId)
     setNotifications(prev => 
       prev.map(n => 
         n.id === notificationId ? { ...n, read: true } : n
@@ -278,6 +344,8 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
 
   // Marcar todas como leídas
   const markAllAsRead = () => {
+    const allIds = notifications.map(n => n.id)
+    saveAllAsRead(allIds)
     setNotifications(prev => 
       prev.map(n => ({ ...n, read: true }))
     )
@@ -344,7 +412,7 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
       {/* Panel principal */}
       <div 
         ref={panelRef}
-        className="fixed top-16 right-4 w-96 max-h-[80vh] z-50"
+        className="fixed top-16 right-4 w-96 max-h-[85vh] z-50 flex flex-col"
         style={{
           background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8))',
           backdropFilter: 'blur(20px)',
@@ -364,7 +432,7 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
         <SoundWaves isActive={showEffects} intensity={1.2} />
 
         {/* Header con efectos */}
-        <div className="relative p-6 border-b border-white/10">
+        <div className="relative flex-shrink-0 p-6 border-b border-white/10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -389,7 +457,7 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
         </div>
 
         {/* Contenido */}
-        <div className="max-h-96 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {loading ? (
             <div className="p-8 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
@@ -451,13 +519,28 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
         </div>
 
         {/* Footer */}
-        {notifications.length > 0 && unreadCount > 0 && (
-          <div className="p-4 border-t border-white/10">
+        {notifications.length > 0 && (
+          <div className="flex-shrink-0 p-4 border-t border-white/10 space-y-2">
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="w-full py-2 px-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-400/30 rounded-lg text-blue-400 text-sm font-medium transition-all duration-200 hover:scale-105"
+              >
+                Marcar todas como leídas
+              </button>
+            )}
             <button
-              onClick={markAllAsRead}
-              className="w-full py-2 px-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-400/30 rounded-lg text-blue-400 text-sm font-medium transition-all duration-200 hover:scale-105"
+              onClick={() => {
+                const allIds = notifications.map(n => n.id)
+                const currentDeleted = getDeletedNotifications()
+                const newDeleted = [...new Set([...currentDeleted, ...allIds])]
+                saveDeletedNotifications(newDeleted)
+                setNotifications([])
+                setUnreadCount(0)
+              }}
+              className="w-full py-2 px-4 bg-red-600/20 hover:bg-red-600/30 border border-red-400/30 rounded-lg text-red-400 text-sm font-medium transition-all duration-200 hover:scale-105"
             >
-              Marcar todas como leídas
+              Limpiar todas las notificaciones
             </button>
           </div>
         )}
