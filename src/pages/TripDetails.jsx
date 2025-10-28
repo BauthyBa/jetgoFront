@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import DashboardLayout from '@/components/DashboardLayout'
-import GlassCard from '@/components/GlassCard'
-import BackButton from '@/components/BackButton'
 import { api } from '@/services/api'
 import { listTrips, normalizeTrip } from '@/services/trips'
 import { Button } from '@/components/ui/button'
@@ -11,7 +9,19 @@ import { getUserApplications } from '@/services/applications'
 import { listRoomsForUser } from '@/services/chat'
 import ROUTES from '@/config/routes'
 import ReportUserModal from '@/components/ReportUserModal'
-import { Star, MessageCircle, Flag } from 'lucide-react'
+import {
+  Star,
+  MessageCircle,
+  Flag,
+  MapPin,
+  Calendar,
+  Users,
+  DollarSign,
+  Globe,
+  Home,
+  Clock,
+  ArrowUpRight
+} from 'lucide-react'
 
 export default function TripDetails() {
   const { tripId } = useParams()
@@ -23,7 +33,6 @@ export default function TripDetails() {
   const [currentUser, setCurrentUser] = useState(null)
   const [userRooms, setUserRooms] = useState([])
   const [userApplications, setUserApplications] = useState([])
-  const [applyModalOpen, setApplyModalOpen] = useState(false)
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const [reportedUserId, setReportedUserId] = useState(null)
   const [reportedUserName, setReportedUserName] = useState('')
@@ -36,7 +45,7 @@ export default function TripDetails() {
         const session = await getSession()
         if (mounted && session?.user) {
           setCurrentUser(session.user)
-          
+
           // Cargar rooms del usuario
           try {
             const rooms = await listRoomsForUser(session.user.id)
@@ -44,7 +53,7 @@ export default function TripDetails() {
           } catch (error) {
             console.error('Error cargando rooms:', error)
           }
-          
+
           // Cargar aplicaciones del usuario
           try {
             const applications = await getUserApplications(session.user.id)
@@ -58,7 +67,9 @@ export default function TripDetails() {
       }
     }
     loadUserInfo()
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+    }
   }, [])
 
   useEffect(() => {
@@ -96,7 +107,9 @@ export default function TripDetails() {
       }
     }
     if (tripId) load()
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+    }
   }, [tripId])
 
   const dateRange = useMemo(() => {
@@ -105,8 +118,53 @@ export default function TripDetails() {
       return trip?.endDate
         ? `${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`
         : new Date(trip.startDate).toLocaleDateString()
-    } catch { return '' }
+    } catch {
+      return ''
+    }
   }, [trip])
+
+  const formattedBudget = useMemo(() => {
+    if (!trip) return null
+    const min = trip.budgetMin != null ? `$${trip.budgetMin}` : null
+    const max = trip.budgetMax != null ? `$${trip.budgetMax}` : null
+    if (!min && !max) return null
+    if (min && max) return `${min} - ${max}`
+    return min || max
+  }, [trip])
+
+  const participantsSummary = useMemo(() => {
+    if (!trip) return null
+    const hasCurrent = trip.currentParticipants != null
+    const hasMax = trip.maxParticipants != null
+    if (!hasCurrent && !hasMax) return null
+    const current = hasCurrent ? trip.currentParticipants : '—'
+    const max = hasMax ? trip.maxParticipants : '—'
+    return `${current} / ${max}`
+  }, [trip])
+
+  const occupancyPercent = useMemo(() => {
+    if (!trip || trip.maxParticipants == null || trip.maxParticipants <= 0) return null
+    const current = trip.currentParticipants ?? 0
+    return Math.max(0, Math.min(100, Math.round((current / trip.maxParticipants) * 100)))
+  }, [trip])
+
+  const transportLabel = useMemo(() => {
+    if (!trip?.tipo) return null
+    const value = String(trip.tipo)
+    return value.charAt(0).toUpperCase() + value.slice(1)
+  }, [trip?.tipo])
+
+  const infoItems = useMemo(() => {
+    if (!trip) return []
+    const items = []
+    if (dateRange) items.push({ icon: Calendar, label: 'Fechas', value: dateRange })
+    if (formattedBudget) items.push({ icon: DollarSign, label: 'Presupuesto estimado', value: formattedBudget })
+    if (participantsSummary) items.push({ icon: Users, label: 'Cupos disponibles', value: participantsSummary })
+    if (trip.season) items.push({ icon: Clock, label: 'Temporada', value: trip.season })
+    if (trip.roomType) items.push({ icon: Home, label: 'Alojamiento', value: trip.roomType })
+    if (trip.country) items.push({ icon: Globe, label: 'País', value: trip.country })
+    return items
+  }, [trip, dateRange, formattedBudget, participantsSummary])
 
   // Determinar el estado del usuario con respecto al viaje
   const userTripStatus = useMemo(() => {
@@ -119,12 +177,12 @@ export default function TripDetails() {
 
     // Verificar si es miembro (tiene acceso al chat grupal)
     const isMember = Array.isArray(userRooms) && userRooms.some((room) => (
-      String(room?.trip_id) === String(trip.id) && 
+      String(room?.trip_id) === String(trip.id) &&
       (room?.is_group === true || (!room?.is_private && !room?.application_id))
     ))
 
     // Verificar si ya aplicó al viaje
-    const hasApplied = userApplications.some(app => String(app.trip_id) === String(trip.id))
+    const hasApplied = userApplications.some((app) => String(app.trip_id) === String(trip.id))
 
     return { isOwner, isMember, hasApplied }
   }, [currentUser, trip, userRooms, userApplications])
@@ -169,129 +227,241 @@ export default function TripDetails() {
     }
   }
 
+  const primaryButton = getPrimaryButtonProps()
+
   if (loading) return <div className="container"><p className="muted">Cargando…</p></div>
   if (error) return <div className="container"><pre className="error">{error}</pre></div>
   if (!trip) return <div className="container"><p className="muted">No encontrado</p></div>
 
   return (
-    <DashboardLayout>
-      <div className="p-6 sm:p-8 text-white" style={{ display: 'grid', gap: 16 }}>
-        {/* Botón de volver */}
-        <div className="mb-4">
-          <BackButton fallback="/viajes?view=search" variant="ghost" />
+    <DashboardLayout showNav={false}>
+      <div className="space-y-10 pb-16 pt-4 text-white md:pt-8">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <Button
+            onClick={() => navigate(ROUTES.TRIP_REVIEWS(trip.id))}
+            variant="secondary"
+            className="h-11 rounded-2xl border border-white/10 bg-white/10 text-white transition hover:border-white/20 hover:bg-white/20"
+          >
+            <Star className="h-4 w-4" />
+            Ver reseñas
+          </Button>
+          {currentUser && !userTripStatus.isOwner && trip.creatorId && (
+            <Button
+              onClick={() => {
+                setReportedUserId(trip.creatorId)
+                setReportedUserName('Organizador del viaje')
+                setReportModalOpen(true)
+              }}
+              variant="secondary"
+              className="h-11 rounded-2xl border border-red-500/40 bg-red-500/10 text-red-200 transition hover:border-red-400/60 hover:bg-red-500/20"
+            >
+              <Flag className="h-4 w-4" />
+              Reportar organizador
+            </Button>
+          )}
         </div>
-        
-        <div className="glass-card" style={{ padding: 16 }}>
-          <div style={{ display: 'flex', gap: 16 }}>
-            {trip.imageUrl && (
-              <img src={trip.imageUrl} alt={trip.name} style={{ width: 160, height: 160, borderRadius: 16, objectFit: 'cover' }} />
-            )}
-            <div style={{ display: 'grid', gap: 6 }}>
-              <h2 className="page-title" style={{ margin: 0 }}>{trip.name}</h2>
-              <div className="muted">{trip.origin || 'Origen ?'} → {trip.destination || 'Destino ?'}</div>
-              {dateRange && <div className="muted">{dateRange}</div>}
-              {trip.country && <div className="muted">{trip.country}</div>}
-              {(trip.budgetMin != null || trip.budgetMax != null) && (
-                <div className="muted">Presupuesto: ${trip.budgetMin ?? '?'} - ${trip.budgetMax ?? '?'}</div>
+
+        <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 shadow-2xl">
+          {trip.imageUrl ? (
+            <img
+              src={trip.imageUrl}
+              alt={trip.name}
+              className="absolute inset-0 -z-20 h-full w-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 -z-20 bg-gradient-to-br from-emerald-500/25 via-sky-500/15 to-slate-900" />
+          )}
+          <div className="absolute inset-0 -z-10 bg-gradient-to-br from-slate-950/85 via-slate-900/60 to-slate-950/75" />
+
+          <div className="relative z-10 grid gap-8 p-8 md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:p-12">
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-emerald-200/90">
+                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-4 py-1.5 font-medium text-emerald-200 shadow-lg shadow-emerald-500/10">
+                  <MapPin className="h-4 w-4" />
+                  {trip.origin || 'Origen ?'} → {trip.destination || 'Destino ?'}
+                </span>
+                {transportLabel && (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-slate-100">
+                    {transportLabel}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h1 className="text-3xl font-bold leading-tight text-white md:text-4xl">
+                  {trip.name}
+                </h1>
+                {dateRange && (
+                  <div className="flex items-center gap-2 text-slate-200">
+                    <Calendar className="h-5 w-5 text-emerald-300" />
+                    <span className="text-base font-medium">{dateRange}</span>
+                  </div>
+                )}
+              </div>
+
+              {trip.description && (
+                <p className="max-w-2xl text-base leading-relaxed text-slate-200/90">{trip.description}</p>
               )}
-              {(trip.currentParticipants != null || trip.maxParticipants != null) && (
-                <div className="muted">Cupos: {trip.currentParticipants ?? '?'} / {trip.maxParticipants ?? '?'}</div>
+
+              {trip.tags && trip.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {trip.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-slate-200"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
               )}
-              {currentUser && (
-                <div style={{ marginTop: 8, display: 'flex', gap: 8, flexDirection: 'column' }}>
-                  <Button 
+            </div>
+
+            <div className="flex flex-col gap-6 rounded-2xl border border-white/15 bg-white/10 p-6 shadow-xl backdrop-blur md:p-7">
+              <div className="flex items-center gap-3 text-emerald-200/90">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-200">
+                  <MessageCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-100/70">
+                    Tu participación
+                  </p>
+                  <p className="text-lg font-semibold text-white">
+                    {userTripStatus.isOwner
+                      ? 'Eres el organizador'
+                      : userTripStatus.isMember
+                        ? 'Ya eres parte del viaje'
+                        : userTripStatus.hasApplied
+                          ? 'Solicitud en proceso'
+                          : 'Únete a la aventura'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                <div className="flex items-center justify-between text-sm text-slate-200">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">Cupos</p>
+                    <p className="text-base font-semibold text-white">
+                      {participantsSummary ?? 'Por definir'}
+                    </p>
+                  </div>
+                  {occupancyPercent != null && (
+                    <div className="flex w-28 flex-col items-end gap-1 text-xs text-slate-300">
+                      <span>{occupancyPercent}% ocupado</span>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-2 rounded-full bg-emerald-400 transition-all duration-500"
+                          style={{ width: `${occupancyPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {currentUser ? (
+                <div className="space-y-4">
+                  <Button
                     onClick={handlePrimaryAction}
-                    disabled={getPrimaryButtonProps().disabled}
-                    variant={getPrimaryButtonProps().variant}
+                    disabled={primaryButton.disabled}
+                    variant={primaryButton.variant}
+                    className="h-12 w-full rounded-2xl text-base font-semibold shadow-lg shadow-emerald-500/20 transition hover:shadow-emerald-500/40"
                   >
-                    {getPrimaryButtonProps().text}
+                    {primaryButton.text}
                   </Button>
                   {userTripStatus.isOwner && (
-                    <div className="text-sm text-emerald-400" style={{ marginTop: 4 }}>
-                      ✓ Eres el organizador de este viaje
-                    </div>
+                    <p className="text-sm text-emerald-200/80">Gestiona a tu equipo y coordina desde el chat.</p>
                   )}
                   {userTripStatus.isMember && !userTripStatus.isOwner && (
-                    <div className="text-sm text-emerald-400" style={{ marginTop: 4 }}>
-                      ✓ Eres participante de este viaje
-                    </div>
+                    <p className="text-sm text-emerald-200/80">Ya estás dentro. Revisa el chat grupal para las novedades.</p>
+                  )}
+                  {userTripStatus.hasApplied && !userTripStatus.isMember && (
+                    <p className="text-sm text-slate-300">Te avisaremos cuando el organizador apruebe tu solicitud.</p>
                   )}
                 </div>
-              )}
-              {!currentUser && (
-                <div style={{ marginTop: 8 }}>
-                  <Button onClick={() => navigate(ROUTES.LOGIN)}>
-                    Inicia sesión para aplicar
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-200/90">
+                    Inicia sesión para sumarte al viaje, chatear con el grupo y seguir todas las actualizaciones.
+                  </p>
+                  <Button
+                    onClick={() => navigate(ROUTES.LOGIN)}
+                    className="h-12 w-full rounded-2xl text-base font-semibold"
+                  >
+                    Iniciar sesión
                   </Button>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Botones de Reseñas y Reportar */}
-        {trip && (
-          <div className="glass-card" style={{ padding: 16 }}>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              {/* Botón Ver Reseñas */}
-              <Button
-                onClick={() => navigate(ROUTES.TRIP_REVIEWS(trip.id))}
-                variant="secondary"
-                style={{ flex: '1 1 auto', minWidth: 150 }}
+        {infoItems.length > 0 && (
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {infoItems.map(({ icon: Icon, label, value }) => (
+              <div
+                key={label}
+                className="flex gap-4 rounded-2xl border border-white/10 bg-slate-900/75 p-5 shadow-lg shadow-slate-900/20"
               >
-                <Star className="w-4 h-4 mr-2" />
-                Ver Reseñas
-              </Button>
-
-              {/* Botón Reportar Organizador (solo si no eres el organizador) */}
-              {currentUser && !userTripStatus.isOwner && trip.creatorId && (
-                <Button
-                  onClick={() => {
-                    setReportedUserId(trip.creatorId)
-                    setReportedUserName('Organizador del viaje')
-                    setReportModalOpen(true)
-                  }}
-                  variant="secondary"
-                  style={{ flex: '1 1 auto', minWidth: 150, background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-                >
-                  <Flag className="w-4 h-4 mr-2" />
-                  Reportar Organizador
-                </Button>
-              )}
-            </div>
-          </div>
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-300">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+                  <p className="text-base font-semibold text-white">{value}</p>
+                </div>
+              </div>
+            ))}
+          </section>
         )}
 
-        <div className="glass-card" style={{ padding: 16 }}>
-          <h3 className="page-title" style={{ margin: 0 }}>Participantes</h3>
-          {(participants || []).length === 0 && <p className="muted" style={{ marginTop: 8 }}>Sin participantes aún</p>}
-          {(participants || []).length > 0 && (
-            <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+        <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-xl backdrop-blur md:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Participantes</h2>
+              <p className="text-sm text-slate-400">Personas que ya se sumaron al viaje</p>
+            </div>
+            {participantsSummary && (
+              <span className="rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-sm font-semibold text-emerald-200">
+                {participantsSummary}
+              </span>
+            )}
+          </div>
+
+          {(participants || []).length === 0 ? (
+            <p className="mt-6 text-sm text-slate-300">
+              Aún no hay participantes confirmados. ¡Sé el primero en sumarte!
+            </p>
+          ) : (
+            <div className="mt-6 grid gap-3">
               {participants.map((m) => (
                 <button
                   key={m.user_id}
                   type="button"
-                  className="glass-card"
-                  style={{ padding: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left', width: '100%' }}
+                  className="group flex items-center justify-between rounded-2xl border border-transparent bg-white/5 px-4 py-3 text-left transition hover:border-emerald-400/50 hover:bg-emerald-500/10"
                   onClick={() => {
                     try {
                       if (!m?.user_id) return
-                      // Navegar usando la ruta de perfil público por ID
                       navigate(ROUTES.PUBLIC_PROFILE_BY_ID(m.user_id))
                     } catch (error) {
                       console.error('Error navegando a perfil:', error)
                     }
                   }}
                 >
-                  <div style={{ fontWeight: 600 }}>{m.name || m.user_id}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>Ver perfil →</div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">{m.name || m.user_id}</p>
+                    <p className="text-xs text-slate-300 transition group-hover:text-emerald-200">
+                      Ver perfil
+                    </p>
+                  </div>
+                  <ArrowUpRight className="h-5 w-5 text-emerald-300 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                 </button>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Modal de Reportar Usuario */}
         {reportModalOpen && (
           <ReportUserModal
             isOpen={reportModalOpen}
@@ -308,5 +478,3 @@ export default function TripDetails() {
     </DashboardLayout>
   )
 }
-
-
