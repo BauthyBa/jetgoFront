@@ -23,6 +23,8 @@ export function normalizeTrip(raw) {
   const currentParticipants = raw.current_participants ?? raw.currentParticipants ?? null
   const creatorId = raw.creator_id || null
   const country = raw.country || null
+  const createdAt = raw.created_at || raw.createdAt || raw.created || raw.created_on || null
+  const updatedAt = raw.updated_at || raw.updatedAt || raw.updated || raw.updated_on || null
 
   return {
     id: raw.id,
@@ -44,6 +46,8 @@ export function normalizeTrip(raw) {
     currentParticipants,
     creatorId,
     country,
+    createdAt,
+    updatedAt,
     raw,
   }
 }

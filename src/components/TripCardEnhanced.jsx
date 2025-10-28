@@ -32,6 +32,7 @@ export default function TripCardEnhanced({
   hasApplied,
   viewMode = 'card', // 'card' o 'list'
   hideApply,
+  onView,
 }) {
   const [destinationImage, setDestinationImage] = useState(null)
   const [imageLoading, setImageLoading] = useState(false)
@@ -139,8 +140,21 @@ export default function TripCardEnhanced({
           </div>
         </div>
 
-        {/* Contenido de la tarjeta */}
+        {/* Contenido de la tarjeta */
+        }
         <div className="p-6">
+          {/* Ver viaje */}
+          {onView && (
+            <div className="mb-4">
+              <button
+                className="btn w-full"
+                type="button"
+                onClick={() => onView(trip)}
+              >
+                Ver viaje
+              </button>
+            </div>
+          )}
           {/* Fechas */}
           {trip.startDate && (
             <div className="flex items-center gap-2 mb-4 text-slate-300">
@@ -390,6 +404,15 @@ export default function TripCardEnhanced({
 
         {/* Acciones */}
         <div className="flex-shrink-0 flex flex-col gap-3">
+          {onView && (
+            <button 
+              className="btn w-full" 
+              type="button" 
+              onClick={() => onView(trip)}
+            >
+              Ver viaje
+            </button>
+          )}
           {canEdit && (
             <button 
               className="btn secondary w-full" 

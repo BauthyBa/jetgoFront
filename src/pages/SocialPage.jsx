@@ -26,6 +26,7 @@ import { sendFriendRequest } from '@/services/friends'
 import HashtagParser from '@/components/HashtagParser'
 import TrendingHashtags from '@/components/TrendingHashtags'
 import { listTrips } from '@/services/trips'
+import TripDetailsModal from '@/components/TripDetailsModal'
 
 export default function SocialPage() {
   const navigate = useNavigate()
@@ -42,6 +43,8 @@ export default function SocialPage() {
   const [newComment, setNewComment] = useState({})
   const [showShareModal, setShowShareModal] = useState(false)
   const [selectedPost, setSelectedPost] = useState(null)
+  const [showTripModal, setShowTripModal] = useState(false)
+  const [selectedTrip, setSelectedTrip] = useState(null)
   const [userChats, setUserChats] = useState([])
   const [showStoryModal, setShowStoryModal] = useState(false)
   const [storyFile, setStoryFile] = useState(null)
@@ -985,7 +988,6 @@ export default function SocialPage() {
   const visiblePosts = posts.filter(p => !hiddenPosts.has(p.id))
 
   return (
-    <>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="flex flex-col gap-6 px-4 py-6 pb-24 md:px-8 md:pb-16 xl:px-12 max-w-5xl mx-auto relative">
         {toast.show && (
@@ -1441,8 +1443,9 @@ export default function SocialPage() {
       </div>
 
           {/* Sidebar Derecho - Sugerencias */}
-          <div className="hidden xl:block">
-            <div className="sticky top-24 space-y-5">
+          <div className="hidden xl:block w-[360px]">
+            <div className="sticky top-20">
+              <div className="space-y-5">
               {/* Tu Perfil */}
               <div 
                 className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl cursor-pointer hover:border-blue-500/50 transition-all duration-300 shadow-xl hover:shadow-blue-500/20 group"
@@ -1562,7 +1565,7 @@ export default function SocialPage() {
                     <div 
                       key={trip.id} 
                       className="bg-slate-800/50 rounded-xl overflow-hidden cursor-pointer hover:bg-slate-700/50 transition-all duration-300 border border-slate-700/30 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 group"
-                      onClick={() => navigate(`/trip/${trip.id}`)}
+                      onClick={() => { setSelectedTrip({ id: trip.id }); setShowTripModal(true) }}
                     >
                       <div className="flex gap-3 p-3">
                         {trip.image_url && (
@@ -1682,6 +1685,15 @@ export default function SocialPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Detalles de Viaje (social) */}
+      {showTripModal && (
+        <TripDetailsModal
+          isOpen={showTripModal}
+          onClose={() => { setShowTripModal(false); setSelectedTrip(null) }}
+          tripId={selectedTrip?.id}
+        />
       )}
 
       {/* Modal de Reporte */}
@@ -2182,24 +2194,8 @@ export default function SocialPage() {
         </div>
       )}
 
-      {/* Toast notifications */}
-      {toast.show && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120]">
-          <div
-            className={`min-w-[280px] max-w-[92vw] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md ${
-              toast.type === 'error'
-                ? 'bg-red-500/10 border-red-500/30 text-red-200'
-                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-            }`}
-          >
-            <div className="font-semibold text-sm">{toast.title}</div>
-            {toast.message && (
-              <div className="text-xs mt-0.5 text-white/80">{toast.message}</div>
-            )}
-          </div>
-        </div>
-      )}
+      
     </div>
-    </>
+    </div>
   )
 }

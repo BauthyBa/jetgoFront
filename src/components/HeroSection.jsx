@@ -334,7 +334,21 @@ export default function HeroSection() {
                   />
                   {trips.length > visibleCount && (
                     <div className="flex justify-center mt-6">
-                      <Button variant="outline" onClick={() => setVisibleCount((c) => c + 4)} className="border-slate-500 text-white bg-transparent hover:bg-slate-700 ring-1 ring-slate-400/20">Cargar más</Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          const params = new URLSearchParams()
+                          params.set('view', 'search')
+                          if (fromText.trim()) params.set('desde', fromText.trim())
+                          if (toText.trim()) params.set('hasta', toText.trim())
+                          if (date && !anyDate) params.set('fecha', date)
+                          const query = params.toString()
+                          navigate(`/viajes${query ? `?${query}` : ''}`)
+                        }} 
+                        className="border-slate-500 text-white bg-transparent hover:bg-slate-700 ring-1 ring-slate-400/20"
+                      >
+                        Cargar más
+                      </Button>
                     </div>
                   )}
                 </div>

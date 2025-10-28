@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 
-export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEdit, canEdit, isMember, isOwner, onApply, hasApplied, hideApply }) {
+export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEdit, canEdit, isMember, isOwner, onApply, hasApplied, hideApply, onView }) {
   if (!trip) return null
   const dateRange = trip.startDate
     ? (trip.endDate ? `${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}` : new Date(trip.startDate).toLocaleDateString())
@@ -47,6 +47,11 @@ export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEd
         </div>
       )}
       <div className="actions" style={{ marginTop: 'auto', justifyContent: 'space-between' }}>
+        {onView && (
+          <button className="btn" type="button" onClick={() => onView(trip)}>
+            Ver viaje
+          </button>
+        )}
         {canEdit && (
           <button className="btn secondary" type="button" onClick={onEdit}>Editar</button>
         )}

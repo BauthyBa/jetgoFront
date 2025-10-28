@@ -2,6 +2,7 @@ import { useState } from 'react'
 import TripCardEnhanced from './TripCardEnhanced'
 import ViewToggle from './ViewToggle'
 import { Filter, Search } from 'lucide-react'
+import TripDetailsModal from './TripDetailsModal'
 
 export default function TripGridEnhanced({ 
   trips, 
@@ -19,9 +20,11 @@ export default function TripGridEnhanced({
   showFilters = true,
   hideApply = false,
 }) {
-  const [viewMode, setViewMode] = useState('card')
+  const [viewMode, setViewMode] = useState('list')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState('all')
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [selectedTrip, setSelectedTrip] = useState(null)
 
   // Filtrar viajes
   const filteredTrips = (trips || []).filter(trip => {
@@ -146,9 +149,18 @@ export default function TripGridEnhanced({
               onApply={onApply ? () => onApply(trip) : undefined}
               hasApplied={!!hasAppliedFn && hasAppliedFn(trip)}
               hideApply={hideApply}
+              onView={() => { setSelectedTrip(trip); setDetailsOpen(true) }}
             />
           ))}
         </div>
+      )}
+
+      {detailsOpen && (
+        <TripDetailsModal 
+          isOpen={detailsOpen}
+          onClose={() => { setDetailsOpen(false); setSelectedTrip(null) }}
+          trip={selectedTrip}
+        />
       )}
     </div>
   )
