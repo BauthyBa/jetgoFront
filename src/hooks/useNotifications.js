@@ -133,12 +133,22 @@ export function useNotifications() {
     setUnreadCount(0)
   }, [])
 
+  // Eliminar notificación
+  const deleteNotification = useCallback((notificationId) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId))
+    setUnreadCount(prev => {
+      const notification = notifications.find(n => n.id === notificationId)
+      return notification && !notification.read ? Math.max(0, prev - 1) : prev
+    })
+  }, [notifications])
+
   return {
     notifications,
     unreadCount,
     loading,
     currentUser,
     markAsRead,
-    markAllAsRead
+    markAllAsRead,
+    deleteNotification
   }
 }

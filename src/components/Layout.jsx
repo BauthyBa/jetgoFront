@@ -42,6 +42,7 @@ export default function Layout() {
     '/amigos',
     '/social',
     '/clima',
+    '/notificaciones',
   ]
   const hideHeader = hideHeaderOn.some((p) => location.pathname.startsWith(p))
   const hideNavigationOn = ['/login', '/signup', '/register', '/forgot-password', '/reset-password', '/verify-dni']
@@ -87,7 +88,8 @@ export default function Layout() {
           !location.pathname.startsWith('/crear-viaje') &&
           !location.pathname.startsWith('/profile') &&
           !location.pathname.startsWith('/u/') &&
-          !location.pathname.startsWith('/trip') && (
+          !location.pathname.startsWith('/trip') &&
+          !location.pathname.startsWith('/notificaciones') && (
           <div className="sticky top-0 z-30" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BackButton fallback="/" />

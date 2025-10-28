@@ -222,13 +222,12 @@ export default function Navigation() {
               })}
               
               {/* Botón de Notificaciones */}
-              <button
-                type="button"
-                onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition w-full text-slate-200 hover:bg-white/5 hover:text-white ${isCollapsed ? 'justify-center' : ''}`}
+              <Link
+                to="/notificaciones"
+                className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition text-slate-200 hover:bg-white/5 hover:text-white ${location.pathname === '/notificaciones' ? 'bg-emerald-500/10 text-emerald-400' : ''} ${isCollapsed ? 'justify-center' : ''}`}
               >
                 <div className="relative">
-                  <Bell className="h-5 w-5 text-slate-300" />
+                  <Bell className={`h-5 w-5 ${location.pathname === '/notificaciones' ? 'text-emerald-400' : 'text-slate-300'}`} />
                   {unreadCount > 0 && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
                       {unreadCount > 9 ? '9+' : unreadCount}
@@ -236,7 +235,7 @@ export default function Navigation() {
                   )}
                 </div>
                 {!isCollapsed && <span>Notificaciones</span>}
-              </button>
+              </Link>
             </nav>
           </div>
 
@@ -291,13 +290,12 @@ export default function Navigation() {
             })}
             
             {/* Botón de Notificaciones Móvil */}
-            <button
-              type="button"
-              onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
-              className="flex flex-1 flex-col items-center rounded-xl px-3 py-2 text-xs font-medium transition-colors text-slate-200 hover:text-emerald-200"
+            <Link
+              to="/notificaciones"
+              className={`flex flex-1 flex-col items-center rounded-xl px-3 py-2 text-xs font-medium transition-colors ${location.pathname === '/notificaciones' ? 'text-emerald-400' : 'text-slate-200 hover:text-emerald-200'}`}
             >
               <div className="relative">
-                <Bell className="h-5 w-5 text-slate-200" />
+                <Bell className={`h-5 w-5 ${location.pathname === '/notificaciones' ? 'text-emerald-400' : 'text-slate-200'}`} />
                 {unreadCount > 0 && (
                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
                     {unreadCount > 9 ? '9+' : unreadCount}
@@ -305,7 +303,7 @@ export default function Navigation() {
                 )}
               </div>
               <span className="mt-1">Notif.</span>
-            </button>
+            </Link>
           </div>
         </nav>
       )}

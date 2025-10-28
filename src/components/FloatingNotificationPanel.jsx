@@ -521,6 +521,15 @@ export default function FloatingNotificationPanel({ isOpen, onClose, onNavigate 
         {/* Footer */}
         {notifications.length > 0 && (
           <div className="flex-shrink-0 p-4 border-t border-white/10 space-y-2">
+            <button
+              onClick={() => {
+                onNavigate?.('/notificaciones')
+                onClose()
+              }}
+              className="w-full py-2 px-4 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-400/30 rounded-lg text-emerald-400 text-sm font-medium transition-all duration-200 hover:scale-105"
+            >
+              Ver todas las notificaciones
+            </button>
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}

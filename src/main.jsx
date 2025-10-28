@@ -26,6 +26,7 @@ import AccountSettingsPage from './pages/AccountSettingsPage.jsx'
 import SocialPage from './pages/SocialPage.jsx'
 import WeatherPage from './pages/WeatherPage.jsx'
 import MisViajesPage from './pages/MisViajesPage.jsx'
+import NotificationsPage from './pages/NotificationsPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 import FeedPage from './pages/FeedPage.jsx'
 
@@ -110,6 +111,10 @@ const router = createBrowserRouter([
       { 
         path: 'profile/settings', 
         element: <ProtectedRoute><AccountSettingsPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'notificaciones', 
+        element: <ProtectedRoute><NotificationsPage /></ProtectedRoute> 
       },
     ],
   },
