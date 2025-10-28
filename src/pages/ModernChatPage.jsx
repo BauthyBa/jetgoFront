@@ -7,6 +7,9 @@ import ChatExpenses from '@/components/ChatExpenses'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import AudioRecorder from '@/components/AudioRecorder'
 import AudioTranscriber from '@/components/AudioTranscriber'
+import CameraCapture from '@/components/CameraCapture'
+import LocationCapture from '@/components/LocationCapture'
+import SimpleLocationMap from '@/components/SimpleLocationMap'
 import SharedPostPreview from '@/components/SharedPostPreview'
 import { getSession, supabase, updateUserMetadata } from '@/services/supabase'
 import { listRoomsForUser, fetchMessages, sendMessage, subscribeToRoomMessages } from '@/services/chat'
@@ -16,7 +19,8 @@ import { api, upsertProfileToBackend } from '@/services/api'
 import { inviteFriendToTrip } from '@/services/friends'
 import InviteFriendsModal from '@/components/InviteFriendsModal'
 import { transcriptionService } from '@/services/transcription'
-import { ArrowLeft, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
+import { getFeaturedImage } from '@/services/unsplash'
+import { ArrowLeft, Camera, MapPin, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
 
 function normalizeRoomName(room) {
   return (room?.display_name || room?.name || '').trim()
@@ -39,6 +43,7 @@ export default function ModernChatPage() {
   const [applicationStatuses, setApplicationStatuses] = useState({})
   const [applicationOrganizer, setApplicationOrganizer] = useState({})
   const [tripsBase, setTripsBase] = useState([])
+  const [tripImages, setTripImages] = useState({})
   const [chatInfoOpen, setChatInfoOpen] = useState(false)
   const [chatMembers, setChatMembers] = useState([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -53,10 +58,17 @@ export default function ModernChatPage() {
   const [audioTranscriptions, setAudioTranscriptions] = useState({})
   const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false)
   const [messageToDelete, setMessageToDelete] = useState(null)
+  const [showCamera, setShowCamera] = useState(false)
+  const [showLocationCapture, setShowLocationCapture] = useState(false)
+  const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState(false)
+  const [memberToRemove, setMemberToRemove] = useState(null)
+  const [userWasRemoved, setUserWasRemoved] = useState(false)
+  const [showRemovedModal, setShowRemovedModal] = useState(false)
   const fileInputRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
   const typingTimeoutRef = useRef({})
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const displayName =
     profile?.meta?.first_name && profile?.meta?.last_name
@@ -212,6 +224,25 @@ export default function ModernChatPage() {
   }, [profile?.user_id])
 
   useEffect(() => {
+    try {
+      const isPrivate = isPrivateRoom(activeRoom)
+      const appId = activeRoom?.application_id
+      const tripId = activeRoom?.trip_id
+      if (!isPrivate || !appId || !tripId) return
+      const isOrganizer = applicationOrganizer[appId] === true
+      if (!isOrganizer) return
+      if (tripImages[tripId]) return
+      const trip = (tripsBase || []).find((t) => String(t.id) === String(tripId))
+      const destination = trip?.destination || trip?.to || ''
+      if (!destination) return
+      ;(async () => {
+        const url = await getFeaturedImage(destination, { orientation: 'landscape', quality: 'regular' })
+        if (url) setTripImages((prev) => ({ ...prev, [tripId]: url }))
+      })()
+    } catch {}
+  }, [activeRoom?.trip_id, activeRoom?.application_id, applicationOrganizer, tripsBase])
+
+  useEffect(() => {
     return () => {
       try {
         if (unsubscribeRef.current) unsubscribeRef.current()
@@ -224,6 +255,20 @@ export default function ModernChatPage() {
       messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, showExpenses, activeRoomId])
+
+  // Verificar si el usuario fue eliminado del grupo
+  useEffect(() => {
+    if (activeRoomId && profile?.user_id && !userWasRemoved) {
+      const interval = setInterval(async () => {
+        const wasRemoved = await checkIfUserWasRemoved()
+        if (wasRemoved) {
+          clearInterval(interval)
+        }
+      }, 5000) // Verificar cada 5 segundos
+
+      return () => clearInterval(interval)
+    }
+  }, [activeRoomId, profile?.user_id, userWasRemoved])
 
   const filteredRooms = useMemo(() => {
     const query = roomQuery.trim().toLowerCase()
@@ -334,7 +379,17 @@ export default function ModernChatPage() {
       }
 
       const initialMessages = await fetchMessages(roomId)
-      setMessages(initialMessages)
+      const filteredInitial = (initialMessages || []).filter((m) => {
+        try {
+          const c = m?.content
+          const isStatus = typeof c === 'string' && c.startsWith('APP_STATUS|')
+          const isEmptyText = !m?.is_file && (!c || !String(c).trim())
+          return !isStatus && !isEmptyText
+        } catch {
+          return true
+        }
+      })
+      setMessages(filteredInitial)
       await updateApplicationStatusesFromMessages(initialMessages)
       await resolveNamesForMessages(initialMessages)
 
@@ -370,6 +425,12 @@ export default function ModernChatPage() {
       } catch (_e) {}
 
       const unsubscribe = subscribeToRoomMessages(roomId, (msg) => {
+        try {
+          const c = msg?.content
+          const isStatus = typeof c === 'string' && c.startsWith('APP_STATUS|')
+          const isEmptyText = !msg?.is_file && (!c || !String(c).trim())
+          if (isStatus || isEmptyText) return
+        } catch {}
         setMessages((prev) => [...prev, msg])
         updateApplicationStatusesFromMessages([msg])
         resolveNamesForMessages([msg])
@@ -384,6 +445,13 @@ export default function ModernChatPage() {
     try {
       if (!activeRoomId) return
       if (!newMessage.trim()) return
+      
+      // Verificar si el usuario fue eliminado antes de enviar
+      if (userWasRemoved) {
+        alert('Fuiste eliminado del grupo. No puedes enviar mensajes.')
+        return
+      }
+      
       await sendMessage(activeRoomId, newMessage)
       setNewMessage('')
       setShowEmojiPicker(false)
@@ -418,6 +486,124 @@ export default function ModernChatPage() {
       alert('Error al eliminar el mensaje')
       setShowDeleteMessageConfirm(false)
       setMessageToDelete(null)
+    }
+  }
+
+  const confirmRemoveMember = (member) => {
+    setMemberToRemove(member)
+    setShowRemoveMemberConfirm(true)
+  }
+
+  const removeMember = async () => {
+    if (!memberToRemove || !activeRoomId) return
+
+    try {
+      console.log('🗑️ Eliminando miembro:', memberToRemove)
+      
+      // Eliminar del chat_members
+      const { error: chatError } = await supabase
+        .from('chat_members')
+        .delete()
+        .eq('room_id', activeRoomId)
+        .eq('user_id', memberToRemove.user_id)
+      
+      if (chatError) {
+        console.error('Error eliminando de chat_members:', chatError)
+        throw chatError
+      }
+
+      // Si es un viaje, también eliminar del trip_members
+      if (activeRoom?.trip_id) {
+        const { error: tripError } = await supabase
+          .from('trip_members')
+          .delete()
+          .eq('trip_id', activeRoom.trip_id)
+          .eq('user_id', memberToRemove.user_id)
+        
+        if (tripError) {
+          console.error('Error eliminando de trip_members:', tripError)
+          throw tripError
+        }
+      }
+
+      // Enviar mensaje de sistema
+      const systemMessage = `👤 ${memberToRemove.name || 'Usuario'} fue eliminado del grupo por el organizador`
+      await sendMessage(activeRoomId, systemMessage, 'system')
+
+      // Actualizar la lista de miembros
+      setChatMembers(prev => prev.filter(m => m.user_id !== memberToRemove.user_id))
+      
+      setShowRemoveMemberConfirm(false)
+      setMemberToRemove(null)
+      
+      // Recargar mensajes para mostrar el mensaje de sistema
+      const updatedMessages = await fetchMessages(activeRoomId)
+      setMessages(updatedMessages)
+      
+      console.log('✅ Miembro eliminado exitosamente')
+      
+    } catch (err) {
+      console.error('Error al eliminar miembro:', err)
+      alert('Error al eliminar el miembro: ' + (err.message || 'Error desconocido'))
+      setShowRemoveMemberConfirm(false)
+      setMemberToRemove(null)
+    }
+  }
+
+  // Función para verificar si el usuario actual fue eliminado del grupo
+  const checkIfUserWasRemoved = async () => {
+    if (!activeRoomId || !profile?.user_id) return
+
+    try {
+      const { data: membership, error } = await supabase
+        .from('chat_members')
+        .select('user_id')
+        .eq('room_id', activeRoomId)
+        .eq('user_id', profile.user_id)
+        .single()
+
+      if (error && error.code === 'PGRST116') {
+        // Usuario no encontrado en chat_members, fue eliminado
+        console.log('🚫 Usuario fue eliminado del grupo')
+        setUserWasRemoved(true)
+        setShowRemovedModal(true)
+        return true
+      }
+
+      return false
+    } catch (err) {
+      console.error('Error verificando membresía:', err)
+      return false
+    }
+  }
+
+  // Función para eliminar el chat para el usuario eliminado
+  const removeChatForRemovedUser = async () => {
+    try {
+      // Eliminar la sala del usuario
+      const { error } = await supabase
+        .from('chat_rooms')
+        .delete()
+        .eq('id', activeRoomId)
+
+      if (error) {
+        console.error('Error eliminando sala:', error)
+      }
+
+      // Cerrar el chat y volver a la lista
+      setActiveRoomId(null)
+      setActiveRoom(null)
+      setMessages([])
+      setShowRemovedModal(false)
+      setUserWasRemoved(false)
+
+      // Recargar la lista de salas
+      const reloadedRooms = await listRoomsForUser(profile.user_id)
+      setRooms(reloadedRooms)
+
+    } catch (err) {
+      console.error('Error eliminando chat:', err)
+      alert('Error al eliminar el chat')
     }
   }
 
@@ -472,6 +658,122 @@ export default function ModernChatPage() {
       alert('Error subiendo archivo. Intenta nuevamente.')
     } finally {
       if (event.target) event.target.value = ''
+    }
+  }
+
+  const handleCameraCapture = async (imageBlob) => {
+    try {
+      if (!imageBlob || !activeRoomId || !profile?.user_id) return
+
+      console.log('📸 Camera capture debug:', {
+        blobType: imageBlob.type,
+        blobSize: imageBlob.size,
+        roomId: activeRoomId,
+        userId: profile.user_id
+      })
+
+      if (imageBlob.size > 10 * 1024 * 1024) {
+        alert('La imagen es demasiado grande. Máximo 10MB.')
+        return
+      }
+
+      const endpoints = [
+        'https://jetgoback.onrender.com/api/chat/upload-camera/',
+        'https://jetgoback.onrender.com/api/chat/upload-file/',
+      ]
+
+      let lastError = null
+
+      for (const endpoint of endpoints) {
+        try {
+          const formData = new FormData()
+          formData.append('file', imageBlob, 'camera-photo.jpg')
+          formData.append('room_id', activeRoomId)
+          formData.append('user_id', profile.user_id)
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+            mode: 'cors',
+          })
+
+          const rawBody = await response.text()
+          let parsedBody = null
+          if (rawBody) {
+            try {
+              parsedBody = JSON.parse(rawBody)
+            } catch (_parseErr) {
+              parsedBody = rawBody
+            }
+          }
+
+          if (!response.ok) {
+            const message =
+              (parsedBody && typeof parsedBody === 'object' && parsedBody !== null && (parsedBody.error || parsedBody.detail)) ||
+              (typeof parsedBody === 'string' ? parsedBody : null) ||
+              `Error HTTP ${response.status}`
+            throw new Error(message)
+          }
+
+          const status =
+            parsedBody && typeof parsedBody === 'object' && parsedBody !== null
+              ? parsedBody.status
+              : null
+
+          if (status && status !== 'success') {
+            const message =
+              parsedBody.error ||
+              parsedBody.message ||
+              'Error subiendo imagen'
+            throw new Error(message)
+          }
+
+          // El endpoint crea el mensaje; traemos los mensajes actualizados
+          const updatedMessages = await fetchMessages(activeRoomId)
+          setMessages(updatedMessages)
+          return
+        } catch (attemptError) {
+          console.warn(`Camera upload failed via ${endpoint}`, attemptError)
+          lastError = attemptError
+        }
+      }
+
+      if (lastError) {
+        throw lastError
+      }
+      throw new Error('Error subiendo imagen. Intenta nuevamente.')
+    } catch (uploadError) {
+      console.error('Error uploading camera image:', uploadError)
+      alert(uploadError.message || 'Error subiendo imagen. Intenta nuevamente.')
+    } finally {
+      setShowCamera(false)
+    }
+  }
+
+  const handleLocationSend = async (locationData) => {
+    try {
+      if (!activeRoomId || !profile?.user_id) return
+
+      const messageContent = JSON.stringify({
+        type: 'location',
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        address: locationData.address,
+        timestamp: locationData.timestamp,
+        isLive: locationData.isLive
+      })
+
+      await sendMessage(activeRoomId, messageContent, 'location')
+      
+      // Actualizar mensajes
+      const updatedMessages = await fetchMessages(activeRoomId)
+      setMessages(updatedMessages)
+      
+    } catch (error) {
+      console.error('Error sending location:', error)
+      alert('Error enviando ubicación. Intenta nuevamente.')
+    } finally {
+      setShowLocationCapture(false)
     }
   }
 
@@ -710,9 +1012,10 @@ export default function ModernChatPage() {
         </div>
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => setSidebarOpen((o) => !o)}
           className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-[#202c33] hover:text-emerald-400"
-          aria-label="Volver"
+          aria-label="Alternar panel"
+          title="Mostrar/ocultar lista de chats"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -776,13 +1079,28 @@ export default function ModernChatPage() {
       <ConnectionStatus />
 
       <div className="flex h-full flex-1">
-        {/* Sidebar */}
-        <div className="flex h-full w-[340px] flex-col border-r border-[#202c33] bg-[#111b21]">
+        {/* Sidebar (animated width) */}
+        <div
+          className={`flex h-full flex-col border-r bg-[#111b21] transition-[width] duration-300 ${
+            sidebarOpen ? 'w-[340px] border-[#202c33]' : 'w-0 overflow-hidden border-transparent'
+          }`}
+        >
           {sidebarContent}
         </div>
 
         {/* Main Chat Area */}
-        <div className="flex h-full flex-1 flex-col">
+        <div className="relative flex h-full flex-1 flex-col">
+          {!sidebarOpen && (
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="absolute left-3 top-24 z-10 inline-flex items-center gap-2 rounded-full bg-[#202c33] px-3 py-1.5 text-sm text-slate-200 shadow hover:text-emerald-400"
+              aria-label="Abrir lista de chats"
+            >
+              <ArrowLeft className="h-4 w-4 rotate-180" />
+              Chats
+            </button>
+          )}
           {!activeRoomId ? (
             <div className="flex flex-1 items-center justify-center bg-[radial-gradient(#ffffff08_1px,transparent_1px)] bg-[length:36px_36px]">
               <div className="space-y-6 text-center">
@@ -1075,6 +1393,45 @@ export default function ModernChatPage() {
                                       </a>
                                     )}
                                   </div>
+                                ) : message.message_type === 'location' || (() => {
+                                  try {
+                                    const parsed = JSON.parse(message.content)
+                                    return parsed.type === 'location'
+                                  } catch {
+                                    return false
+                                  }
+                                })() ? (
+                                  <div className="space-y-2">
+                                    {(() => {
+                                      try {
+                                        console.log('🔍 DEBUGGING LOCATION MESSAGE:', message)
+                                        const locationData = JSON.parse(message.content)
+                                        console.log('📍 LOCATION DATA:', locationData)
+                                        console.log('🗺️ RENDERING MAP WITH:', {
+                                          latitude: locationData.latitude,
+                                          longitude: locationData.longitude,
+                                          address: locationData.address
+                                        })
+                                        return (
+                                          <SimpleLocationMap
+                                            latitude={locationData.latitude}
+                                            longitude={locationData.longitude}
+                                            address={locationData.address}
+                                            timestamp={locationData.timestamp}
+                                            isLive={locationData.isLive}
+                                          />
+                                        )
+                                      } catch (e) {
+                                        console.error('❌ Error parsing location data:', e)
+                                        console.error('📄 Message content:', message.content)
+                                        return (
+                                          <div className="rounded-lg bg-[#1f2c33] p-3 text-sm text-slate-200">
+                                            📍 Ubicación compartida (error al cargar)
+                                          </div>
+                                        )
+                                      }
+                                    })()}
+                                  </div>
                                 ) : (
                                   (() => {
                                     // Show applicant message; if organizer, remove inline 'Viaje:' header to avoid duplication
@@ -1142,7 +1499,6 @@ export default function ModernChatPage() {
                                     // 4. NO es el mensaje del usuario actual (no es el aplicante)
                                     // 5. No está finalizada
                                     if (isPrivate && isOrganizer && isApplication && applicationId && !isFinal && !isOwnMessage) {
-                                      // Organizer view: show sentence then action buttons
                                       const tripId = activeRoom?.trip_id
                                       let tripName = 'Viaje'
                                       let route = ''
@@ -1153,60 +1509,67 @@ export default function ModernChatPage() {
                                             tripName = trip?.name || 'Viaje'
                                             const origin = trip?.origin || trip?.from
                                             const destination = trip?.destination || trip?.to
-                                            route = origin || destination ? ` • ${origin || '?'} → ${destination || '?'}` : ''
+                                            route = origin || destination ? ` • ${origin || '?' } → ${destination || '?'}` : ''
                                           }
                                         }
                                       } catch {}
                                       const applicant = getSenderLabel(message)
                                       return (
-                                        <>
-                                          <div className="mt-3 text-[13px] italic text-slate-300">
-                                            {`${applicant} te envió una solicitud a ${tripName}${route}`}
+                                        <div className="mt-3 flex items-stretch gap-3">
+                                          <div className="flex-1">
+                                            <div className="text-[13px] italic text-slate-300">
+                                              {`${applicant} te envió una solicitud a ${tripName}${route}`}
+                                            </div>
+                                            <div className="mt-2 flex items-center justify-end gap-2">
+                                              <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={async () => {
+                                                  try {
+                                                    await respondToApplication(applicationId, 'reject')
+                                                    setApplicationStatuses((prev) => ({
+                                                      ...prev,
+                                                      [applicationId]: 'rejected',
+                                                    }))
+                                                  } catch (actionError) {
+                                                    alert(
+                                                      actionError?.response?.data?.error ||
+                                                        actionError?.message ||
+                                                        'No se pudo rechazar la solicitud',
+                                                    )
+                                                  }
+                                                }}
+                                              >
+                                                Rechazar
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                onClick={async () => {
+                                                  try {
+                                                    await respondToApplication(applicationId, 'accept')
+                                                    setApplicationStatuses((prev) => ({
+                                                      ...prev,
+                                                      [applicationId]: 'accepted',
+                                                    }))
+                                                  } catch (actionError) {
+                                                    alert(
+                                                      actionError?.response?.data?.error ||
+                                                        actionError?.message ||
+                                                        'No se pudo aceptar la solicitud',
+                                                    )
+                                                  }
+                                                }}
+                                              >
+                                                Aceptar
+                                              </Button>
+                                            </div>
                                           </div>
-                                          <div className="mt-2 flex items-center justify-end gap-2">
-                                          <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={async () => {
-                                              try {
-                                                await respondToApplication(applicationId, 'reject')
-                                                setApplicationStatuses((prev) => ({
-                                                  ...prev,
-                                                  [applicationId]: 'rejected',
-                                                }))
-                                              } catch (actionError) {
-                                                alert(
-                                                  actionError?.response?.data?.error ||
-                                                    actionError?.message ||
-                                                    'No se pudo rechazar la solicitud',
-                                                )
-                                              }
-                                            }}
-                                          >
-                                            Rechazar
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            onClick={async () => {
-                                              try {
-                                                await respondToApplication(applicationId, 'accept')
-                                                setApplicationStatuses((prev) => ({
-                                                  ...prev,
-                                                  [applicationId]: 'accepted',
-                                                }))
-                                              } catch (actionError) {
-                                                alert(
-                                                  actionError?.response?.data?.error ||
-                                                    actionError?.message ||
-                                                    'No se pudo aceptar la solicitud',
-                                                )
-                                              }
-                                            }}
-                                          >
-                                            Aceptar
-                                          </Button>
-                                          </div>
-                                        </>
+                                          {tripId && tripImages[tripId] && (
+                                            <div className="overflow-hidden rounded-lg border border-white/10 self-stretch">
+                                              <img src={tripImages[tripId]} alt={tripName} className="h-full w-28 object-cover" loading="lazy" />
+                                            </div>
+                                          )}
+                                        </div>
                                       )
                                     }
                                   } catch {
@@ -1286,6 +1649,22 @@ export default function ModernChatPage() {
                           </button>
                           <button
                             type="button"
+                            onClick={() => setShowCamera(true)}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
+                            aria-label="Tomar foto"
+                          >
+                            <Camera className="h-5 w-5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowLocationCapture(true)}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
+                            aria-label="Compartir ubicación"
+                          >
+                            <MapPin className="h-5 w-5" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setShowAudioRecorder(!showAudioRecorder)}
                             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition ${
                               showAudioRecorder
@@ -1353,6 +1732,22 @@ export default function ModernChatPage() {
         </div>
       </div>
 
+      {/* Camera Capture Modal */}
+      {showCamera && (
+        <CameraCapture
+          onCapture={handleCameraCapture}
+          onCancel={() => setShowCamera(false)}
+        />
+      )}
+
+      {/* Location Capture Modal */}
+      {showLocationCapture && (
+        <LocationCapture
+          onLocationSend={handleLocationSend}
+          onCancel={() => setShowLocationCapture(false)}
+        />
+      )}
+
       {/* Chat Info Modal */}
       {chatInfoOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
@@ -1379,25 +1774,52 @@ export default function ModernChatPage() {
               )}
 
               {(chatMembers || []).length > 0 &&
-                chatMembers.map((member) => (
-                  <button
-                    key={member.user_id}
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-emerald-400/50 hover:bg-emerald-500/10"
-                    onClick={() => {
-                      try {
-                        if (!member?.user_id) return
-                        navigate(`/u/${member.user_id}`)
-                        setChatInfoOpen(false)
-                      } catch {
-                        /* noop */
-                      }
-                    }}
-                  >
-                    <span className="font-semibold text-white">{member.name || 'Usuario'}</span>
-                    <span className="text-sm text-slate-400">Ver perfil</span>
-                  </button>
-                ))}
+                chatMembers.map((member) => {
+                  // Verificar si el usuario actual es organizador
+                  const isOwner = activeRoom?.trip_id && (tripsBase || []).some(
+                    (trip) => String(trip.id) === String(activeRoom.trip_id) && trip.creatorId === profile?.user_id,
+                  )
+                  const isCurrentUser = member.user_id === profile?.user_id
+                  const canRemove = isOwner && !isCurrentUser && activeRoom?.trip_id
+
+                  return (
+                    <div
+                      key={member.user_id}
+                      className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-emerald-400/50 hover:bg-emerald-500/10"
+                    >
+                      <button
+                        type="button"
+                        className="flex-1 text-left"
+                        onClick={() => {
+                          try {
+                            if (!member?.user_id) return
+                            navigate(`/u/${member.user_id}`)
+                            setChatInfoOpen(false)
+                          } catch {
+                            /* noop */
+                          }
+                        }}
+                      >
+                        <span className="font-semibold text-white">{member.name || 'Usuario'}</span>
+                        <span className="text-sm text-slate-400 ml-2">Ver perfil</span>
+                      </button>
+                      
+                      {canRemove && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            confirmRemoveMember(member)
+                          }}
+                          className="ml-3 px-3 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 rounded-lg transition-colors"
+                          title="Eliminar del grupo"
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
             </div>
 
             {activeRoom?.trip_id && (
@@ -1525,6 +1947,91 @@ export default function ModernChatPage() {
               >
                 <span>🗑️</span>
                 Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para eliminar miembro */}
+      {showRemoveMemberConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 border-b border-red-500/30 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-red-500/20 p-2 rounded-full">
+                  <span className="text-2xl">👤</span>
+                </div>
+                <h3 className="text-xl font-bold text-white">Eliminar Miembro</h3>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-6">
+              <p className="text-slate-300 text-base leading-relaxed">
+                ¿Estás seguro de que quieres eliminar a <strong className="text-white">{memberToRemove?.name || 'Usuario'}</strong> del grupo?
+              </p>
+              <p className="text-slate-400 text-sm mt-2">
+                Esta acción no se puede deshacer y se enviará una notificación al chat.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowRemoveMemberConfirm(false)
+                  setMemberToRemove(null)
+                }}
+                className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={removeMember}
+                className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+              >
+                <span>👤</span>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para usuario eliminado */}
+      {showRemovedModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500/20 to-red-600/20 border-b border-red-500/30 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-red-500/20 p-2 rounded-full">
+                  <span className="text-2xl">🚫</span>
+                </div>
+                <h3 className="text-xl font-bold text-white">Fuiste Eliminado del Grupo</h3>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-6">
+              <p className="text-slate-300 text-base leading-relaxed">
+                El organizador te eliminó de este grupo. Ya no puedes enviar mensajes ni ver el contenido del chat.
+              </p>
+              <p className="text-slate-400 text-sm mt-2">
+                Puedes eliminar este chat de tu lista para limpiar tu interfaz.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end">
+              <button
+                onClick={removeChatForRemovedUser}
+                className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+              >
+                <span>🗑️</span>
+                Eliminar Chat
               </button>
             </div>
           </div>

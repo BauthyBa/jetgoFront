@@ -13,7 +13,6 @@ import {
   Star, 
   Users, 
   MessageCircle, 
-  ArrowLeft, 
   Heart, 
   Share2, 
   MoreHorizontal,
@@ -349,7 +348,6 @@ const PublicProfilePage = () => {
       setPostsLoading(true)
       const url = API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)
       console.log('🔍 Loading user posts from:', url, 'for user:', userId)
-      
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -357,35 +355,24 @@ const PublicProfilePage = () => {
         },
         mode: 'cors',
       })
-      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
-      
       const data = await response.json()
-      console.log('📦 Posts received from API:', data)
-      
       if (!data.posts || data.posts.length === 0) {
-        console.log('❌ No posts in API response')
         setUserPosts([])
         return
       }
-      
-      // SIMPLIFICAR: Solo mostrar posts que coincidan exactamente
+      const target = String(userId)
       const userPosts = data.posts.filter(post => {
-        console.log('🔍 Checking post:', {
-          postId: post.id,
-          postUserId: post.user_id,
-          targetUserId: userId,
-          exactMatch: post.user_id === userId
-        })
-        return post.user_id === userId
+        const byUserId = post.user_id != null && String(post.user_id) === target
+        const byAuthorUserId = post.author?.userid != null && String(post.author.userid) === target
+        const byNestedUserId = post.user?.userid != null && String(post.user.userid) === target
+        return byUserId || byAuthorUserId || byNestedUserId
       })
-      
       console.log('✅ FILTERED RESULT:', userPosts.length, 'posts for user', userId)
       setUserPosts(userPosts)
-      
     } catch (error) {
       console.error('❌ Error loading user posts:', error)
       setUserPosts([])
@@ -394,84 +381,38 @@ const PublicProfilePage = () => {
     }
   }
 
-  const likePost = async (postId) => {
-    try {
-      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/like/`
-      console.log('Liking post at:', url)
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user_id: profile?.id }),
-        mode: 'cors',
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
-      }
-      
-      const data = await response.json()
-      console.log('Like response:', data)
-      
-      // Update liked posts state
-      if (data.action === 'liked') {
-        setLikedPosts(prev => new Set([...prev, postId]))
-      } else if (data.action === 'unliked') {
-        setLikedPosts(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(postId)
-          return newSet
-        })
-      }
-      
-      // Reload posts to update like count
-      loadUserPosts(profile?.id)
-      
-    } catch (error) {
-      console.error('Error liking post:', error)
+const likePost = async (postId) => {
+  try {
+    const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/like/`
+    console.log('Liking post at:', url)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_id: profile?.userid || profile?.id }),
+      mode: 'cors',
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
     }
-  }
-
-  const loadComments = async (postId) => {
-    try {
-      const url = `${API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.POSTS)}${postId}/comments/`
-      console.log('Loading comments from:', url)
-      
-      const response = await fetch(url)
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
-      }
-      
-      const data = await response.json()
-      console.log('Comments received:', data)
-      
-      // Procesar comentarios para obtener información del usuario
-      const processedComments = (data.comments || []).map(comment => {
-        // Si el comentario no tiene información del usuario, intentar obtenerla
-        if (!comment.user || !comment.user.name) {
-          return {
-            ...comment,
-            user: {
-              name: comment.user_name || 'Usuario',
-              id: comment.user_id || comment.user_id
-            }
-          }
-        }
-        return comment
+    const data = await response.json()
+    console.log('Like response:', data)
+    if (data.action === 'liked') {
+      setLikedPosts(prev => new Set([...prev, postId]))
+    } else if (data.action === 'unliked') {
+      setLikedPosts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(postId)
+        return newSet
       })
-      
-      setComments(prev => ({ ...prev, [postId]: processedComments }))
-      
-    } catch (error) {
-      console.error('Error loading comments:', error)
     }
+    await loadUserPosts(profile?.userid || profile?.id)
+  } catch (error) {
+    console.error('Error liking post:', error)
   }
-
+}
   const createComment = async (postId) => {
     try {
       if (!newComment[postId]?.trim()) return
@@ -560,7 +501,7 @@ const PublicProfilePage = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header con botón de volver */}
         <div className="mb-6">
-          <BackButton fallback={-1} variant="ghost" />
+          <BackButton fallback="/social" variant="ghost" />
         </div>
 
         {/* Información principal */}
@@ -588,7 +529,9 @@ const PublicProfilePage = () => {
                 <h1 className="text-2xl font-bold text-white mb-1">
                   {[profile.nombre, profile.apellido].filter(Boolean).join(' ') || 'Usuario'}
                 </h1>
-                <p className="text-slate-300 mb-2">@{profile.username || profile.userid}</p>
+                {profile.username && (
+                  <p className="text-slate-300 mb-2">@{profile.username}</p>
+                )}
                 
                 {/* Nivel de viajero */}
                 <div className="flex items-center gap-2 mb-3">
@@ -843,9 +786,9 @@ const PublicProfilePage = () => {
                 <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
                   {userPosts.map((post) => (
                     <div key={post.id} className="bg-slate-800/50 rounded-lg overflow-hidden">
-                      {post.file_url && (
+                      {(post.file_url || post.image_url || post.video_url) && (
                         <div className="relative group">
-                          {post.file_type === 'image' ? (
+                          {post.file_url && post.file_type === 'image' && (
                             <div className="relative overflow-hidden cursor-pointer">
                               <img
                                 src={post.file_url}
@@ -865,24 +808,40 @@ const PublicProfilePage = () => {
                                 <ImageIcon className="w-12 h-12 text-slate-400" />
                                 <span className="text-slate-400 text-xs ml-2">Error cargando imagen</span>
                               </div>
-                              {/* Overlay de zoom */}
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                                   <Camera className="w-8 h-8 text-white" />
                                 </div>
                               </div>
                             </div>
-                          ) : post.file_type === 'video' ? (
-                            <div className="w-full h-48 bg-slate-700 flex items-center justify-center">
-                              <Video className="w-12 h-12 text-slate-400" />
-                            </div>
-                          ) : (
-                            <div className="w-full h-48 bg-slate-700 flex items-center justify-center">
-                              <ImageIcon className="w-12 h-12 text-slate-400" />
+                          )}
+                          {post.file_url && post.file_type === 'video' && (
+                            <div className="w-full bg-black">
+                              <video
+                                src={post.file_url}
+                                controls
+                                className="w-full h-48 object-cover"
+                              />
                             </div>
                           )}
-                          
-                          {/* Indicador de privacidad */}
+                          {!post.file_url && post.image_url && (
+                            <div className="relative overflow-hidden">
+                              <img
+                                src={post.image_url}
+                                alt="Post content"
+                                className="w-full h-48 object-cover"
+                              />
+                            </div>
+                          )}
+                          {!post.file_url && post.video_url && (
+                            <div className="w-full bg-black">
+                              <video
+                                src={post.video_url}
+                                controls
+                                className="w-full h-48 object-cover"
+                              />
+                            </div>
+                          )}
                           <div className="absolute top-2 right-2">
                             {post.is_public ? (
                               <Globe className="w-4 h-4 text-green-400" />
@@ -890,18 +849,17 @@ const PublicProfilePage = () => {
                               <Lock className="w-4 h-4 text-yellow-400" />
                             )}
                           </div>
-                          
-                          {/* Overlay con información del archivo */}
                           <div className="absolute bottom-2 left-2 bg-black/50 rounded px-2 py-1">
                             <span className="text-white text-xs">
-                              {post.file_type === 'image' ? '📷 Imagen' : 
-                               post.file_type === 'video' ? '🎥 Video' : 
-                               '📎 Archivo'}
+                              {post.file_url ? (
+                                post.file_type === 'image' ? '📷 Imagen' : post.file_type === 'video' ? '🎥 Video' : '📎 Archivo'
+                              ) : (
+                                post.image_url ? '📷 Imagen' : post.video_url ? '🎥 Video' : ''
+                              )}
                             </span>
                           </div>
                         </div>
                       )}
-                      
                       <div className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">

@@ -7,6 +7,7 @@ import Reveal from '@/components/Reveal'
 import ColorBar from '@/components/ColorBar'
 import { getSession, supabase } from '@/services/supabase'
 import TripGrid from '@/components/TripGrid'
+import TripGridEnhanced from '@/components/TripGridEnhanced'
 import { listTrips } from '@/services/trips'
 import ApplyToTripModal from '@/components/ApplyToTripModal'
 import { listRoomsForUser } from '@/services/chat'
@@ -310,7 +311,7 @@ export default function HeroSection() {
                 {/* Dark overlay for trips section - smaller container */}
                 <div className="absolute inset-0 bg-slate-900/50 -m-2 sm:-m-4 lg:-m-6 rounded-2xl" />
                 <div className="relative z-10">
-                  <TripGrid 
+                  <TripGridEnhanced 
                     trips={trips.slice(0, visibleCount)} 
                     onJoin={(trip) => {
                       if (!loggedIn) {
@@ -327,6 +328,9 @@ export default function HeroSection() {
                       }
                       setApplyModal({ open: true, trip })
                     }}
+                    showViewToggle={true}
+                    showFilters={false}
+                    hideApply={true}
                   />
                   {trips.length > visibleCount && (
                     <div className="flex justify-center mt-6">

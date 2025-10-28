@@ -27,6 +27,7 @@ import SocialPage from './pages/SocialPage.jsx'
 import WeatherPage from './pages/WeatherPage.jsx'
 import MisViajesPage from './pages/MisViajesPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
+import FeedPage from './pages/FeedPage.jsx'
 
 const router = createBrowserRouter([
   {
@@ -53,6 +54,10 @@ const router = createBrowserRouter([
       { 
         path: 'modern-chat', 
         element: <ProtectedRoute><ModernChatPage /></ProtectedRoute> 
+      },
+      { 
+        path: 'feed', 
+        element: <ProtectedRoute><FeedPage /></ProtectedRoute> 
       },
       { 
         path: 'viajes', 

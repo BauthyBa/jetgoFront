@@ -23,7 +23,6 @@ import {
 import API_CONFIG from '@/config/api'
 import { extractHashtags, linkPostHashtags, relinkPostHashtags } from '@/services/hashtags'
 import { sendFriendRequest } from '@/services/friends'
-import BackButton from '@/components/BackButton'
 import HashtagParser from '@/components/HashtagParser'
 import TrendingHashtags from '@/components/TrendingHashtags'
 import { listTrips } from '@/services/trips'
@@ -928,14 +927,29 @@ export default function SocialPage() {
   return (
     <>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="flex flex-col gap-6 px-4 py-6 pb-24 md:px-8 md:pb-16 xl:px-12 max-w-5xl mx-auto">
+      <div className="flex flex-col gap-6 px-4 py-6 pb-24 md:px-8 md:pb-16 xl:px-12 max-w-5xl mx-auto relative">
+        {toast.show && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[120]">
+            <div
+              className={`min-w-[280px] max-w-[92vw] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md ${
+                toast.type === 'error'
+                  ? 'bg-red-500/10 border-red-500/30 text-red-200'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+              }`}
+            >
+              <div className="font-semibold text-sm">{toast.title}</div>
+              {toast.message && (
+                <div className="text-xs mt-0.5 text-white/80">{toast.message}</div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <BackButton fallback="/dashboard" variant="minimal">{null}</BackButton>
             <div>
               <h1 className="text-2xl font-bold text-white md:text-3xl">Comunidad JetGo</h1>
-              <p className="text-sm text-slate-300 md:text-base">
-                Conectate con otros viajeros, compartí historias y coordiná tus próximos viajes.
+              <p className="text-sm text-slate-300 md:text-base truncate whitespace-nowrap overflow-hidden md:max-w-sm lg:max-w-md">
+                Conecta, comparti y coordina
               </p>
             </div>
           </div>
@@ -947,12 +961,12 @@ export default function SocialPage() {
                 placeholder="Buscar usuarios..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-700/50 bg-slate-800/50 px-11 py-2.5 text-white placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                className="w-full h-12 rounded-xl border border-slate-700/50 bg-slate-800/50 px-11 text-white placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
               />
             </div>
             <button
               onClick={() => setShowCreatePostModal(true)}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2 font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:from-emerald-500 hover:to-emerald-400"
+              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:from-emerald-500 hover:to-emerald-400"
             >
               <Plus className="h-5 w-5" />
               <span className="hidden sm:inline">Crear Post</span>
