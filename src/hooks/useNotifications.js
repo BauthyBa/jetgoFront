@@ -139,7 +139,6 @@ export function useNotifications() {
     loading,
     currentUser,
     markAsRead,
-    markAllAsRead,
-    loadNotifications
+    markAllAsRead
   }
 }
