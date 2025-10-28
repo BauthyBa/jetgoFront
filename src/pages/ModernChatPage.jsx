@@ -1455,9 +1455,15 @@ export default function ModernChatPage() {
                                       }
                                     } catch {}
 
-                                    return finalContent ? (
-                                      <div className="text-sm whitespace-pre-wrap break-words">{finalContent}</div>
-                                    ) : null
+                                    // Mostrar el mensaje si existe
+                                    if (finalContent) {
+                                      return <div className="text-sm whitespace-pre-wrap break-words">{finalContent}</div>
+                                    }
+                                    // Si no hay mensaje pero es una aplicación, retornar vacío para que se muestre la tarjeta de aplicación
+                                    if (isApplication && applicationId) {
+                                      return null
+                                    }
+                                    return null
                                   })()
                                 )}
 

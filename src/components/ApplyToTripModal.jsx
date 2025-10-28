@@ -8,6 +8,13 @@ export default function ApplyToTripModal({ trip, isOpen, onClose, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validar que el mensaje no esté vacío
+    if (!message.trim()) {
+      alert('Por favor escribe un mensaje para el anfitrión')
+      return
+    }
+    
     setLoading(true)
     
     try {
@@ -53,7 +60,7 @@ export default function ApplyToTripModal({ trip, isOpen, onClose, onSuccess }) {
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2">
-              Mensaje para el anfitrión (opcional)
+              Mensaje para el anfitrión *
             </label>
             <textarea
               value={message}
@@ -61,14 +68,15 @@ export default function ApplyToTripModal({ trip, isOpen, onClose, onSuccess }) {
               placeholder="Cuéntale al anfitrión por qué quieres unirte a este viaje..."
               className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-700 border-slate-600 text-white placeholder-slate-400"
               rows={4}
+              required
             />
           </div>
 
           <div className="flex gap-3">
             <button
               type="submit"
-              disabled={loading}
-              className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded flex-1"
+              disabled={loading || !message.trim()}
+              className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Aplicando...' : 'Aplicar'}
             </button>
