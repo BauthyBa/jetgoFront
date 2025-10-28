@@ -25,6 +25,9 @@ export default function Register({ embedded = false }) {
     dni_image_url: '',
     dni_back_file: null,
     dni_back_url: '',
+    bio: '',
+    interests: '',
+    travel_style: '',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -222,6 +225,13 @@ export default function Register({ embedded = false }) {
       setError('Debes aceptar los Términos y Condiciones para continuar')
       return
     }
+    
+    // Validar campos obligatorios
+    if (!form.bio || !form.interests || !form.travel_style) {
+      setError('Por favor completa tu biografía, intereses y estilo de viaje')
+      return
+    }
+    
     setLoading(true)
     setError(null)
     setOk(false)
@@ -270,6 +280,9 @@ export default function Register({ embedded = false }) {
               email: supaEmail,
               password: randomPassword,
               dni_front_payload: text,
+              bio: form.bio,
+              interests: form.interests,
+              travel_style: form.travel_style,
             })
             localStorage.setItem('dni_meta', JSON.stringify({
               first_name: form.first_name,
@@ -277,6 +290,9 @@ export default function Register({ embedded = false }) {
               document_number: form.document_number,
               sex: form.sex,
               birth_date: form.birth_date,
+              bio: form.bio,
+              interests: form.interests,
+              travel_style: form.travel_style,
             }))
             // Guardar datos básicos en el user metadata de Supabase
             await updateUserMetadata({
@@ -285,6 +301,9 @@ export default function Register({ embedded = false }) {
               document_number: form.document_number,
               sex: form.sex,
               birth_date: form.birth_date,
+              bio: form.bio,
+              interests: form.interests,
+              travel_style: form.travel_style,
               dni_verified: true
             })
             // Upsert inmediato al backend (tabla public.User)
@@ -297,6 +316,9 @@ export default function Register({ embedded = false }) {
                 document_number: form.document_number,
                 sex: form.sex,
                 birth_date: form.birth_date,
+                bio: form.bio,
+                interests: form.interests,
+                travel_style: form.travel_style,
               })
             } catch (e) {
               console.warn('No se pudo upsert perfil al backend durante verificación:', e?.message || e)
@@ -323,6 +345,9 @@ export default function Register({ embedded = false }) {
               document_number: form.document_number,
               sex: form.sex,
               birth_date: form.birth_date,
+              bio: form.bio,
+              interests: form.interests,
+              travel_style: form.travel_style,
               dni_verified: true,
             } }
           })
@@ -332,6 +357,9 @@ export default function Register({ embedded = false }) {
             document_number: form.document_number,
             sex: form.sex,
             birth_date: form.birth_date,
+            bio: form.bio,
+            interests: form.interests,
+            travel_style: form.travel_style,
           }))
         } catch (e) {
           console.warn('No se pudo iniciar signUp en Supabase:', e?.message || e)
@@ -389,6 +417,52 @@ export default function Register({ embedded = false }) {
             <div className="field" style={{ marginBottom: '24px' }}>
               <label style={{ fontSize: '18px', marginBottom: '12px' }}>Fecha de nacimiento</label>
               <input type="date" name="birth_date" value={form.birth_date} onChange={handleChange} required style={{ padding: '16px', fontSize: '18px' }} />
+            </div>
+            <div className="field" style={{ marginBottom: '24px' }}>
+              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Biografía *</label>
+              <textarea 
+                name="bio" 
+                value={form.bio} 
+                onChange={handleChange} 
+                placeholder="Contanos sobre vos, tus hobbies, experiencias de viaje..."
+                required 
+                style={{ padding: '16px', fontSize: '18px', minHeight: '100px', resize: 'vertical' }}
+              />
+              <small style={{ color: '#94a3b8', fontSize: '14px' }}>Esta información será visible en tu perfil público</small>
+            </div>
+            <div className="field" style={{ marginBottom: '24px' }}>
+              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Intereses *</label>
+              <input 
+                name="interests" 
+                value={form.interests} 
+                onChange={handleChange} 
+                placeholder="Ej: Fotografía, gastronomía, senderismo, cultura..."
+                required 
+                style={{ padding: '16px', fontSize: '18px' }} 
+              />
+              <small style={{ color: '#94a3b8', fontSize: '14px' }}>Separá tus intereses con comas</small>
+            </div>
+            <div className="field" style={{ marginBottom: '24px' }}>
+              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Estilo de viaje *</label>
+              <select 
+                name="travel_style" 
+                value={form.travel_style} 
+                onChange={handleChange} 
+                required 
+                style={{ padding: '16px', fontSize: '18px' }}
+              >
+                <option value="">Seleccionar estilo</option>
+                <option value="aventurero">🏔️ Aventurero - Me gusta el riesgo y la adrenalina</option>
+                <option value="cultural">🏛️ Cultural - Prefiero museos, historia y arquitectura</option>
+                <option value="relajado">🏖️ Relajado - Busco descansar y disfrutar</option>
+                <option value="gastronomico">🍽️ Gastronómico - La comida es mi prioridad</option>
+                <option value="social">🎉 Social - Me encanta conocer gente nueva</option>
+                <option value="naturaleza">🌿 Naturaleza - Prefiero espacios naturales</option>
+                <option value="urbano">🏙️ Urbano - Disfruto las grandes ciudades</option>
+                <option value="economico">💰 Económico - Busco ahorrar al máximo</option>
+                <option value="lujo">✨ Lujo - Prefiero la comodidad</option>
+                <option value="flexible">🔄 Flexible - Me adapto a todo</option>
+              </select>
             </div>
             {!googleMode && !embedded && (
               <>
@@ -482,7 +556,7 @@ export default function Register({ embedded = false }) {
             <input type="hidden" name="dni_front_payload" value={form.dni_front_payload} />
             <div className="actions" style={{ marginTop: '36px', gap: '20px' }}>
               <button className="btn" type="submit" disabled={loading || scanning || !termsAccepted} style={{ padding: '18px 24px', fontSize: '18px' }}>{(googleMode || embedded) ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (loading ? 'Enviando...' : (scanning ? 'Leyendo...' : 'Crear cuenta'))}</button>
-              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); if (imgRef.current) imgRef.current.src = ''; if (backImgRef.current) backImgRef.current.src = ''; }} style={{ padding: '18px 24px', fontSize: '18px' }}>Limpiar</button>
+              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '', bio: '', interests: '', travel_style: '' }); if (imgRef.current) imgRef.current.src = ''; if (backImgRef.current) backImgRef.current.src = ''; }} style={{ padding: '18px 24px', fontSize: '18px' }}>Limpiar</button>
               <span className="muted" style={{ fontSize: '18px' }}>{scanning ? 'Procesando imagen...' : ''}</span>
             </div>
             {ok && <p className="success" style={{ fontSize: '18px', padding: '18px', marginTop: '24px' }}>Revisa tu correo para confirmar la cuenta. Luego podés iniciar sesión.</p>}
