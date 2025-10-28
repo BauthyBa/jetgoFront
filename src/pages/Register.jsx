@@ -29,8 +29,6 @@ export default function Register({ embedded = false }) {
   const [error, setError] = useState(null)
   const [ok, setOk] = useState(false)
   const [scanning, setScanning] = useState(false)
-  const imgRef = useRef(null)
-  const backImgRef = useRef(null)
   const [scanStatus, setScanStatus] = useState('idle')
   const [overlay, setOverlay] = useState({ visible: false, message: '' })
   const [termsOpen, setTermsOpen] = useState(false)
@@ -46,8 +44,14 @@ export default function Register({ embedded = false }) {
   const gridGap = compact ? '16px' : '24px'
   const fieldMargin = compact ? '0px' : '24px'
   const sectionSpacing = compact ? '24px' : '36px'
+  const introSpacing = compact ? '20px' : sectionSpacing
   const actionGap = compact ? '16px' : '20px'
-  const previewHeight = compact ? 200 : 260
+  const overlayBoxStyle = compact
+    ? { maxWidth: 560, width: '92%', background: '#0f172a', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.4)', borderRadius: 12 }
+    : { maxWidth: 740, width: '90%', background: '#ffffff', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 12 }
+  const introCopy = compact
+    ? 'Cargá el frente y dorso del DNI y verificá que los datos coincidan con tu documento.'
+    : 'Subí la foto del frente del DNI para verificar tus datos. Ingresá tus datos manualmente en los campos de abajo.'
   const loadTerms = useCallback(async () => {
     if (termsHtmlRef.current && termsHtmlRef.current.length > 0) return termsHtmlRef.current
     try {
@@ -194,7 +198,6 @@ export default function Register({ embedded = false }) {
     const file = e.target.files?.[0]
     if (!file) return
     const url = URL.createObjectURL(file)
-    if (imgRef.current) imgRef.current.src = url
     setForm((f) => ({ ...f, dni_image_file: file, dni_image_url: url }))
     setError(null)
     setScanStatus('idle')
@@ -203,7 +206,6 @@ export default function Register({ embedded = false }) {
     const file = e.target.files?.[0]
     if (!file) return
     const url = URL.createObjectURL(file)
-    if (backImgRef.current) backImgRef.current.src = url
     setForm((f) => ({ ...f, dni_back_file: file, dni_back_url: url }))
   }
   const handleChange = (e) => {
@@ -342,28 +344,31 @@ export default function Register({ embedded = false }) {
   }
   const inner = (
     <>
-      <p className="muted" style={{ fontSize: controlFontSize, marginBottom: sectionSpacing }}>Subí la foto del frente del DNI para verificar tus datos. Ingresá tus datos manualmente en los campos de abajo.</p>
+      <p
+        className={`muted${compact ? ' verify-card__intro' : ''}`}
+        style={{ fontSize: controlFontSize, marginBottom: introSpacing }}
+      >
+        {introCopy}
+      </p>
       <form className="form form-grid" onSubmit={handleSubmit} style={{ gap: gridGap }}>
             <div className="field" style={{ marginBottom: fieldMargin }}>
               <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Foto del DNI (frente)</label>
               <input type="file" accept="image/*" onChange={handleImageChange} style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
-            <div
-              className={"preview " + (imgRef.current?.src ? 'visible' : '')}
-              style={{ marginBottom: fieldMargin, ...(compact ? { gridColumn: '1 / -1' } : {}) }}
-            >
-              <img ref={imgRef} alt="preview" style={{ maxHeight: previewHeight }} />
-            </div>
+            {form.dni_image_url ? (
+              <p className="upload-status upload-status--ok">Frente del DNI cargado</p>
+            ) : (
+              <p className="upload-status upload-status--pending">Subí la foto del frente del DNI</p>
+            )}
             <div className="field" style={{ marginBottom: fieldMargin }}>
               <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Foto del DNI (dorso)</label>
               <input type="file" accept="image/*" onChange={handleBackImageChange} style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
-            <div
-              className={"preview " + (backImgRef.current?.src ? 'visible' : '')}
-              style={{ marginBottom: fieldMargin, ...(compact ? { gridColumn: '1 / -1' } : {}) }}
-            >
-              <img ref={backImgRef} alt="preview dorso" style={{ maxHeight: previewHeight }} />
-            </div>
+            {form.dni_back_url ? (
+              <p className="upload-status upload-status--ok">Dorso del DNI cargado</p>
+            ) : (
+              <p className="upload-status upload-status--pending">Subí la foto del dorso del DNI</p>
+            )}
             <div className="field" style={{ marginBottom: fieldMargin }}>
               <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Nombres</label>
               <input name="first_name" value={form.first_name} onChange={handleChange} placeholder="Ejemplo: Juan Carlos" required style={{ padding: controlPadding, fontSize: controlFontSize }} />
@@ -494,7 +499,7 @@ export default function Register({ embedded = false }) {
               }}
             >
               <button className="btn" type="submit" disabled={loading || scanning || !termsAccepted} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>{googleMode ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (loading ? 'Enviando...' : (scanning ? 'Leyendo...' : 'Crear cuenta'))}</button>
-              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); if (imgRef.current) imgRef.current.src = ''; if (backImgRef.current) backImgRef.current.src = ''; }} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>Limpiar</button>
+              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); }} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>Limpiar</button>
               <span className="muted" style={{ fontSize: controlFontSize }}>{scanning ? 'Procesando imagen...' : ''}</span>
             </div>
             {ok && (
@@ -543,7 +548,7 @@ export default function Register({ embedded = false }) {
       )}
       {termsOpen && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
-          <div className="overlay-box" style={{ maxWidth: 740, width: '90%', background: '#ffffff', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+          <div className="overlay-box" style={overlayBoxStyle}>
             <h3 id="termsTitle" style={{ fontWeight: 800, marginBottom: 8, color: '#0f172a' }}>Términos y Condiciones</h3>
             <style>{`
               .terms-content { color: #0f172a; line-height: 1.6; }
