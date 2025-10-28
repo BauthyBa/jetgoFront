@@ -126,12 +126,8 @@ export default function TripCardEnhanced({
           
           {/* Overlay con información básica */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent">
-            <div className="absolute bottom-4 left-4 right-4">
-              <Link
-                to={`/trip/${trip.id}`}
-                className="block text-white hover:text-emerald-300 transition-colors"
-                title={`Ver detalles de ${trip.name}`}
-              >
+            <div className="absolute bottom-4 left-4 right-4 select-none">
+              <div className="block text-white">
                 <h3 className="text-xl font-bold mb-1 line-clamp-1">
                   {trip.name}
                 </h3>
@@ -141,7 +137,7 @@ export default function TripCardEnhanced({
                     {trip.origin} → {trip.destination}
                   </span>
                 </div>
-              </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -304,12 +300,11 @@ export default function TripCardEnhanced({
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             {/* Título y ruta */}
             <div className="flex-1 min-w-0">
-              <Link 
-                to={`/trip/${trip.id}`} 
-                className="text-xl font-bold text-white hover:text-emerald-400 transition-colors line-clamp-1"
+              <div 
+                className="text-xl font-bold text-white line-clamp-1"
               >
                 {trip.name}
-              </Link>
+              </div>
               
               <div className="flex items-center gap-2 mt-2 text-slate-300">
                 <MapPin className="w-4 h-4 flex-shrink-0" />
