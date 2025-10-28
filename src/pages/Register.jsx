@@ -6,8 +6,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { getSession, updateUserMetadata } from '../services/supabase'
 import { upsertProfileToBackend } from '../services/api'
 import { signInWithGoogle, supabase } from '../services/supabase'
-import BackButton from '../components/BackButton'
-
 export default function Register({ embedded = false }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -41,7 +39,15 @@ export default function Register({ embedded = false }) {
   const [termsAccepted, setTermsAccepted] = useState(false)
   const termsScrollRef = useRef(null)
   const termsHtmlRef = useRef('')
-
+  const compact = embedded
+  const labelFontSize = compact ? '16px' : '18px'
+  const controlPadding = compact ? '12px' : '16px'
+  const controlFontSize = compact ? '16px' : '18px'
+  const gridGap = compact ? '16px' : '24px'
+  const fieldMargin = compact ? '0px' : '24px'
+  const sectionSpacing = compact ? '24px' : '36px'
+  const actionGap = compact ? '16px' : '20px'
+  const previewHeight = compact ? 200 : 260
   const loadTerms = useCallback(async () => {
     if (termsHtmlRef.current && termsHtmlRef.current.length > 0) return termsHtmlRef.current
     try {
@@ -78,18 +84,15 @@ export default function Register({ embedded = false }) {
     termsHtmlRef.current = fallback
     return fallback
   }, [])
-
   useEffect(() => {
     // Pre-cargar términos en segundo plano al ingresar a la página
     loadTerms()
   }, [loadTerms])
-
   const openTerms = async () => {
     setTermsOpen(true)
     setTermsReadyToAccept(false)
     await loadTerms()
   }
-
   const parseDniPayload = (payload) => {
     let text = payload.replace(/[^\x20-\x7E@/]/g, '')
     text = text.replace(/\r?\n/g, '@').replace(/@{2,}/g, '@').trim()
@@ -104,7 +107,6 @@ export default function Register({ embedded = false }) {
     const birthISO = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
     return { lastnames, names, sex, document, birthISO }
   }
-
   const rotateDataUrl = (url, angle) => {
     return new Promise((resolve, reject) => {
       const img = new Image()
@@ -128,7 +130,6 @@ export default function Register({ embedded = false }) {
       img.src = url
     })
   }
-
   const preprocessImage = (url) => {
     return new Promise((resolve, reject) => {
       const img = new Image()
@@ -161,7 +162,6 @@ export default function Register({ embedded = false }) {
       img.src = url
     })
   }
-
   const tryDecodeWithFallbacks = async (url) => {
     const processedUrl = await preprocessImage(url)
     const hintConfigs = [
@@ -169,10 +169,8 @@ export default function Register({ embedded = false }) {
       { name: 'Multiple_formats', hints: new Map([[DecodeHintType.TRY_HARDER, true], [DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.PDF_417, BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.DATA_MATRIX]], [DecodeHintType.CHARACTER_SET, 'UTF-8']]) },
       { name: 'All_formats', hints: new Map([[DecodeHintType.TRY_HARDER, true], [DecodeHintType.CHARACTER_SET, 'UTF-8']]) },
     ]
-
     const images = [ { name: 'processed', url: processedUrl }, { name: 'original', url } ]
     const angles = [0, 90, 180, 270]
-
     for (const config of hintConfigs) {
       for (const image of images) {
         for (const angle of angles) {
@@ -192,7 +190,6 @@ export default function Register({ embedded = false }) {
     }
     throw new Error('No se pudo decodificar el código de barras con ningún método.')
   }
-
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -202,7 +199,6 @@ export default function Register({ embedded = false }) {
     setError(null)
     setScanStatus('idle')
   }
-
   const handleBackImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -210,12 +206,10 @@ export default function Register({ embedded = false }) {
     if (backImgRef.current) backImgRef.current.src = url
     setForm((f) => ({ ...f, dni_back_file: file, dni_back_url: url }))
   }
-
   const handleChange = (e) => {
     const { name, value } = e.target
     setForm((f) => ({ ...f, [name]: value }))
   }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!termsAccepted) {
@@ -235,7 +229,6 @@ export default function Register({ embedded = false }) {
       setForm((f) => ({ ...f, dni_front_payload: text }))
       const parsed = parseDniPayload(text)
       if (!parsed) throw new Error('No se pudo validar el código. Intentá otra foto más nítida del frente del DNI.')
-
       const stripAccents = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       const norm = (s) => stripAccents(s).trim().toUpperCase().replace(/[^A-Z0-9]+/g, ' ').split(/\s+/).filter(Boolean)
       const isSubset = (a, b) => a.every((x) => b.includes(x))
@@ -251,7 +244,6 @@ export default function Register({ embedded = false }) {
       if (form.sex.toUpperCase().slice(0,1) !== parsed.sex.toUpperCase().slice(0,1)) mismatches.push('Sexo')
       if (form.birth_date !== parsed.birthISO) mismatches.push('Fecha de nacimiento')
       if (mismatches.length) throw new Error(`Los siguientes campos no coinciden con el DNI: ${mismatches.join(', ')}`)
-
       if (googleMode) {
         try {
           const session = await getSession()
@@ -348,56 +340,61 @@ export default function Register({ embedded = false }) {
       setOverlay({ visible: false, message: '' })
     }
   }
-
   const inner = (
     <>
-      <p className="muted" style={{ fontSize: '18px', marginBottom: '36px' }}>Subí la foto del frente del DNI para verificar tus datos. Ingresá tus datos manualmente en los campos de abajo.</p>
-      <form className="form form-grid" onSubmit={handleSubmit} style={{ gap: '24px' }}>
-            <div className="field" style={{ marginBottom: '24px' }}>
-              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Foto del DNI (frente)</label>
-              <input type="file" accept="image/*" onChange={handleImageChange} style={{ padding: '16px', fontSize: '18px' }} />
+      <p className="muted" style={{ fontSize: controlFontSize, marginBottom: sectionSpacing }}>Subí la foto del frente del DNI para verificar tus datos. Ingresá tus datos manualmente en los campos de abajo.</p>
+      <form className="form form-grid" onSubmit={handleSubmit} style={{ gap: gridGap }}>
+            <div className="field" style={{ marginBottom: fieldMargin }}>
+              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Foto del DNI (frente)</label>
+              <input type="file" accept="image/*" onChange={handleImageChange} style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
-            <div className={"preview " + (imgRef.current?.src ? 'visible' : '')} style={{ marginBottom: '24px' }}>
-              <img ref={imgRef} alt="preview" style={{ maxHeight: 260 }} />
+            <div
+              className={"preview " + (imgRef.current?.src ? 'visible' : '')}
+              style={{ marginBottom: fieldMargin, ...(compact ? { gridColumn: '1 / -1' } : {}) }}
+            >
+              <img ref={imgRef} alt="preview" style={{ maxHeight: previewHeight }} />
             </div>
-            <div className="field" style={{ marginBottom: '24px' }}>
-              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Foto del DNI (dorso)</label>
-              <input type="file" accept="image/*" onChange={handleBackImageChange} style={{ padding: '16px', fontSize: '18px' }} />
+            <div className="field" style={{ marginBottom: fieldMargin }}>
+              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Foto del DNI (dorso)</label>
+              <input type="file" accept="image/*" onChange={handleBackImageChange} style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
-            <div className={"preview " + (backImgRef.current?.src ? 'visible' : '')} style={{ marginBottom: '24px' }}>
-              <img ref={backImgRef} alt="preview dorso" style={{ maxHeight: 260 }} />
+            <div
+              className={"preview " + (backImgRef.current?.src ? 'visible' : '')}
+              style={{ marginBottom: fieldMargin, ...(compact ? { gridColumn: '1 / -1' } : {}) }}
+            >
+              <img ref={backImgRef} alt="preview dorso" style={{ maxHeight: previewHeight }} />
             </div>
-            <div className="field" style={{ marginBottom: '24px' }}>
-              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Nombres</label>
-              <input name="first_name" value={form.first_name} onChange={handleChange} placeholder="Ejemplo: Juan Carlos" required style={{ padding: '16px', fontSize: '18px' }} />
+            <div className="field" style={{ marginBottom: fieldMargin }}>
+              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Nombres</label>
+              <input name="first_name" value={form.first_name} onChange={handleChange} placeholder="Ejemplo: Juan Carlos" required style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
-            <div className="field" style={{ marginBottom: '24px' }}>
-              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Apellidos</label>
-              <input name="last_name" value={form.last_name} onChange={handleChange} placeholder="Ejemplo: Pérez Gómez" required style={{ padding: '16px', fontSize: '18px' }} />
+            <div className="field" style={{ marginBottom: fieldMargin }}>
+              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Apellidos</label>
+              <input name="last_name" value={form.last_name} onChange={handleChange} placeholder="Ejemplo: Pérez Gómez" required style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
-            <div className="field" style={{ marginBottom: '24px' }}>
-              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Número de Documento</label>
-              <input name="document_number" value={form.document_number} onChange={handleChange} required style={{ padding: '16px', fontSize: '18px' }} />
+            <div className="field" style={{ marginBottom: fieldMargin }}>
+              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Número de Documento</label>
+              <input name="document_number" value={form.document_number} onChange={handleChange} required style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
-            <div className="field" style={{ marginBottom: '24px' }}>
-              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Sexo</label>
-              <select name="sex" value={form.sex} onChange={handleChange} style={{ padding: '16px', fontSize: '18px' }}>
+            <div className="field" style={{ marginBottom: fieldMargin }}>
+              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Sexo</label>
+              <select name="sex" value={form.sex} onChange={handleChange} style={{ padding: controlPadding, fontSize: controlFontSize }}>
                 <option value="M">M</option>
                 <option value="F">F</option>
               </select>
             </div>
-            <div className="field" style={{ marginBottom: '24px' }}>
-              <label style={{ fontSize: '18px', marginBottom: '12px' }}>Fecha de nacimiento</label>
-              <input type="date" name="birth_date" value={form.birth_date} onChange={handleChange} required style={{ padding: '16px', fontSize: '18px' }} />
+            <div className="field" style={{ marginBottom: fieldMargin }}>
+              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Fecha de nacimiento</label>
+              <input type="date" name="birth_date" value={form.birth_date} onChange={handleChange} required style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
             {!googleMode && (
               <>
-                <div className="field" style={{ marginBottom: '24px' }}>
-                  <label style={{ fontSize: '18px', marginBottom: '12px' }}>Correo</label>
-                  <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="ejemplo@email.com" required style={{ padding: '16px', fontSize: '18px' }} />
+                <div className="field" style={{ marginBottom: fieldMargin }}>
+                  <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Correo</label>
+                  <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="ejemplo@email.com" required style={{ padding: controlPadding, fontSize: controlFontSize }} />
                 </div>
-                <div className="field" style={{ marginBottom: '24px' }}>
-                  <label style={{ fontSize: '18px', marginBottom: '12px' }}>Contraseña</label>
+                <div className="field" style={{ marginBottom: fieldMargin }}>
+                  <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Contraseña</label>
                   <div style={{ position: 'relative' }}>
                     <input 
                       type={showPassword ? "text" : "password"} 
@@ -405,7 +402,7 @@ export default function Register({ embedded = false }) {
                       value={form.password} 
                       onChange={handleChange} 
                       required 
-                      style={{ padding: '16px', paddingRight: '50px', fontSize: '18px', width: '100%' }} 
+                      style={{ padding: controlPadding, paddingRight: compact ? '44px' : '50px', fontSize: controlFontSize, width: '100%' }} 
                     />
                     <button
                       type="button"
@@ -419,7 +416,7 @@ export default function Register({ embedded = false }) {
                         border: 'none',
                         color: '#94a3b8',
                         cursor: 'pointer',
-                        padding: '4px',
+                        padding: compact ? '2px' : '4px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
@@ -440,7 +437,15 @@ export default function Register({ embedded = false }) {
                 </div>
               </>
             )}
-            <div className="field" style={{ marginTop: 20, alignItems: 'center', marginBottom: '28px' }}>
+            <div
+              className="field"
+              style={{
+                marginTop: compact ? 12 : 20,
+                alignItems: 'center',
+                marginBottom: compact ? '12px' : '28px',
+                ...(compact ? { gridColumn: '1 / -1' } : {}),
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'center', width: '100%' }}>
                 <input
                   id="terms_checkbox"
@@ -455,12 +460,12 @@ export default function Register({ embedded = false }) {
                   }}
                   style={{ width: 22, height: 22 }}
                 />
-                <label htmlFor="terms_checkbox" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: '18px' }}>
+                <label htmlFor="terms_checkbox" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: controlFontSize }}>
                   <span>He leído y acepto los</span>
                   <span
                     role="link"
                     tabIndex={0}
-                    style={{ color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer', fontSize: '18px' }}
+                    style={{ color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer', fontSize: controlFontSize }}
                     onClick={async (e) => {
                       e.preventDefault()
                       e.stopPropagation()
@@ -480,17 +485,47 @@ export default function Register({ embedded = false }) {
               </div>
             </div>
             <input type="hidden" name="dni_front_payload" value={form.dni_front_payload} />
-            <div className="actions" style={{ marginTop: '36px', gap: '20px' }}>
-              <button className="btn" type="submit" disabled={loading || scanning || !termsAccepted} style={{ padding: '18px 24px', fontSize: '18px' }}>{googleMode ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (loading ? 'Enviando...' : (scanning ? 'Leyendo...' : 'Crear cuenta'))}</button>
-              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); if (imgRef.current) imgRef.current.src = ''; if (backImgRef.current) backImgRef.current.src = ''; }} style={{ padding: '18px 24px', fontSize: '18px' }}>Limpiar</button>
-              <span className="muted" style={{ fontSize: '18px' }}>{scanning ? 'Procesando imagen...' : ''}</span>
+            <div
+              className="actions"
+              style={{
+                marginTop: sectionSpacing,
+                gap: actionGap,
+                ...(compact ? { gridColumn: '1 / -1' } : {}),
+              }}
+            >
+              <button className="btn" type="submit" disabled={loading || scanning || !termsAccepted} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>{googleMode ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (loading ? 'Enviando...' : (scanning ? 'Leyendo...' : 'Crear cuenta'))}</button>
+              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); if (imgRef.current) imgRef.current.src = ''; if (backImgRef.current) backImgRef.current.src = ''; }} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>Limpiar</button>
+              <span className="muted" style={{ fontSize: controlFontSize }}>{scanning ? 'Procesando imagen...' : ''}</span>
             </div>
-            {ok && <p className="success" style={{ fontSize: '18px', padding: '18px', marginTop: '24px' }}>Revisa tu correo para confirmar la cuenta. Luego podés iniciar sesión.</p>}
-            {error && <pre className="error" style={{ fontSize: '18px', padding: '18px', marginTop: '24px' }}>{error}</pre>}
+            {ok && (
+              <p
+                className="success"
+                style={{
+                  fontSize: controlFontSize,
+                  padding: compact ? '16px' : '18px',
+                  marginTop: sectionSpacing,
+                  ...(compact ? { gridColumn: '1 / -1' } : {}),
+                }}
+              >
+                Revisa tu correo para confirmar la cuenta. Luego podés iniciar sesión.
+              </p>
+            )}
+            {error && (
+              <pre
+                className="error"
+                style={{
+                  fontSize: controlFontSize,
+                  padding: compact ? '16px' : '18px',
+                  marginTop: sectionSpacing,
+                  ...(compact ? { gridColumn: '1 / -1' } : {}),
+                }}
+              >
+                {error}
+              </pre>
+            )}
       </form>
     </>
   )
-
   return (
     <>
       {embedded ? (
@@ -500,7 +535,6 @@ export default function Register({ embedded = false }) {
           <div className="card glass-card" style={{ padding: '50px', transform: 'scale(1.2)', transformOrigin: 'center' }}>
             {/* Botón de volver */}
             <div className="mb-6">
-              <BackButton fallback="/" variant="ghost" />
             </div>
             <h2 className="page-title" style={{ fontSize: '3rem', marginBottom: '32px' }}>Registro</h2>
             {inner}
@@ -556,5 +590,3 @@ export default function Register({ embedded = false }) {
     </>
   )
 }
-
-

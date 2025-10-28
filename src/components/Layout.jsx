@@ -73,6 +73,10 @@ export default function Layout() {
         {/* Compact back bar for views without main header and not dashboard */}
         {!isRoot &&
           hideHeader &&
+          !location.pathname.startsWith('/login') &&
+          !location.pathname.startsWith('/signup') &&
+          !location.pathname.startsWith('/register') &&
+          !location.pathname.startsWith('/verify-dni') &&
           !location.pathname.startsWith('/dashboard') &&
           !location.pathname.startsWith('/social') &&
           !location.pathname.startsWith('/modern-chat') &&
