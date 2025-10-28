@@ -27,6 +27,31 @@ import { createTrip } from '@/services/trips'
 import { searchCities, searchCountries } from '@/services/nominatim'
 import ROUTES from '@/config/routes'
 
+// Utilidades para calcular temporada (deben ir después de los imports)
+const SOUTHERN_HEMISPHERE_COUNTRIES = new Set([
+  'AR','AU','NZ','ZA','CL','UY','PY','BO','PE','NA','BW','MZ','MG','ZW','ZM','LS','SZ','AO','YT','RE','TF'
+])
+
+function getHemisphere(iso2) {
+  if (!iso2) return 'north'
+  return SOUTHERN_HEMISPHERE_COUNTRIES.has(String(iso2).toUpperCase()) ? 'south' : 'north'
+}
+
+function getSeasonFromMonth(monthIndex, hemisphere) {
+  // monthIndex: 0=Jan ... 11=Dec
+  if (hemisphere === 'south') {
+    // Invertidas respecto al norte
+    if ([11,0,1].includes(monthIndex)) return 'summer'
+    if ([2,3,4].includes(monthIndex)) return 'autumn'
+    if ([5,6,7].includes(monthIndex)) return 'winter'
+    return 'spring'
+  } else {
+    if ([11,0,1].includes(monthIndex)) return 'winter'
+    if ([2,3,4].includes(monthIndex)) return 'spring'
+    if ([5,6,7].includes(monthIndex)) return 'summer'
+    return 'autumn'
+  }
+}
 export default function CreateTripForm() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
@@ -62,6 +87,20 @@ export default function CreateTripForm() {
   const [countryQuery, setCountryQuery] = useState('')
   const [isoCountry, setIsoCountry] = useState('')
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+
+  // Temporada calculada (derivada en render)
+  const computedSeason = (() => {
+    try {
+      const start = trip.startDate ? new Date(trip.startDate) : null
+      if (!start) return null
+      const hemi = getHemisphere(isoCountry)
+      return getSeasonFromMonth(start.getUTCMonth(), hemi)
+    } catch {
+      return null
+    }
+  })()
+
+  const seasonLabelMap = { spring: 'Primavera', summer: 'Verano', autumn: 'Otoño', winter: 'Invierno', any: 'Cualquiera' }
 
   // Debounce para las consultas
   const debouncedOriginQuery = useDebounce(originQuery, 300)
@@ -171,12 +210,22 @@ export default function CreateTripForm() {
         throw new Error('Por favor selecciona un tipo de habitación')
       }
 
-      if (!trip.season) {
-        throw new Error('Por favor selecciona una temporada')
+      // Intentar inferir país desde destino si falta
+      let countryForSubmit = trip.country
+      let isoForSubmit = isoCountry
+      if ((!countryForSubmit || !isoForSubmit) && trip.destination) {
+        try {
+          const first = (await searchCities(trip.destination, { limit: 1 }))?.[0]
+          if (first) {
+            const inferredCountry = first.address?.country || countryForSubmit
+            const inferredIso = first.address?.country_code ? String(first.address.country_code).toUpperCase() : isoForSubmit
+            if (!countryForSubmit && inferredCountry) countryForSubmit = inferredCountry
+            if (!isoForSubmit && inferredIso) isoForSubmit = inferredIso
+          }
+        } catch {}
       }
-
-      if (!trip.country) {
-        throw new Error('Por favor selecciona un país')
+      if (!countryForSubmit) {
+        throw new Error('Por favor selecciona un país (o elegí un destino de la lista para autocompletarlo)')
       }
 
       if (!trip.budgetMin || !trip.budgetMax) {
@@ -200,6 +249,11 @@ export default function CreateTripForm() {
         throw new Error('Debes estar autenticado para crear un viaje')
       }
 
+      // Calcular temporada automáticamente según fecha de inicio y hemisferio del país
+      const start = trip.startDate ? new Date(trip.startDate) : null
+      const hemi = getHemisphere(isoForSubmit)
+      const autoSeason = start ? getSeasonFromMonth(start.getUTCMonth(), hemi) : 'any'
+
       // Preparar datos para envío - convertir a snake_case para el backend
       const tripData = {
         creator_id: profile.id,
@@ -212,8 +266,8 @@ export default function CreateTripForm() {
         budget_max: trip.budgetMax ? parseFloat(trip.budgetMax) : null,
         max_participants: trip.maxParticipants ? parseInt(trip.maxParticipants) : null,
         room_type: trip.roomType,
-        season: trip.season,
-        country: trip.country,
+        season: autoSeason,
+        country: countryForSubmit,
         currency: trip.currency,
         description: trip.description || '',
         tipo: trip.tipo
@@ -482,12 +536,20 @@ export default function CreateTripForm() {
                                 return date.toISOString().split('T')[0]
                               })()
                               
+                              // Inferir país e ISO desde el destino seleccionado
+                              const inferredCountry = item.address?.country || trip.country || ''
+                              const inferredIso = item.address?.country_code
+                                ? String(item.address.country_code).toUpperCase()
+                                : ''
+
                               setTrip({ 
                                 ...trip, 
                                 destination: item.display_name,
                                 name: autoName,
-                                startDate: autoStartDate
+                                startDate: autoStartDate,
+                                country: inferredCountry
                               })
+                              if (inferredIso) setIsoCountry(inferredIso)
                               setDestinationQuery(item.display_name)
                               setDestinationSuggestions([])
                             }}
@@ -621,59 +683,14 @@ export default function CreateTripForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="season" className="text-slate-200">Temporada</Label>
-                  <select
-                    id="season"
-                    value={trip.season}
-                    onChange={(e) => setTrip({ ...trip, season: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
-                  >
-                    <option value="">Seleccionar</option>
-                    <option value="spring">Primavera</option>
-                    <option value="summer">Verano</option>
-                    <option value="autumn">Otoño</option>
-                    <option value="winter">Invierno</option>
-                    <option value="any">Cualquiera</option>
-                  </select>
+                  <Label className="text-slate-200">Temporada (automático)</Label>
+                  <div className="w-full rounded px-3 py-2 bg-slate-700 border border-slate-600 text-white">
+                    {seasonLabelMap[computedSeason] || '—'}
+                  </div>
+                  <p className="text-xs text-slate-400">Se calcula según país y fecha de inicio.</p>
                 </div>
 
-                <div className="space-y-2 relative md:col-span-2">
-                  <Label htmlFor="country" className="text-slate-200">País</Label>
-                  <Input
-                    id="country"
-                    value={trip.country}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      setTrip({ ...trip, country: v })
-                      setCountryQuery(v)
-                      setIsoCountry('')
-                    }}
-                    placeholder="Argentina"
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                  {countrySuggestions.length > 0 && (
-                    <ul className="absolute z-50 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto shadow-2xl">
-                      {countrySuggestions.map((item, idx) => (
-                        <li
-                          key={`c_${idx}_${item.place_id}`}
-                          className="p-3 cursor-pointer hover:bg-slate-600 text-slate-200"
-                          onClick={() => {
-                            const label = item.display_name
-                            const code = (item.address && item.address.country_code ? String(item.address.country_code).toUpperCase() : '')
-                            setTrip({ ...trip, country: label })
-                            setIsoCountry(code)
-                            setCountrySuggestions([])
-                          }}
-                        >
-                          {item.display_name}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {isoCountry && (
-                    <p className="text-xs text-slate-400 mt-1">Código país: {isoCountry}</p>
-                  )}
-                </div>
+                {/* Campo de país eliminado: se autocompleta según destino */}
 
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="description" className="text-slate-200">Descripción del viaje</Label>
