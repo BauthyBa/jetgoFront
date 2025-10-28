@@ -70,10 +70,61 @@ export default function SocialPage() {
   const [fadeIn, setFadeIn] = useState(false)
   const [toast, setToast] = useState({ show: false, type: 'success', title: '', message: '' })
   const [searchQuery, setSearchQuery] = useState('')
+  const [hiddenPosts, setHiddenPosts] = useState(new Set())
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reportPostId, setReportPostId] = useState(null)
 
   const showNotification = (title, message, type = 'success') => {
     setToast({ show: true, type, title, message })
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 2800)
+  }
+
+  const hidePost = (postId) => {
+    setHiddenPosts(prev => {
+      const next = new Set(prev)
+      next.add(postId)
+      if (user?.userid) {
+        localStorage.setItem(`hidden_posts_${user.userid}`, JSON.stringify(Array.from(next)))
+      }
+      return next
+    })
+    setShowPostMenu(null)
+    showNotification('Post ocultado', 'Ya no verás este post')
+  }
+
+  const openReportModal = (postId) => {
+    setReportPostId(postId)
+    setReportReason('')
+    setShowPostMenu(null)
+    setShowReportModal(true)
+  }
+
+  const submitReport = () => {
+    try {
+      if (!user?.userid) {
+        showNotification('Inicia sesión', 'Debes iniciar sesión para reportar', 'error')
+        return
+      }
+      const reason = (reportReason || '').trim()
+      if (!reason) {
+        showNotification('Motivo requerido', 'Por favor indica un motivo para reportar', 'error')
+        return
+      }
+      setHiddenPosts(prev => {
+        const next = new Set(prev)
+        if (reportPostId) next.add(reportPostId)
+        localStorage.setItem(`hidden_posts_${user.userid}`, JSON.stringify(Array.from(next)))
+        return next
+      })
+      setShowReportModal(false)
+      setReportPostId(null)
+      setReportReason('')
+      showNotification('Reporte enviado', 'El post fue reportado y ocultado')
+    } catch (e) {
+      console.error('Error submitting report:', e)
+      showNotification('Error', 'No se pudo enviar el reporte', 'error')
+    }
   }
 
   const goToUserProfile = (userId) => {
@@ -121,6 +172,15 @@ export default function SocialPage() {
       loadStories()
       loadSuggestions()
     }
+  }, [user])
+
+  useEffect(() => {
+    if (!user?.userid) return
+    try {
+      const key = `hidden_posts_${user.userid}`
+      const stored = JSON.parse(localStorage.getItem(key) || '[]')
+      setHiddenPosts(new Set(stored))
+    } catch {}
   }, [user])
 
   const getCurrentUser = async () => {
@@ -922,7 +982,7 @@ export default function SocialPage() {
   // Do not filter trips by search; search is for users only
   const visibleSuggestedTrips = suggestedTrips
   // Do not filter posts by search; search is for users (and trips) only
-  const visiblePosts = posts
+  const visiblePosts = posts.filter(p => !hiddenPosts.has(p.id))
 
   return (
     <>
@@ -1180,6 +1240,16 @@ export default function SocialPage() {
                                 >
                                   <Trash2 className="w-4 h-4" />
                                   Eliminar post
+                                </button>
+                              </>
+                            )}
+                            {post.user_id !== user?.id && (
+                              <>
+                                <button
+                                  onClick={() => openReportModal(post.id)}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-700 transition-colors text-sm font-medium"
+                                >
+                                  Reportar post
                                 </button>
                               </>
                             )}
@@ -1609,6 +1679,56 @@ export default function SocialPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Reporte */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-slate-700 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
+              <h3 className="text-white font-bold text-lg">Reportar post</h3>
+              <button
+                onClick={() => { setShowReportModal(false); setReportPostId(null); setReportReason('') }}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-white font-semibold mb-2">Motivo del reporte</label>
+                <textarea
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  placeholder="Describe por qué reportas este contenido"
+                  className="w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-400 rounded-xl px-4 py-3 min-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40"
+                  maxLength={400}
+                />
+              </div>
+              <div className="text-slate-400 text-sm bg-slate-800/40 border border-slate-700 rounded-lg p-3">
+                Al enviar el reporte, <span className="text-slate-200 font-semibold">este post se ocultará</span> de tu pestaña social.
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="bg-slate-800/50 px-6 py-4 flex gap-3 justify-end border-t border-slate-700">
+              <button
+                onClick={() => { setShowReportModal(false); setReportPostId(null); setReportReason('') }}
+                className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={submitReport}
+                disabled={!reportReason.trim()}
+                className="px-6 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors"
+              >
+                Reportar y ocultar
+              </button>
             </div>
           </div>
         </div>
