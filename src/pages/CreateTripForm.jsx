@@ -470,7 +470,24 @@ export default function CreateTripForm() {
                             key={`d_${idx}_${item.place_id}`}
                             className="p-3 cursor-pointer hover:bg-slate-600 text-slate-200"
                             onClick={() => {
-                              setTrip({ ...trip, destination: item.display_name })
+                              const cityName = item.display_name.split(',')[0].trim()
+                              
+                              // Auto-rellenar nombre del viaje si está vacío
+                              const autoName = trip.name ? trip.name : `Viaje a ${cityName}`
+                              
+                              // Auto-rellenar fecha de inicio (30 días desde hoy) si está vacía
+                              const autoStartDate = trip.startDate ? trip.startDate : (() => {
+                                const date = new Date()
+                                date.setDate(date.getDate() + 30)
+                                return date.toISOString().split('T')[0]
+                              })()
+                              
+                              setTrip({ 
+                                ...trip, 
+                                destination: item.display_name,
+                                name: autoName,
+                                startDate: autoStartDate
+                              })
                               setDestinationQuery(item.display_name)
                               setDestinationSuggestions([])
                             }}
