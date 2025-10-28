@@ -78,8 +78,8 @@ export default function VerifyDni() {
             <div className="verify-support">
               <h3>¿Necesitás ayuda?</h3>
               <p>
-                Escribinos a <a href="mailto:soporte@jetgo.app">soporte@jetgo.app</a> o chateá por{' '}
-                <a href="https://wa.me/5491130000000" target="_blank" rel="noreferrer">WhatsApp</a>. Nuestro equipo responde en minutos.
+                Escribinos a <a href="mailto:soporte@jetgo.com.ar">soporte@jetgo.com.ar</a> o chateá por{' '}
+                <a href="https://wa.me/5493515306105" target="_blank" rel="noreferrer">WhatsApp</a>. Nuestro equipo responde en minutos.
               </p>
             </div>
           </section>
