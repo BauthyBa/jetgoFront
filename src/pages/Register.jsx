@@ -18,6 +18,8 @@ export default function Register({ embedded = false }) {
     birth_date: '',
     email: '',
     password: '',
+    bio: '',
+    interests: '',
     dni_front_payload: '',
     dni_image_file: null,
     dni_image_url: '',
@@ -263,6 +265,8 @@ export default function Register({ embedded = false }) {
               birth_date: form.birth_date,
               email: supaEmail,
               password: randomPassword,
+              bio: form.bio,
+              interests: form.interests,
               dni_front_payload: text,
             })
             localStorage.setItem('dni_meta', JSON.stringify({
@@ -291,6 +295,8 @@ export default function Register({ embedded = false }) {
                 document_number: form.document_number,
                 sex: form.sex,
                 birth_date: form.birth_date,
+                bio: form.bio,
+                interests: form.interests,
               })
             } catch (e) {
               console.warn('No se pudo upsert perfil al backend durante verificación:', e?.message || e)
@@ -317,6 +323,8 @@ export default function Register({ embedded = false }) {
               document_number: form.document_number,
               sex: form.sex,
               birth_date: form.birth_date,
+              bio: form.bio,
+              interests: form.interests,
               dni_verified: true,
             } }
           })
@@ -391,6 +399,14 @@ export default function Register({ embedded = false }) {
             <div className="field" style={{ marginBottom: fieldMargin }}>
               <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Fecha de nacimiento</label>
               <input type="date" name="birth_date" value={form.birth_date} onChange={handleChange} required style={{ padding: controlPadding, fontSize: controlFontSize }} />
+            </div>
+            <div className="field" style={{ marginBottom: fieldMargin }}>
+              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Biografía</label>
+              <textarea name="bio" value={form.bio} onChange={handleChange} placeholder="Contanos sobre vos..." required style={{ padding: controlPadding, fontSize: controlFontSize, minHeight: compact ? '84px' : '100px', resize: 'vertical' }} />
+            </div>
+            <div className="field" style={{ marginBottom: fieldMargin }}>
+              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Intereses</label>
+              <input name="interests" value={form.interests} onChange={handleChange} placeholder="Ej.: trekking, playas, fotografía" required style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
             {!googleMode && (
               <>
@@ -499,7 +515,7 @@ export default function Register({ embedded = false }) {
               }}
             >
               <button className="btn" type="submit" disabled={loading || scanning || !termsAccepted} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>{googleMode ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (loading ? 'Enviando...' : (scanning ? 'Leyendo...' : 'Crear cuenta'))}</button>
-              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); }} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>Limpiar</button>
+              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', email: '', password: '', bio: '', interests: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); }} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>Limpiar</button>
               <span className="muted" style={{ fontSize: controlFontSize }}>{scanning ? 'Procesando imagen...' : ''}</span>
             </div>
             {ok && (
