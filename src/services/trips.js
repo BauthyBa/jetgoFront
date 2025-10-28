@@ -6,6 +6,7 @@ export function normalizeTrip(raw) {
   const name = raw.name || raw.destination || 'Viaje'
   const destination = raw.destination || raw.name || null
   const origin = raw.origin || raw.country || null
+  const description = raw.description || raw.desc || null
   const startDate = raw.start_date || raw.date || null
   const endDate = raw.end_date || null
   const budgetMin = raw.budget_min ?? raw.price_min ?? null
@@ -31,6 +32,7 @@ export function normalizeTrip(raw) {
     name,
     destination,
     origin,
+    description,
     startDate,
     endDate,
     budgetMin,
@@ -74,7 +76,6 @@ export async function leaveTrip(tripId, userId) {
   return data
 }
 
-
 // Create trip
 export async function createTrip(payload) {
   const { data } = await api.post('/trips/create/', payload)
@@ -95,5 +96,3 @@ export async function deleteTrip(tripId) {
   const { data } = await api.post('/trips/delete/', { trip_id: tripId })
   return data
 }
-
-

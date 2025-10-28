@@ -40,6 +40,17 @@ export default function TripDetailsModal({ isOpen, onClose, tripId, trip: tripPr
           }
         }
         if (mounted) setTrip(t)
+        // Enriquecer con detalle si falta descripción
+        if (t?.id && !t?.description) {
+          try {
+            const detailResp = await api.get(`/trips/${t.id}/`)
+            const detailRaw = detailResp?.data || null
+            const normalizedDetail = detailRaw ? normalizeTrip(detailRaw) : null
+            if (mounted && normalizedDetail) {
+              setTrip(prev => ({ ...(prev || t), ...normalizedDetail }))
+            }
+          } catch {}
+        }
         if (t?.creatorId && mounted) setCreatorId(t.creatorId)
 
         if (t?.id) {
