@@ -391,24 +391,7 @@ export default function AccountSettingsPage() {
               </div>
             </div>
 
-            <div className="glass-card p-6">
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <LogOut size={20} />
-                Sesión
-              </h2>
-              <div className="space-y-3">
-                <button
-                  onClick={handleLogout}
-                  className="w-full p-4 bg-red-500/80 hover:bg-red-500 transition-colors text-left rounded-lg flex items-center gap-3 text-white font-medium"
-                >
-                  <LogOut size={20} />
-                  Cerrar sesión
-                </button>
-                <p className="text-slate-400 text-sm">
-                  Esto cerrará tu sesión en JetGo! y limpiarás los datos guardados en este dispositivo. Podrás iniciar sesión nuevamente cuando quieras.
-                </p>
-              </div>
-            </div>
+            
 
             <div className="glass-card p-6">
               <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">

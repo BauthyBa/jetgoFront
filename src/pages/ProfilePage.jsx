@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSession, updateUserMetadata, supabase } from '../services/supabase'
-import { upsertProfileToBackend, getUserAvatar } from '../services/api'
+import { upsertProfileToBackend, getUserAvatar, setAuthToken } from '../services/api'
 import { updatePassword, sendPasswordResetEmail } from '../services/passwordReset'
 import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X, Download, Trash2, AlertTriangle, FileText, MapPin as MapPinIcon } from 'lucide-react'
 import AvatarUpload from '../components/AvatarUpload'
@@ -488,6 +488,24 @@ export default function ProfilePage() {
     setShowDeleteModal(false)
     setDeleteConfirmText('')
     setError('')
+  }
+
+  const handleSignOut = async () => {
+    try {
+      // Cerrar sesión en Supabase
+      await supabase.auth.signOut()
+    } catch (e) {
+      console.warn('Error signing out from Supabase:', e)
+    }
+    try {
+      // Limpiar token del backend y almacenamiento local relevante
+      setAuthToken(null)
+    } catch (_) {}
+    try {
+      localStorage.removeItem('access_token')
+    } catch (_) {}
+    // Redirigir a login
+    navigate('/login')
   }
 
   if (loading) {
@@ -1019,11 +1037,11 @@ export default function ProfilePage() {
                   <span className="text-white">Términos y condiciones</span>
                 </button>
                 <button 
-                  onClick={() => setShowDeleteModal(true)}
-                  className="w-full p-4 bg-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors text-left flex items-center gap-3"
+                  onClick={handleSignOut}
+                  className="w-full p-4 bg-red-500/80 hover:bg-red-500 transition-colors text-left rounded-lg flex items-center gap-3 text-white font-medium"
                 >
-                  <Trash2 size={20} className="text-red-400" />
-                  <span className="text-red-400">Eliminar cuenta</span>
+                  <X size={20} />
+                  <span>Cerrar sesión</span>
                 </button>
               </div>
             </div>
