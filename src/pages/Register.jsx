@@ -10,6 +10,8 @@ export default function Register({ embedded = false }) {
   const location = useLocation()
   const navigate = useNavigate()
   const googleMode = new URLSearchParams(location.search).get('mode') === 'google'
+  const dniFrontFileRef = useRef(null)
+  const dniBackFileRef = useRef(null)
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -199,6 +201,7 @@ export default function Register({ embedded = false }) {
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    dniFrontFileRef.current = file
     const url = URL.createObjectURL(file)
     setForm((f) => ({ ...f, dni_image_file: file, dni_image_url: url }))
     setError(null)
@@ -207,6 +210,7 @@ export default function Register({ embedded = false }) {
   const handleBackImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    dniBackFileRef.current = file
     const url = URL.createObjectURL(file)
     setForm((f) => ({ ...f, dni_back_file: file, dni_back_url: url }))
   }
@@ -226,8 +230,12 @@ export default function Register({ embedded = false }) {
     setScanning(true)
     setOverlay({ visible: true, message: 'Analizando DNI…' })
     try {
-      if (!form.dni_image_file) throw new Error('Debes subir una foto del frente del DNI')
-      if (!form.dni_back_file) throw new Error('Debes subir una foto del dorso del DNI')
+      // Usar refs para asegurar que tenemos los archivos más recientes
+      const frontFile = dniFrontFileRef.current || form.dni_image_file
+      const backFile = dniBackFileRef.current || form.dni_back_file
+      
+      if (!frontFile) throw new Error('Debes subir una foto del frente del DNI')
+      if (!backFile) throw new Error('Debes subir una foto del dorso del DNI')
       const result = await tryDecodeWithFallbacks(form.dni_image_url)
       const text = result.getText()
       setForm((f) => ({ ...f, dni_front_payload: text }))
@@ -311,7 +319,10 @@ export default function Register({ embedded = false }) {
         navigate('/')
       } else {
         // 1) Guardar en backend
-        await registerUser(form)
+        await registerUser({
+          ...form,
+          dni_front_payload: text
+        })
         // 2) Enviar email de confirmación con Supabase (y guardar metadata)
         try {
           await supabase.auth.signUp({
@@ -515,7 +526,7 @@ export default function Register({ embedded = false }) {
               }}
             >
               <button className="btn" type="submit" disabled={loading || scanning || !termsAccepted} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>{googleMode ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (loading ? 'Enviando...' : (scanning ? 'Leyendo...' : 'Crear cuenta'))}</button>
-              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', email: '', password: '', bio: '', interests: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); }} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>Limpiar</button>
+              <button className="btn secondary" type="button" onClick={() => { dniFrontFileRef.current = null; dniBackFileRef.current = null; setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', email: '', password: '', bio: '', interests: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); }} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>Limpiar</button>
               <span className="muted" style={{ fontSize: controlFontSize }}>{scanning ? 'Procesando imagen...' : ''}</span>
             </div>
             {ok && (
