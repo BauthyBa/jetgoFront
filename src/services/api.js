@@ -239,8 +239,13 @@ export async function markAllNotificationsRead(userId) {
 
 // Funciones para reportes de usuarios
 export async function createUserReport(payload) {
-  const { data } = await apiPublic.post('/reports/create/', payload)
-  return data
+  try {
+    const { data } = await apiPublic.post('/reports/create/', payload)
+    return data
+  } catch (error) {
+    const msg = error?.response?.data?.error || error?.response?.data?.detail || error?.message || 'Error al crear reporte'
+    return { ok: false, error: msg }
+  }
 }
 
 export async function getUserReports(userId, type = 'received') {
