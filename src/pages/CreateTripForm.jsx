@@ -75,7 +75,7 @@ export default function CreateTripForm() {
     country: '',
     maxParticipants: '',
     description: '',
-    tipo: 'auto'
+    tipo: ''
   })
 
   // Estados para autocompletado
@@ -209,6 +209,9 @@ export default function CreateTripForm() {
       if (!trip.roomType) {
         throw new Error('Por favor selecciona un tipo de habitación')
       }
+      if (!trip.tipo) {
+        throw new Error('Por favor selecciona un tipo de transporte')
+      }
 
       // Intentar inferir país desde destino si falta
       let countryForSubmit = trip.country
@@ -270,7 +273,8 @@ export default function CreateTripForm() {
         country: countryForSubmit,
         currency: trip.currency,
         description: trip.description || '',
-        tipo: trip.tipo
+        tipo: trip.tipo,
+        transport_type: trip.tipo
       }
       // Log para debugging
       console.log('📤 Enviando datos del viaje:', tripData)
@@ -418,32 +422,20 @@ export default function CreateTripForm() {
 
                 <div className="space-y-2">
                   <Label htmlFor="tipo" className="text-slate-200">Tipo de transporte *</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {transportTypes.map((type) => {
-                      const Icon = type.icon
-                      return (
-                        <label
-                          key={type.value}
-                          className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer border-2 transition-colors ${
-                            trip.tipo === type.value
-                              ? 'border-blue-500 bg-blue-500/20'
-                              : 'border-slate-600 bg-slate-700 hover:border-slate-500'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="tipo"
-                            value={type.value}
-                            checked={trip.tipo === type.value}
-                            onChange={(e) => setTrip({ ...trip, tipo: e.target.value })}
-                            className="sr-only"
-                          />
-                          <Icon className="w-4 h-4 text-slate-300" />
-                          <span className="text-slate-200 text-sm">{type.label}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
+                  <select
+                    id="tipo"
+                    value={trip.tipo}
+                    onChange={(e) => setTrip({ ...trip, tipo: e.target.value })}
+                    className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
+                    required
+                  >
+                    <option value="">Seleccionar transporte</option>
+                    {transportTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
