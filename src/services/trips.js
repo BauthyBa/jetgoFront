@@ -1,4 +1,5 @@
 import { api } from './api'
+import { mapTransportTypeForUi } from '@/utils/transport'
 
 // Map backend trip payloads (supports multiple shapes) to a unified model
 export function normalizeTrip(raw) {
@@ -20,7 +21,8 @@ export function normalizeTrip(raw) {
   const season = raw.season || null
   const status = raw.status || null
   const roomType = raw.room_type || null
-  const transportType = raw.transport_type || raw.tipo || null
+  const transportTypeRaw = raw.transport_type || raw.tipo || null
+  const transportType = mapTransportTypeForUi(transportTypeRaw)
   const maxParticipants = raw.max_participants ?? null
   const currentParticipants = raw.current_participants ?? raw.currentParticipants ?? null
   const creatorId = raw.creator_id || null
@@ -46,6 +48,7 @@ export function normalizeTrip(raw) {
     status,
     roomType,
     transportType,
+    transportTypeRaw,
     tipo: transportType,
     maxParticipants,
     currentParticipants,

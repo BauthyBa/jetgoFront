@@ -26,6 +26,7 @@ import { getSession } from '@/services/supabase'
 import { createTrip } from '@/services/trips'
 import { searchCities, searchCountries } from '@/services/nominatim'
 import ROUTES from '@/config/routes'
+import { mapTransportTypeForBackend } from '@/utils/transport'
 
 // Utilidades para calcular temporada (deben ir después de los imports)
 const SOUTHERN_HEMISPHERE_COUNTRIES = new Set([
@@ -212,6 +213,10 @@ export default function CreateTripForm() {
       if (!trip.tipo) {
         throw new Error('Por favor selecciona un tipo de transporte')
       }
+      const backendTransportType = mapTransportTypeForBackend(trip.tipo)
+      if (!backendTransportType) {
+        throw new Error('Tipo de transporte inválido. Por favor selecciona una opción válida.')
+      }
 
       // Intentar inferir país desde destino si falta
       let countryForSubmit = trip.country
@@ -274,7 +279,7 @@ export default function CreateTripForm() {
         currency: trip.currency,
         description: trip.description || '',
         tipo: trip.tipo,
-        transport_type: trip.tipo
+        transport_type: backendTransportType
       }
       // Log para debugging
       console.log('📤 Enviando datos del viaje:', tripData)
