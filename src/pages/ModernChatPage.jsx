@@ -6,6 +6,7 @@ import EmojiPicker from '@/components/EmojiPicker'
 import ChatExpenses from '@/components/ChatExpenses'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import AudioRecorder from '@/components/AudioRecorder'
+import AudioMessage from '@/components/AudioMessage'
 import AudioTranscriber from '@/components/AudioTranscriber'
 import CameraCapture from '@/components/CameraCapture'
 import LocationCapture from '@/components/LocationCapture'
@@ -20,7 +21,7 @@ import { inviteFriendToTrip } from '@/services/friends'
 import InviteFriendsModal from '@/components/InviteFriendsModal'
 import { transcriptionService } from '@/services/transcription'
 import { getFeaturedImage } from '@/services/unsplash'
-import { ArrowLeft, Camera, MapPin, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile } from 'lucide-react'
+import { ArrowLeft, Camera, MapPin, Mic, MoreVertical, Paperclip, Search as SearchIcon, Smile, Download, Mic as MicIcon, Loader2 } from 'lucide-react'
 import { useNotifications } from '@/hooks/useNotifications'
 
 function normalizeRoomName(room) {
@@ -1295,15 +1296,17 @@ export default function ModernChatPage() {
 
                                 {message.is_file ? (
                                   <div className="space-y-2">
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className="flex items-center gap-2 text-sm font-medium">
-                                        <span>{getFileIcon(message.file_type)}</span>
-                                        <span>{message.file_name}</span>
+                                    {(!message.file_type?.startsWith('audio/')) && (
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                          <span>{getFileIcon(message.file_type)}</span>
+                                          <span>{message.file_name}</span>
+                                        </div>
+                                        <span className={`text-[11px] ${isOwn ? 'text-white/70' : 'text-slate-400'}`}>
+                                          {formatFileSize(message.file_size)}
+                                        </span>
                                       </div>
-                                      <span className={`text-[11px] ${isOwn ? 'text-white/70' : 'text-slate-400'}`}>
-                                        {formatFileSize(message.file_size)}
-                                      </span>
-                                    </div>
+                                    )}
                                     {message.file_type?.startsWith('image/') ? (
                                       <a
                                         href={message.file_url}
@@ -1336,55 +1339,47 @@ export default function ModernChatPage() {
                                       </div>
                                     ) : message.file_type?.startsWith('audio/') ? (
                                       <div className="space-y-2">
-                                        <audio
-                                          controls
-                                          className="w-full rounded-lg bg-white/5"
-                                        >
-                                          <source src={message.file_url} type={message.file_type} />
-                                          Tu navegador no soporta el elemento de audio.
-                                        </audio>
-                                        
-                                        {/* Transcripción del audio */}
+                                        <AudioMessage
+                                          message={message}
+                                          isOwn={isOwn}
+                                          senderName={getSenderLabel(message)}
+                                          compact
+                                        />
                                         {audioTranscriptions[message.id] && (
-                                          <div className="mt-2 rounded-lg border border-emerald-500/30 bg-[#1f2c33] p-3">
-                                            <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-300">
-                                              <span>📝 Transcripción:</span>
+                                          <div className="mt-1 rounded-lg border border-emerald-500/30 bg-[#1f2c33] p-3">
+                                            <div className="mb-1 text-xs font-semibold text-emerald-300">
+                                              Transcripción
                                             </div>
                                             <p className="text-sm text-slate-200">{audioTranscriptions[message.id]}</p>
                                           </div>
                                         )}
-                                        
-                                        {/* Nota informativa */}
-                                        {!audioTranscriptions[message.id] && transcribingAudio !== message.id && (
-                                          <div className="mt-1 text-xs text-slate-500">
-                                            💡 Haz clic en "Transcribir" para convertir el audio a texto automáticamente (sin sonido)
-                                          </div>
-                                        )}
-                                        
                                         <div className="flex items-center gap-2">
                                           <a
                                             href={message.file_url}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="inline-flex items-center gap-2 text-sm text-emerald-300 hover:text-emerald-200"
+                                            className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
+                                            title="Descargar audio"
                                           >
-                                            Descargar audio
+                                            <Download className="h-4 w-4" />
+                                            Descargar
                                           </a>
-                                          
                                           {!audioTranscriptions[message.id] && (
                                             <button
                                               onClick={() => handleTranscribeAudio(message.id, message.file_url)}
                                               disabled={transcribingAudio === message.id}
-                                              className="inline-flex items-center gap-1 text-sm text-blue-300 hover:text-blue-200 disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded border border-blue-400/30 hover:bg-blue-500/10"
+                                              className="inline-flex items-center gap-1 rounded border border-blue-400/30 px-2 py-1 text-sm text-blue-300 hover:bg-blue-500/10 hover:text-blue-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                              title="Transcribir audio a texto"
                                             >
                                               {transcribingAudio === message.id ? (
                                                 <>
-                                                  <span className="animate-spin">⏳</span>
+                                                  <Loader2 className="h-4 w-4 animate-spin" />
                                                   Escuchando...
                                                 </>
                                               ) : (
                                                 <>
-                                                  🎙️ Transcribir
+                                                  <MicIcon className="h-4 w-4" />
+                                                  Transcribir
                                                 </>
                                               )}
                                             </button>

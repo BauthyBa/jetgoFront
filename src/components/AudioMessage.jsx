@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-export default function AudioMessage({ message, isOwn, senderName }) {
+export default function AudioMessage({ message, isOwn, senderName, compact = false }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -94,12 +94,12 @@ export default function AudioMessage({ message, isOwn, senderName }) {
       display: 'flex', 
       flexDirection: isOwn ? 'row-reverse' : 'row',
       alignItems: 'flex-start',
-      gap: 8,
-      marginBottom: 12,
+      gap: compact ? 0 : 8,
+      marginBottom: compact ? 0 : 12,
       maxWidth: '100%'
     }}>
       {/* Avatar */}
-      {!isOwn && (
+      {!compact && !isOwn && (
         <div style={{
           width: 32,
           height: 32,
@@ -118,9 +118,9 @@ export default function AudioMessage({ message, isOwn, senderName }) {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: '65%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 0 : 4, maxWidth: compact ? '100%' : '65%', width: '100%' }}>
         {/* Sender name (only for others) */}
-        {!isOwn && senderName && (
+        {!compact && !isOwn && senderName && (
           <div style={{
             fontSize: 12,
             fontWeight: 600,
@@ -133,16 +133,18 @@ export default function AudioMessage({ message, isOwn, senderName }) {
 
         {/* Audio Message Bubble */}
         <div style={{
-          minWidth: '250px',
+          minWidth: compact ? 'auto' : '250px',
           maxWidth: '100%',
-          background: isOwn ? '#dcf8c6' : '#ffffff',
-          borderRadius: '12px',
-          padding: '10px 14px',
+          background: compact ? 'transparent' : (isOwn ? '#dcf8c6' : '#ffffff'),
+          borderRadius: compact ? '0px' : '12px',
+          padding: compact ? '0' : '10px 14px',
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: 10,
-          boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-          position: 'relative'
+          boxShadow: compact ? 'none' : '0 1px 2px rgba(0,0,0,0.08)',
+          position: 'relative',
+          width: '100%'
         }}>
           {/* Play/Pause Button */}
           <button
@@ -191,7 +193,8 @@ export default function AudioMessage({ message, isOwn, senderName }) {
             gap: 2,
             height: 24,
             flex: 1,
-            minWidth: '120px'
+            minWidth: '120px',
+            overflow: 'hidden'
           }}>
             {getWaveformBars()}
           </div>
@@ -201,11 +204,13 @@ export default function AudioMessage({ message, isOwn, senderName }) {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-end',
-            gap: 2
+            justifyContent: 'center',
+            gap: 2,
+            minWidth: 42
           }}>
             <div style={{
               fontSize: 11,
-              color: isOwn ? '#6b7280' : '#9ca3af',
+              color: compact ? (isOwn ? '#ffffffcc' : '#cbd5e1') : (isOwn ? '#6b7280' : '#9ca3af'),
               fontWeight: 500,
               minWidth: '38px',
               textAlign: 'right',
@@ -213,7 +218,7 @@ export default function AudioMessage({ message, isOwn, senderName }) {
             }}>
               {isPlaying ? formatTime(currentTime) : formatTime(duration || 0)}
             </div>
-            {isOwn && (
+            {!compact && isOwn && (
               <div style={{ 
                 fontSize: 14,
                 color: '#4ade80',
@@ -224,21 +229,22 @@ export default function AudioMessage({ message, isOwn, senderName }) {
             )}
           </div>
         </div>
-
         {/* Timestamp below bubble */}
-        <div style={{
-          fontSize: 10,
-          color: '#9ca3af',
-          marginTop: 2,
-          paddingLeft: isOwn ? 0 : 12,
-          paddingRight: isOwn ? 12 : 0,
-          textAlign: isOwn ? 'right' : 'left'
-        }}>
-          {new Date(message.created_at).toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </div>
+        {!compact && (
+          <div style={{
+            fontSize: 10,
+            color: '#9ca3af',
+            marginTop: 2,
+            paddingLeft: isOwn ? 0 : 12,
+            paddingRight: isOwn ? 12 : 0,
+            textAlign: isOwn ? 'right' : 'left'
+          }}>
+            {new Date(message.created_at).toLocaleTimeString('es-ES', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </div>
+        )}
       </div>
 
       <audio
