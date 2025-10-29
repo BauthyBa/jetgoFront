@@ -69,6 +69,7 @@ const PublicProfilePage = () => {
   const [reviewerAvatars, setReviewerAvatars] = useState({})
   const [submittingReview, setSubmittingReview] = useState(false)
   const [toast, setToast] = useState(null)
+  const [savedPostsList, setSavedPostsList] = useState([])
 
   useEffect(() => {
     async function loadPublicProfile() {
@@ -198,6 +199,30 @@ const PublicProfilePage = () => {
       loadPublicProfile()
     }
   }, [username, userId])
+
+  // Cargar posts guardados del usuario del perfil
+  useEffect(() => {
+    async function loadSavedPosts() {
+      try {
+        if (!profile?.userid) { setSavedPostsList([]); return }
+        const { data: rows } = await supabase
+          .from('saved_posts')
+          .select('post_id')
+          .eq('user_id', profile.userid)
+        const ids = (rows || []).map(r => r.post_id)
+        if (ids.length === 0) { setSavedPostsList([]); return }
+        const { data: posts } = await supabase
+          .from('posts')
+          .select('*')
+          .in('id', ids)
+          .order('created_at', { ascending: false })
+        setSavedPostsList(posts || [])
+      } catch {
+        setSavedPostsList([])
+      }
+    }
+    loadSavedPosts()
+  }, [profile?.userid])
  
   // Cargar motivos de reporte cuando se abra el modal por primera vez
   useEffect(() => {
@@ -861,6 +886,16 @@ const likePost = async (postId) => {
               >
                 Amigos ({friendsCount})
               </button>
+              <button
+                onClick={() => setActiveTab('saved')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'saved'
+                    ? 'bg-emerald-500 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Guardados ({savedPostsList.length})
+              </button>
             </div>
 
             {/* Controles de vista para posts */}
@@ -1106,6 +1141,34 @@ const likePost = async (postId) => {
                   <p className="text-slate-400 text-sm">
                     {[profile?.nombre, profile?.apellido].filter(Boolean).join(' ') || 'Este usuario'} no ha compartido ningún post todavía.
                   </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contenido de guardados */}
+          {activeTab === 'saved' && (
+            <div>
+              {savedPostsList.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {savedPostsList.map((p) => (
+                    <div key={p.id} className="rounded-xl overflow-hidden bg-slate-800/50 border border-slate-700">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt="Post" className="w-full aspect-square object-cover" />
+                      ) : p.video_url ? (
+                        <video src={p.video_url} controls className="w-full aspect-square object-cover" />
+                      ) : (
+                        <div className="p-3 text-slate-300 text-sm line-clamp-4 min-h-[6rem]">{p.content || 'Post'}</div>
+                      )}
+                      <div className="px-3 py-2 text-xs text-slate-400 border-t border-slate-700">
+                        {new Date(p.created_at).toLocaleDateString('es-ES')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-slate-400">Este usuario aún no tiene posts guardados.</p>
                 </div>
               )}
             </div>
