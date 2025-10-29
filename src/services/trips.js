@@ -19,6 +19,7 @@ export function normalizeTrip(raw) {
   const season = raw.season || null
   const status = raw.status || null
   const roomType = raw.room_type || null
+  const transportType = raw.transport_type || raw.tipo || null
   const maxParticipants = raw.max_participants ?? null
   const currentParticipants = raw.current_participants ?? raw.currentParticipants ?? null
   const creatorId = raw.creator_id || null
@@ -42,6 +43,8 @@ export function normalizeTrip(raw) {
     season,
     status,
     roomType,
+    transportType,
+    tipo: transportType,
     maxParticipants,
     currentParticipants,
     creatorId,
