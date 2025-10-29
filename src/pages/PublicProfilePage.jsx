@@ -205,25 +205,20 @@ const PublicProfilePage = () => {
     async function loadSavedPosts() {
       try {
         if (!profile?.userid) { setSavedPostsList([]); return }
-        const { data: rows } = await supabase
-          .from('saved_posts')
-          .select('post_id')
-          .eq('user_id', profile.userid)
-        const ids = (rows || []).map(r => r.post_id)
-        if (ids.length === 0) { setSavedPostsList([]); return }
-        const { data: posts } = await supabase
-          .from('posts')
-          .select('*')
-          .in('id', ids)
-          .order('created_at', { ascending: false })
-        setSavedPostsList(posts || [])
+        const url = new URL(API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.SAVED))
+        url.searchParams.set('user_id', profile.userid)
+        const response = await fetch(url.toString(), { method: 'GET' })
+        if (!response.ok) { setSavedPostsList([]); return }
+        const payload = await response.json().catch(() => ({ posts: [] }))
+        const posts = Array.isArray(payload?.posts) ? payload.posts : []
+        setSavedPostsList(posts)
       } catch {
         setSavedPostsList([])
       }
     }
     loadSavedPosts()
   }, [profile?.userid])
- 
+
   // Cargar motivos de reporte cuando se abra el modal por primera vez
   useEffect(() => {
     async function loadReasons() {
