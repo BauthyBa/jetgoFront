@@ -51,6 +51,18 @@ export default function SocialPage() {
   const [storyPreview, setStoryPreview] = useState(null)
   const [storyContent, setStoryContent] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState({})
+
+  // Inserta un emoji en el comentario del post y cierra el picker
+  const insertEmoji = (postId, emoji) => {
+    setNewComment(prev => ({
+      ...prev,
+      [postId]: `${prev[postId] || ''}${emoji}`
+    }))
+    setShowEmojiPicker(prev => ({
+      ...prev,
+      [postId]: false
+    }))
+  }
   const [uploadingStory, setUploadingStory] = useState(false)
   const [showStoryViewer, setShowStoryViewer] = useState(false)
   const [currentStory, setCurrentStory] = useState(null)
