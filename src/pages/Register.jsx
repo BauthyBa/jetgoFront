@@ -273,8 +273,8 @@ export default function Register({ embedded = false }) {
               birth_date: form.birth_date,
               email: supaEmail,
               password: randomPassword,
-              bio: form.bio,
-              interests: form.interests,
+              bio: '',
+              interests: '',
               dni_front_payload: text,
             })
             localStorage.setItem('dni_meta', JSON.stringify({
@@ -303,8 +303,8 @@ export default function Register({ embedded = false }) {
                 document_number: form.document_number,
                 sex: form.sex,
                 birth_date: form.birth_date,
-                bio: form.bio,
-                interests: form.interests,
+                bio: '',
+                interests: '',
               })
             } catch (e) {
               console.warn('No se pudo upsert perfil al backend durante verificación:', e?.message || e)
@@ -334,8 +334,8 @@ export default function Register({ embedded = false }) {
               document_number: form.document_number,
               sex: form.sex,
               birth_date: form.birth_date,
-              bio: form.bio,
-              interests: form.interests,
+              bio: '',
+              interests: '',
               dni_verified: true,
             } }
           })
@@ -402,7 +402,7 @@ export default function Register({ embedded = false }) {
             </div>
             <div className="field" style={{ marginBottom: fieldMargin }}>
               <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Sexo</label>
-              <select name="sex" value={form.sex} onChange={handleChange} style={{ padding: controlPadding, fontSize: controlFontSize }}>
+              <select name="sex" value={form.sex} onChange={handleChange} style={{ padding: controlPadding, fontSize: controlFontSize, backgroundColor: compact ? '#1e293b' : '#ffffff', color: compact ? '#e2e8f0' : '#0f172a', border: compact ? '1px solid rgba(148,163,184,0.4)' : '1px solid #e2e8f0' }}>
                 <option value="M">M</option>
                 <option value="F">F</option>
               </select>
@@ -410,14 +410,6 @@ export default function Register({ embedded = false }) {
             <div className="field" style={{ marginBottom: fieldMargin }}>
               <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Fecha de nacimiento</label>
               <input type="date" name="birth_date" value={form.birth_date} onChange={handleChange} required style={{ padding: controlPadding, fontSize: controlFontSize }} />
-            </div>
-            <div className="field" style={{ marginBottom: fieldMargin }}>
-              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Biografía</label>
-              <textarea name="bio" value={form.bio} onChange={handleChange} placeholder="Contanos sobre vos..." required style={{ padding: controlPadding, fontSize: controlFontSize, minHeight: compact ? '84px' : '100px', resize: 'vertical' }} />
-            </div>
-            <div className="field" style={{ marginBottom: fieldMargin }}>
-              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Intereses</label>
-              <input name="interests" value={form.interests} onChange={handleChange} placeholder="Ej.: trekking, playas, fotografía" required style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
             {!googleMode && (
               <>
