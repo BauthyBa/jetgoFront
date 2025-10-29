@@ -240,9 +240,13 @@ const PublicProfilePage = () => {
         setReportFile(null)
       } else {
         console.error('Error creando reporte:', resp)
+        setToast({ type: 'error', text: resp?.error || 'Error al crear reporte' })
+        setTimeout(() => setToast(null), 2500)
       }
     } catch (error) {
-      console.error('Error creando reporte:', error)
+      console.error('Error creando reporte:', error?.response?.data || error)
+      setToast({ type: 'error', text: error?.response?.data?.error || 'Error al crear reporte' })
+      setTimeout(() => setToast(null), 2500)
     } finally {
       setSubmittingReport(false)
     }
