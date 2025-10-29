@@ -1,8 +1,8 @@
 const transportTypeUiToBackend = {
-  auto: 'car',
-  bus: 'bus',
-  tren: 'train',
-  avion: 'plane',
+  auto: 'auto',
+  bus: 'colectivo',
+  tren: 'tren',
+  avion: 'avion',
 }
 
 const transportTypeBackendToUi = Object.entries(transportTypeUiToBackend)
