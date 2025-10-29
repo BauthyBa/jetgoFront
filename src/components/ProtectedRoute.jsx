@@ -42,6 +42,20 @@ export default function ProtectedRoute({ children }) {
       }
       const jwtPayload = accessToken ? decodeJwt(accessToken) : null
 
+      // Si no hay ninguna sesión, redirigir a login y no mostrar modal
+      const hasSupabase = !!user
+      const hasBackendJwt = !!jwtPayload
+      if (!hasSupabase && !hasBackendJwt) {
+        navigate('/login', {
+          state: {
+            message: 'Por favor, iniciá sesión para acceder a esta funcionalidad'
+          }
+        })
+        setIsVerified(false)
+        setShowModal(false)
+        return
+      }
+
       // Verificar estado de verificación
       const localMeta = (() => {
         try {
@@ -59,8 +73,6 @@ export default function ProtectedRoute({ children }) {
         localMeta?.dni_verified === true
       )
 
-      const hasSupabase = !!user
-      const hasBackendJwt = !!jwtPayload
       const verified = hasSupabase ? supaVerified : hasBackendJwt ? true : false
 
       setIsVerified(verified)

@@ -73,6 +73,8 @@ export default function SocialPage() {
   const [fadeIn, setFadeIn] = useState(false)
   const [toast, setToast] = useState({ show: false, type: 'success', title: '', message: '' })
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchUsers, setSearchUsers] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
   const [hiddenPosts, setHiddenPosts] = useState(new Set())
   const [showReportModal, setShowReportModal] = useState(false)
   const [reportReason, setReportReason] = useState('')
@@ -202,6 +204,42 @@ export default function SocialPage() {
       loadSuggestions()
     }
   }, [user])
+
+  // Cargar resultados de búsqueda de usuarios (TODOS los usuarios)
+  useEffect(() => {
+    const q = (searchQuery || '').trim()
+    if (!q || q.length < 2) {
+      setSearchUsers([])
+      setSearchLoading(false)
+      return
+    }
+    let cancelled = false
+    setSearchLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        // Si es búsqueda de hashtags, no ejecutar búsqueda de usuarios acá
+        if (q.startsWith('#')) {
+          setSearchUsers([])
+          setSearchLoading(false)
+          return
+        }
+        const { data, error } = await supabase
+          .from('User')
+          .select('userid, nombre, apellido, avatar_url, bio')
+          .or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%`)
+          .limit(50)
+        if (!cancelled) {
+          if (error) throw error
+          setSearchUsers(data || [])
+        }
+      } catch (e) {
+        if (!cancelled) setSearchUsers([])
+      } finally {
+        if (!cancelled) setSearchLoading(false)
+      }
+    }, 300)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [searchQuery])
 
   useEffect(() => {
     if (!user?.userid) return
@@ -1053,7 +1091,7 @@ export default function SocialPage() {
               <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar usuarios..."
+              placeholder="Buscar usuarios o #hashtags..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-12 rounded-xl border border-slate-700/50 bg-slate-800/50 px-11 text-white placeholder-slate-400 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
@@ -1158,45 +1196,89 @@ export default function SocialPage() {
                 </div>
               </div>
 
-              {/* User Search Results (when searching) */}
-              {query && visibleSuggestedUsers.length > 0 && (
+              {/* User Search Results (ALL users when searching by name) */}
+              {query && !query.startsWith('#') && (
                 <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-2xl">
                   <h3 className="text-white font-semibold mb-4">Resultados de usuarios</h3>
                   <div className="space-y-3">
-                    {visibleSuggestedUsers.map((u) => (
-                      <div key={u.userid} className="flex items-center justify-between">
-                        <div 
-                          onClick={() => goToUserProfile(u.userid)}
-                          className="flex items-center gap-3 min-w-0 cursor-pointer"
-                        >
-                          <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-cyan-600 ring-2 ring-emerald-500/20 shadow-md flex-shrink-0">
-                            {u.avatar_url ? (
-                              <img src={u.avatar_url} alt={u.nombre} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
-                                {u.nombre?.charAt(0) || 'U'}
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-white font-medium truncate">{u.nombre} {u.apellido}</p>
-                            {u.bio && <p className="text-slate-400 text-xs truncate">{u.bio}</p>}
-                          </div>
-                        </div>
-                        {friendshipStatuses[u.userid] === 'accepted' ? (
-                          <span className="text-green-400 text-xs px-3 py-1 bg-green-500/10 rounded-lg">Amigos</span>
-                        ) : friendshipStatuses[u.userid] === 'pending' ? (
-                          <span className="text-yellow-400 text-xs px-3 py-1 bg-yellow-500/10 rounded-lg">Pendiente</span>
-                        ) : (
-                          <button
-                            onClick={() => handleSendFriendRequest(u.userid)}
-                            className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg"
+                    {(() => {
+                      if (searchLoading) {
+                        return <p className="text-slate-400 text-sm">Buscando...</p>
+                      }
+                      const list = searchUsers || []
+                      if (list.length === 0) {
+                        return <p className="text-slate-400 text-sm">Sin resultados</p>
+                      }
+                      return list.map((u) => (
+                        <div key={u.userid} className="flex items-center justify-between">
+                          <div 
+                            onClick={() => goToUserProfile(u.userid)}
+                            className="flex items-center gap-3 min-w-0 cursor-pointer"
                           >
-                            Agregar amigo
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                            <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-cyan-600 ring-2 ring-emerald-500/20 shadow-md flex-shrink-0">
+                              {u.avatar_url ? (
+                                <img src={u.avatar_url} alt={u.nombre} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-white font-bold text-base">
+                                  {u.nombre?.charAt(0) || 'U'}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-white font-medium truncate">{u.nombre} {u.apellido}</p>
+                              {u.bio && <p className="text-slate-400 text-xs truncate">{u.bio}</p>}
+                            </div>
+                          </div>
+                          {friendshipStatuses[u.userid] === 'accepted' ? (
+                            <span className="text-green-400 text-xs px-3 py-1 bg-green-500/10 rounded-lg">Amigos</span>
+                          ) : friendshipStatuses[u.userid] === 'pending' ? (
+                            <span className="text-yellow-400 text-xs px-3 py-1 bg-yellow-500/10 rounded-lg">Pendiente</span>
+                          ) : (
+                            <button
+                              onClick={() => handleSendFriendRequest(u.userid)}
+                              className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors px-4 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg"
+                            >
+                              Agregar amigo
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Hashtag Search Results: filter posts by hashtag */}
+              {query && query.startsWith('#') && (
+                <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-2xl">
+                  <h3 className="text-white font-semibold mb-4">Resultados de #{query.replace('#','')}</h3>
+                  <div className="space-y-4">
+                    {posts.filter(p => (p?.content || '').toLowerCase().includes(query.toLowerCase())).length === 0 ? (
+                      <p className="text-slate-400 text-sm">Sin posts con este hashtag</p>
+                    ) : (
+                      posts
+                        .filter(p => (p?.content || '').toLowerCase().includes(query.toLowerCase()))
+                        .slice(0, 10)
+                        .map(p => (
+                          <div key={p.id} className="flex items-center justify-between">
+                            <div className="min-w-0">
+                              <p className="text-slate-200 text-sm truncate">
+                                <span className="font-bold text-white mr-2">{p.author?.nombre} {p.author?.apellido}</span>
+                                <HashtagParser text={p.content} />
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const el = document.getElementById(`post-${p.id}`)
+                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                              }}
+                              className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors"
+                            >
+                              Ver post
+                            </button>
+                          </div>
+                        ))
+                    )}
                   </div>
                 </div>
               )}
@@ -1216,7 +1298,7 @@ export default function SocialPage() {
               </div>
             ) : (
                 visiblePosts.map((post) => (
-                  <div key={post.id} className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden hover:border-slate-600/70 transition-all duration-300 shadow-2xl hover:shadow-blue-500/10">
+                  <div key={post.id} id={`post-${post.id}`} className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden hover:border-slate-600/70 transition-all duration-300 shadow-2xl hover:shadow-blue-500/10">
                     {/* Post Header */}
                     <div className="flex items-center justify-between p-5">
                       <div className="flex items-center gap-3">
