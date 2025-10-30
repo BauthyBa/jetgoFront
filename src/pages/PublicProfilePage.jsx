@@ -1343,12 +1343,12 @@ const likePost = async (postId) => {
         {/* Bloque de opiniones removido: las reseñas se muestran en el tab correspondiente */}
 
         {/* Botón de contacto */}
-        <div className="mt-6 text-center">
+        {/*  <div className="mt-6 text-center">
           <button className="btn">
             <MessageCircle className="w-4 h-4 mr-2" />
             Contactar
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* Modal para ver imagen en tamaño completo */}
