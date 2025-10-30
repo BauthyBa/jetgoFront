@@ -1143,8 +1143,8 @@ export default function SocialPage() {
             <div className="w-full max-w-2xl mx-auto">
 
               {/* Stories */}
-              <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl">
-                <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1">
+              <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl overflow-visible">
+                <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1 py-2 px-2">
                   {/* Tu Story */}
                   <div 
                     onClick={openMyStoriesOrCreate}
