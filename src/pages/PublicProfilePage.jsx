@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
+import { getUserReviews, getReportReasons, createUserReport, uploadReportEvidence, createReview, getUserAvatar } from '../services/api'
 import GlassCard from '../components/GlassCard'
 import BackButton from '../components/BackButton'
 import API_CONFIG from '../config/api'
@@ -38,6 +39,7 @@ const PublicProfilePage = () => {
   const [error, setError] = useState('')
   const [userTrips, setUserTrips] = useState([])
   const [reviews, setReviews] = useState([])
+  const [reviewsStats, setReviewsStats] = useState(null)
   const [userPosts, setUserPosts] = useState([])
   const [postsLoading, setPostsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('posts')
@@ -52,6 +54,22 @@ const PublicProfilePage = () => {
   const [friendshipStatus, setFriendshipStatus] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
   const [loadingFriendship, setLoadingFriendship] = useState(false)
+  // Report user modal state
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [reportReasons, setReportReasons] = useState([])
+  const [selectedReason, setSelectedReason] = useState('')
+  const [reportComment, setReportComment] = useState('')
+  const [reportFile, setReportFile] = useState(null)
+  const [submittingReport, setSubmittingReport] = useState(false)
+  // Create review modal
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [newReviewRating, setNewReviewRating] = useState(5)
+  const [newReviewComment, setNewReviewComment] = useState('')
+  const [editingReviewId, setEditingReviewId] = useState(null)
+  const [reviewerAvatars, setReviewerAvatars] = useState({})
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [toast, setToast] = useState(null)
+  const [savedPostsList, setSavedPostsList] = useState([])
 
   useEffect(() => {
     async function loadPublicProfile() {
@@ -137,18 +155,27 @@ const PublicProfilePage = () => {
 
         setUserTrips(tripsData || [])
 
-        // Cargar reseñas recibidas
-        const { data: reviewsData } = await supabase
-          .from('reviews')
-          .select(`
-            *,
-            reviewer:User!reviews_reviewer_id_fkey(nombre, apellido, avatar_url)
-          `)
-          .eq('reviewed_user_id', userIdToUse)
-          .order('created_at', { ascending: false })
-          .limit(3)
-
-        setReviews(reviewsData || [])
+        // Cargar reseñas desde backend (con estadísticas)
+        try {
+          const resp = await getUserReviews(userIdToUse)
+          if (resp?.ok) {
+            setReviews(resp.reviews || [])
+            setReviewsStats(resp.statistics || null)
+            // Cargar avatares de reviewers
+            const ids = Array.from(new Set((resp.reviews || []).map(r => r.reviewer)))
+            const avatarEntries = await Promise.all(ids.map(async (id) => {
+              const a = await getUserAvatar(id)
+              return [id, a?.ok ? a.avatar_url : null]
+            }))
+            setReviewerAvatars(Object.fromEntries(avatarEntries))
+          } else {
+            setReviews([])
+            setReviewsStats(null)
+          }
+        } catch (_e) {
+          setReviews([])
+          setReviewsStats(null)
+        }
 
         // Cargar posts del usuario
         console.log('👤 Loading posts for user:', {
@@ -172,6 +199,117 @@ const PublicProfilePage = () => {
       loadPublicProfile()
     }
   }, [username, userId])
+
+  // Cargar posts guardados del usuario del perfil
+  useEffect(() => {
+    async function loadSavedPosts() {
+      try {
+        if (!profile?.userid) { setSavedPostsList([]); return }
+        const url = new URL(API_CONFIG.getEndpointUrl(API_CONFIG.SOCIAL_ENDPOINTS.SAVED))
+        url.searchParams.set('user_id', profile.userid)
+        const response = await fetch(url.toString(), { method: 'GET' })
+        if (!response.ok) { setSavedPostsList([]); return }
+        const payload = await response.json().catch(() => ({ posts: [] }))
+        const posts = Array.isArray(payload?.posts) ? payload.posts : []
+        setSavedPostsList(posts)
+      } catch {
+        setSavedPostsList([])
+      }
+    }
+    loadSavedPosts()
+  }, [profile?.userid])
+
+  // Cargar motivos de reporte cuando se abra el modal por primera vez
+  useEffect(() => {
+    async function loadReasons() {
+      try {
+        const resp = await getReportReasons()
+        if (resp?.ok && Array.isArray(resp?.reasons)) {
+          setReportReasons(resp.reasons)
+        }
+      } catch (_e) {
+        // ignorar
+      }
+    }
+    if (showReportModal && reportReasons.length === 0) {
+      loadReasons()
+    }
+  }, [showReportModal])
+
+  const submitUserReport = async () => {
+    if (!currentUser?.id || !profile?.userid || !selectedReason) return
+    try {
+      setSubmittingReport(true)
+      let evidence_image_url = null
+      if (reportFile) {
+        const up = await uploadReportEvidence(reportFile, currentUser.id)
+        if (up?.ok) evidence_image_url = up.url
+      }
+      const payload = {
+        reporter_id: currentUser.id,
+        reported_user_id: profile.userid,
+        reason: selectedReason,
+        description: reportComment?.trim() || '',
+        evidence_image_url,
+      }
+      const resp = await createUserReport(payload)
+      if (resp?.ok) {
+        setShowReportModal(false)
+        setSelectedReason('')
+        setReportComment('')
+        setReportFile(null)
+      } else {
+        console.error('Error creando reporte:', resp)
+        setToast({ type: 'error', text: resp?.error || 'Error al crear reporte' })
+        setTimeout(() => setToast(null), 2500)
+      }
+    } catch (error) {
+      console.error('Error creando reporte:', error?.response?.data || error)
+      setToast({ type: 'error', text: error?.response?.data?.error || 'Error al crear reporte' })
+      setTimeout(() => setToast(null), 2500)
+    } finally {
+      setSubmittingReport(false)
+    }
+  }
+
+  const submitUserReview = async () => {
+    if (!currentUser?.id || !profile?.userid) return
+    // Evitar duplicadas: si ya existe una reseña del mismo usuario, convertir en edición
+    const existing = reviews.find(r => r.reviewer === currentUser.id)
+    if (existing && !editingReviewId) {
+      setEditingReviewId(existing.id)
+      // Continuamos: el backend actualiza si existe
+    }
+    try {
+      if (submittingReview) return
+      setSubmittingReview(true)
+      const payload = {
+        reviewer_id: currentUser.id,
+        reviewed_user_id: profile.userid,
+        rating: newReviewRating,
+        comment: newReviewComment?.trim() || '',
+      }
+      const resp = await createReview(payload)
+      if (resp?.ok && resp?.review) {
+        if (editingReviewId) {
+          setReviews(prev => prev.map(r => r.id === editingReviewId ? resp.review : r))
+        } else {
+          setReviews(prev => [resp.review, ...prev])
+        }
+        setShowReviewModal(false)
+        setNewReviewComment('')
+        setNewReviewRating(5)
+        setEditingReviewId(null)
+        setToast({ type: 'success', text: 'Reseña enviada con éxito' })
+        setTimeout(() => setToast(null), 2000)
+      }
+    } catch (_e) {
+      // ignore for now
+    }
+    finally {
+      setSubmittingReview(false)
+    }
+  }
 
   // Cargar usuario actual
   useEffect(() => {
@@ -587,28 +725,31 @@ const likePost = async (postId) => {
               </div>
 
               {/* Bio */}
-              {profile.bio && (
+              {profile.bio && typeof profile.bio === "string" && profile.bio.trim().toLowerCase() !== 'null' && profile.bio.trim() && (
                 <div className="bg-slate-800/50 rounded-lg p-4">
                   <p className="text-slate-300">{profile.bio}</p>
                 </div>
               )}
 
               {/* Intereses */}
-              {getArrayData(profile.interests).length > 0 && (
-                <div>
-                  <h3 className="text-white font-semibold mb-2">Intereses</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {getArrayData(profile.interests).map((interest, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm"
-                      >
-                        {interest}
-                      </span>
-                    ))}
+              {(() => {
+                const arrayInterests = getArrayData(profile.interests).filter(interest => interest && interest.toLowerCase() !== 'null');
+                return arrayInterests.length > 0 ? (
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Intereses</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {arrayInterests.map((interest, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm"
+                        >
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                ) : null;
+              })()}
 
               {/* Estilos de viaje favoritos */}
               {getArrayData(profile.favorite_trips).length > 0 && (
@@ -742,6 +883,16 @@ const likePost = async (postId) => {
                 }`}
               >
                 Amigos ({friendsCount})
+              </button>
+              <button
+                onClick={() => setActiveTab('saved')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'saved'
+                    ? 'bg-emerald-500 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Guardados ({savedPostsList.length})
               </button>
             </div>
 
@@ -993,6 +1144,34 @@ const likePost = async (postId) => {
             </div>
           )}
 
+          {/* Contenido de guardados */}
+          {activeTab === 'saved' && (
+            <div>
+              {savedPostsList.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {savedPostsList.map((p) => (
+                    <div key={p.id} className="rounded-xl overflow-hidden bg-slate-800/50 border border-slate-700">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt="Post" className="w-full aspect-square object-cover" />
+                      ) : p.video_url ? (
+                        <video src={p.video_url} controls className="w-full aspect-square object-cover" />
+                      ) : (
+                        <div className="p-3 text-slate-300 text-sm line-clamp-4 min-h-[6rem]">{p.content || 'Post'}</div>
+                      )}
+                      <div className="px-3 py-2 text-xs text-slate-400 border-t border-slate-700">
+                        {new Date(p.created_at).toLocaleDateString('es-ES')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-slate-400">Este usuario aún no tiene posts guardados.</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Contenido de viajes */}
           {activeTab === 'trips' && (
             <div>
@@ -1043,15 +1222,19 @@ const likePost = async (postId) => {
               {reviews.map((review) => (
                 <div key={review.id} className="bg-slate-800/50 rounded-lg p-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-semibold text-sm">
-                        {[review.reviewer?.nombre, review.reviewer?.apellido].filter(Boolean).join(' ').charAt(0) || 'A'}
-                      </span>
-                    </div>
+                    {reviewerAvatars[review.reviewer] ? (
+                      <img src={reviewerAvatars[review.reviewer]} alt="avatar" className="w-10 h-10 rounded-full object-cover border border-slate-700" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-semibold text-sm">
+                          {(review.reviewer_name || 'U').charAt(0)}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-white font-semibold">
-                          {[review.reviewer?.nombre, review.reviewer?.apellido].filter(Boolean).join(' ') || 'Anónimo'}
+                          {review.reviewer_name || 'Usuario'}
                         </span>
                         <div className="flex">
                           {[...Array(5)].map((_, i) => (
@@ -1065,6 +1248,19 @@ const likePost = async (postId) => {
                             />
                           ))}
                         </div>
+                        {currentUser?.id === review.reviewer && (
+                          <button
+                            className="text-xs text-emerald-400 hover:text-emerald-300 ml-auto"
+                            onClick={() => {
+                              setShowReviewModal(true)
+                              setEditingReviewId(review.id)
+                              setNewReviewRating(review.rating)
+                              setNewReviewComment(review.comment || '')
+                            }}
+                          >
+                            Editar
+                          </button>
+                        )}
                       </div>
                       {review.comment && (
                         <p className="text-slate-300 text-sm">{review.comment}</p>
@@ -1084,6 +1280,11 @@ const likePost = async (postId) => {
                   <p className="text-slate-400 text-sm">
                     {[profile?.nombre, profile?.apellido].filter(Boolean).join(' ') || 'Este usuario'} no ha recibido reseñas todavía.
                   </p>
+                  {currentUser?.id && currentUser.id !== profile?.userid && (
+                    <button onClick={() => setShowReviewModal(true)} className="btn mt-4">
+                      Dejar reseña
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1118,7 +1319,7 @@ const likePost = async (postId) => {
                       <h4 className="text-white font-semibold text-sm truncate text-center">
                         {friend.nombre} {friend.apellido}
                       </h4>
-                      {friend.bio && (
+                      {friend.bio && typeof friend.bio === "string" && friend.bio.trim() && (
                         <p className="text-slate-400 text-xs mt-1 line-clamp-2 text-center">
                           {friend.bio}
                         </p>
@@ -1138,6 +1339,8 @@ const likePost = async (postId) => {
             </div>
           )}
           </GlassCard>
+
+        {/* Bloque de opiniones removido: las reseñas se muestran en el tab correspondiente */}
 
         {/* Botón de contacto */}
         <div className="mt-6 text-center">
@@ -1163,6 +1366,98 @@ const likePost = async (postId) => {
               alt="Imagen ampliada"
               className="max-w-full max-h-full object-contain rounded-lg"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Botón flotante para reportar usuario */}
+      {currentUser?.id && currentUser.id !== profile?.userid && (
+        <button
+          onClick={() => setShowReportModal(true)}
+          className="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-3 rounded-full shadow-lg z-40"
+        >
+          Reportar usuario
+        </button>
+      )}
+
+      {/* Modal de reporte de usuario */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 border border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white text-xl font-semibold">Reportar usuario</h3>
+              <button className="text-slate-400 hover:text-white" onClick={() => setShowReportModal(false)}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">Motivo</label>
+                <select value={selectedReason} onChange={(e) => setSelectedReason(e.target.value)} className="w-full bg-slate-800 text-white rounded-lg p-3 border border-slate-700">
+                  <option value="">Seleccionar motivo...</option>
+                  {reportReasons.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">Detalles (opcional)</label>
+                <textarea value={reportComment} onChange={(e) => setReportComment(e.target.value)} rows={4} className="w-full bg-slate-800 text-white rounded-lg p-3 border border-slate-700" placeholder="Explicá brevemente lo ocurrido" />
+              </div>
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">Evidencia (opcional)</label>
+                <input type="file" accept="image/*,video/*" onChange={(e) => setReportFile(e.target.files?.[0] || null)} className="w-full text-slate-300" />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button className="px-4 py-2 rounded-lg bg-slate-700 text-white" onClick={() => setShowReportModal(false)}>Cancelar</button>
+                <button disabled={submittingReport || !selectedReason} onClick={submitUserReport} className={`px-4 py-2 rounded-lg ${submittingReport || !selectedReason ? 'bg-red-400/60' : 'bg-red-600 hover:bg-red-700'} text-white`}>
+                  {submittingReport ? 'Enviando...' : 'Enviar reporte'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal crear reseña */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white text-xl font-semibold">Dejar reseña</h3>
+              <button className="text-slate-400 hover:text-white" onClick={() => setShowReviewModal(false)}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">Calificación</label>
+                <div className="flex items-center gap-2">
+                  {[1,2,3,4,5].map((n) => (
+                    <button key={n} onClick={() => setNewReviewRating(n)} className={`p-1 ${newReviewRating >= n ? 'text-yellow-400' : 'text-slate-500'}`}>
+                      <Star className={`w-6 h-6 ${newReviewRating >= n ? 'fill-current' : ''}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">Comentario (opcional)</label>
+                <textarea value={newReviewComment} onChange={(e) => setNewReviewComment(e.target.value)} rows={4} className="w-full bg-slate-800 text-white rounded-lg p-3 border border-slate-700" placeholder="¿Cómo fue tu experiencia?" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button className="px-4 py-2 rounded-lg bg-slate-700 text-white" onClick={() => setShowReviewModal(false)}>Cancelar</button>
+                <button disabled={submittingReview} className={`px-4 py-2 rounded-lg ${submittingReview ? 'bg-emerald-400/60' : 'bg-emerald-600 hover:bg-emerald-700'} text-white`} onClick={submitUserReview}>{submittingReview ? 'Enviando...' : 'Enviar reseña'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className={`px-5 py-3 rounded-xl shadow-lg ${toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'} animate-bounce`}> 
+            {toast.text}
           </div>
         </div>
       )}

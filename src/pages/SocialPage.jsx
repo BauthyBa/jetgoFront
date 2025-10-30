@@ -38,6 +38,7 @@ export default function SocialPage() {
   const [suggestedTrips, setSuggestedTrips] = useState([])
   const [loading, setLoading] = useState(true)
   const [likedPosts, setLikedPosts] = useState(new Set())
+  const [savedPosts, setSavedPosts] = useState(new Set())
   const [comments, setComments] = useState({})
   const [showComments, setShowComments] = useState({})
   const [newComment, setNewComment] = useState({})
@@ -51,6 +52,18 @@ export default function SocialPage() {
   const [storyPreview, setStoryPreview] = useState(null)
   const [storyContent, setStoryContent] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState({})
+
+  // Inserta un emoji en el comentario del post y cierra el picker
+  const insertEmoji = (postId, emoji) => {
+    setNewComment(prev => ({
+      ...prev,
+      [postId]: `${prev[postId] || ''}${emoji}`
+    }))
+    setShowEmojiPicker(prev => ({
+      ...prev,
+      [postId]: false
+    }))
+  }
   const [uploadingStory, setUploadingStory] = useState(false)
   const [showStoryViewer, setShowStoryViewer] = useState(false)
   const [currentStory, setCurrentStory] = useState(null)
@@ -84,6 +97,23 @@ export default function SocialPage() {
   const showNotification = (title, message, type = 'success') => {
     setToast({ show: true, type, title, message })
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 2800)
+  }
+
+  const toggleSavePost = async (postId) => {
+    try {
+      const isSaved = savedPosts.has(postId)
+      if (isSaved) {
+        await supabase.from('saved_posts').delete().eq('user_id', user?.userid || user?.id).eq('post_id', postId)
+        setSavedPosts(prev => { const next = new Set(prev); next.delete(postId); return next })
+        showNotification('Guardado', 'Post quitado de guardados', 'success')
+      } else {
+        await supabase.from('saved_posts').insert({ user_id: user?.userid || user?.id, post_id: postId })
+        setSavedPosts(prev => new Set([...prev, postId]))
+        showNotification('Guardado', 'Post guardado', 'success')
+      }
+    } catch (e) {
+      showNotification('Error', 'No se pudo actualizar guardado', 'error')
+    }
   }
 
   // Helpers para persistir likes por usuario en localStorage
@@ -1114,8 +1144,8 @@ export default function SocialPage() {
             <div className="w-full max-w-2xl mx-auto xl:overflow-y-auto xl:h-full xl:pr-2" style={{ scrollbarWidth: 'thin' }}>
 
               {/* Stories */}
-              <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl">
-                <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1">
+              <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl overflow-visible">
+                <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1 py-2 px-2">
                   {/* Tu Story */}
                   <div 
                     onClick={openMyStoriesOrCreate}
@@ -1428,7 +1458,7 @@ export default function SocialPage() {
                             <Send className="w-7 h-7" />
                         </button>
                       </div>
-                        <button className="text-slate-300 hover:text-yellow-400 hover:scale-125 transition-all duration-200 active:scale-95">
+                        <button onClick={() => toggleSavePost(post.id)} className={`hover:scale-125 transition-all duration-200 active:scale-95 ${savedPosts.has(post.id) ? 'text-yellow-400' : 'text-slate-300 hover:text-yellow-400'}`}>
                           <Bookmark className="w-7 h-7" />
                         </button>
                       </div>

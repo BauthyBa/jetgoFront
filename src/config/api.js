@@ -37,6 +37,7 @@ const API_CONFIG = {
   SOCIAL_ENDPOINTS: {
     POSTS: '/api/social/posts/',
     STORIES: '/api/social/stories/',
+    SAVED: '/api/social/saved/',
     TEST: '/api/social/test/',
   },
 

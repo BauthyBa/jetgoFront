@@ -26,6 +26,7 @@ import { getSession } from '@/services/supabase'
 import { createTrip } from '@/services/trips'
 import { searchCities, searchCountries } from '@/services/nominatim'
 import ROUTES from '@/config/routes'
+import { mapTransportTypeForBackend } from '@/utils/transport'
 
 // Utilidades para calcular temporada (deben ir después de los imports)
 const SOUTHERN_HEMISPHERE_COUNTRIES = new Set([
@@ -212,6 +213,10 @@ export default function CreateTripForm() {
       if (!trip.tipo) {
         throw new Error('Por favor selecciona un tipo de transporte')
       }
+      const backendTransportType = mapTransportTypeForBackend(trip.tipo)
+      if (!backendTransportType) {
+        throw new Error('Tipo de transporte inválido. Por favor selecciona una opción válida.')
+      }
 
       // Intentar inferir país desde destino si falta
       let countryForSubmit = trip.country
@@ -274,7 +279,7 @@ export default function CreateTripForm() {
         currency: trip.currency,
         description: trip.description || '',
         tipo: trip.tipo,
-        transport_type: trip.tipo
+        transport_type: backendTransportType
       }
       // Log para debugging
       console.log('📤 Enviando datos del viaje:', tripData)
@@ -440,7 +445,7 @@ export default function CreateTripForm() {
               </div>
             </div>
 
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-8 border border-slate-700/50">
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-8 border border-slate-700/50 relative z-50">
               <h2 className="text-2xl font-semibold text-white mb-8 flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-blue-400" />
@@ -464,7 +469,7 @@ export default function CreateTripForm() {
                     required
                   />
                   {(originSuggestions.length > 0 || loadingSuggestions) && (
-                    <ul className="absolute z-50 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto shadow-2xl">
+                    <ul className="absolute z-[9999] w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto shadow-2xl">
                       {loadingSuggestions ? (
                         <li className="p-3 text-slate-400 text-center">
                           <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
@@ -504,7 +509,7 @@ export default function CreateTripForm() {
                     required
                   />
                   {(destinationSuggestions.length > 0 || loadingSuggestions) && (
-                    <ul className="absolute z-50 w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto shadow-2xl">
+                    <ul className="absolute z-[9999] w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 max-h-48 overflow-auto shadow-2xl">
                       {loadingSuggestions ? (
                         <li className="p-3 text-slate-400 text-center">
                           <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />

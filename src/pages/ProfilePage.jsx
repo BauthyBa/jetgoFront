@@ -575,9 +575,11 @@ export default function ProfilePage() {
                   <h1 className="text-2xl font-bold text-white">
                     {profile?.meta?.first_name || 'Usuario'}
                   </h1>
-                  <p className="text-slate-300 text-sm">
-                    {bio || 'Sin biografía'}
-                  </p>
+                  {bio && (
+                    <p className="text-slate-300 text-sm">
+                      {bio}
+                    </p>
+                  )}
                   <div className="flex items-center gap-4 mt-2">
                     <span className="text-xs text-slate-400 bg-slate-700 px-2 py-1 rounded-full">
                       {getTripLevel()} ({getTripCount()} viajes)
@@ -737,7 +739,7 @@ export default function ProfilePage() {
                   {editing ? (
                     <textarea
                       value={bio}
-                      onChange={(e) => setBio(e.target.value)}
+                      onChange={e => setBio(e.target.value)}
                       placeholder="Contanos sobre vos..."
                       rows={4}
                       className="w-full mt-1 bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-md px-3 py-2"
@@ -745,7 +747,9 @@ export default function ProfilePage() {
                       maxLength={500}
                     />
                   ) : (
-                    <p className="text-white mt-1">{bio || 'Sin biografía'}</p>
+                    !!bio && (
+                      <p className="text-white mt-1">{bio}</p>
+                    )
                   )}
                 </div>
                 <div>

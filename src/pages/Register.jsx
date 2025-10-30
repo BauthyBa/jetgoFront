@@ -10,6 +10,8 @@ export default function Register({ embedded = false }) {
   const location = useLocation()
   const navigate = useNavigate()
   const googleMode = new URLSearchParams(location.search).get('mode') === 'google'
+  const dniFrontFileRef = useRef(null)
+  const dniBackFileRef = useRef(null)
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -199,6 +201,7 @@ export default function Register({ embedded = false }) {
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    dniFrontFileRef.current = file
     const url = URL.createObjectURL(file)
     setForm((f) => ({ ...f, dni_image_file: file, dni_image_url: url }))
     setError(null)
@@ -207,6 +210,7 @@ export default function Register({ embedded = false }) {
   const handleBackImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    dniBackFileRef.current = file
     const url = URL.createObjectURL(file)
     setForm((f) => ({ ...f, dni_back_file: file, dni_back_url: url }))
   }
@@ -226,8 +230,12 @@ export default function Register({ embedded = false }) {
     setScanning(true)
     setOverlay({ visible: true, message: 'Analizando DNI…' })
     try {
-      if (!form.dni_image_file) throw new Error('Debes subir una foto del frente del DNI')
-      if (!form.dni_back_file) throw new Error('Debes subir una foto del dorso del DNI')
+      // Usar refs para asegurar que tenemos los archivos más recientes
+      const frontFile = dniFrontFileRef.current || form.dni_image_file
+      const backFile = dniBackFileRef.current || form.dni_back_file
+      
+      if (!frontFile) throw new Error('Debes subir una foto del frente del DNI')
+      if (!backFile) throw new Error('Debes subir una foto del dorso del DNI')
       const result = await tryDecodeWithFallbacks(form.dni_image_url)
       const text = result.getText()
       setForm((f) => ({ ...f, dni_front_payload: text }))
@@ -265,8 +273,8 @@ export default function Register({ embedded = false }) {
               birth_date: form.birth_date,
               email: supaEmail,
               password: randomPassword,
-              bio: form.bio,
-              interests: form.interests,
+              bio: '',
+              interests: '',
               dni_front_payload: text,
             })
             localStorage.setItem('dni_meta', JSON.stringify({
@@ -295,8 +303,8 @@ export default function Register({ embedded = false }) {
                 document_number: form.document_number,
                 sex: form.sex,
                 birth_date: form.birth_date,
-                bio: form.bio,
-                interests: form.interests,
+                bio: '',
+                interests: '',
               })
             } catch (e) {
               console.warn('No se pudo upsert perfil al backend durante verificación:', e?.message || e)
@@ -311,7 +319,10 @@ export default function Register({ embedded = false }) {
         navigate('/')
       } else {
         // 1) Guardar en backend
-        await registerUser(form)
+        await registerUser({
+          ...form,
+          dni_front_payload: text
+        })
         // 2) Enviar email de confirmación con Supabase (y guardar metadata)
         try {
           await supabase.auth.signUp({
@@ -323,8 +334,8 @@ export default function Register({ embedded = false }) {
               document_number: form.document_number,
               sex: form.sex,
               birth_date: form.birth_date,
-              bio: form.bio,
-              interests: form.interests,
+              bio: '',
+              interests: '',
               dni_verified: true,
             } }
           })
@@ -391,7 +402,7 @@ export default function Register({ embedded = false }) {
             </div>
             <div className="field" style={{ marginBottom: fieldMargin }}>
               <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Sexo</label>
-              <select name="sex" value={form.sex} onChange={handleChange} style={{ padding: controlPadding, fontSize: controlFontSize }}>
+              <select name="sex" value={form.sex} onChange={handleChange} style={{ padding: controlPadding, fontSize: controlFontSize, backgroundColor: compact ? '#1e293b' : '#ffffff', color: compact ? '#e2e8f0' : '#0f172a', border: compact ? '1px solid rgba(148,163,184,0.4)' : '1px solid #e2e8f0' }}>
                 <option value="M">M</option>
                 <option value="F">F</option>
               </select>
@@ -399,14 +410,6 @@ export default function Register({ embedded = false }) {
             <div className="field" style={{ marginBottom: fieldMargin }}>
               <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Fecha de nacimiento</label>
               <input type="date" name="birth_date" value={form.birth_date} onChange={handleChange} required style={{ padding: controlPadding, fontSize: controlFontSize }} />
-            </div>
-            <div className="field" style={{ marginBottom: fieldMargin }}>
-              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Biografía</label>
-              <textarea name="bio" value={form.bio} onChange={handleChange} placeholder="Contanos sobre vos..." required style={{ padding: controlPadding, fontSize: controlFontSize, minHeight: compact ? '84px' : '100px', resize: 'vertical' }} />
-            </div>
-            <div className="field" style={{ marginBottom: fieldMargin }}>
-              <label style={{ fontSize: labelFontSize, marginBottom: compact ? '10px' : '12px' }}>Intereses</label>
-              <input name="interests" value={form.interests} onChange={handleChange} placeholder="Ej.: trekking, playas, fotografía" required style={{ padding: controlPadding, fontSize: controlFontSize }} />
             </div>
             {!googleMode && (
               <>
@@ -515,7 +518,7 @@ export default function Register({ embedded = false }) {
               }}
             >
               <button className="btn" type="submit" disabled={loading || scanning || !termsAccepted} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>{googleMode ? (loading || scanning ? 'Verificando…' : 'Verificar DNI') : (loading ? 'Enviando...' : (scanning ? 'Leyendo...' : 'Crear cuenta'))}</button>
-              <button className="btn secondary" type="button" onClick={() => { setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', email: '', password: '', bio: '', interests: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); }} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>Limpiar</button>
+              <button className="btn secondary" type="button" onClick={() => { dniFrontFileRef.current = null; dniBackFileRef.current = null; setForm({ ...form, first_name: '', last_name: '', document_number: '', sex: 'M', birth_date: '', email: '', password: '', bio: '', interests: '', dni_front_payload: '', dni_image_file: null, dni_image_url: '', dni_back_file: null, dni_back_url: '' }); }} style={{ padding: compact ? '16px 20px' : '18px 24px', fontSize: controlFontSize }}>Limpiar</button>
               <span className="muted" style={{ fontSize: controlFontSize }}>{scanning ? 'Procesando imagen...' : ''}</span>
             </div>
             {ok && (
