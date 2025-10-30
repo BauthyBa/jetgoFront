@@ -79,6 +79,7 @@ export default function SocialPage() {
   const [showReportModal, setShowReportModal] = useState(false)
   const [reportReason, setReportReason] = useState('')
   const [reportPostId, setReportPostId] = useState(null)
+  const [showAllUsers, setShowAllUsers] = useState(false)
 
   const showNotification = (title, message, type = 'success') => {
     setToast({ show: true, type, title, message })
@@ -1107,10 +1108,10 @@ export default function SocialPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid grid-cols-1 gap-6 md:gap-8 xl:grid-cols-[minmax(0,1fr)_360px] xl:h-[calc(100vh-180px)]">
 
             {/* Feed Principal */}
-            <div className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl mx-auto xl:overflow-y-auto xl:h-full xl:pr-2" style={{ scrollbarWidth: 'thin' }}>
 
               {/* Stories */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl">
@@ -1558,9 +1559,8 @@ export default function SocialPage() {
       </div>
 
           {/* Sidebar Derecho - Sugerencias */}
-          <div className="hidden xl:block w-[360px]">
-            <div className="sticky top-20">
-              <div className="space-y-5">
+          <div className="hidden xl:block w-[360px] xl:overflow-y-auto xl:h-full xl:pl-2" style={{ scrollbarWidth: 'thin' }}>
+            <div className="space-y-5">
               {/* Tu Perfil */}
               <div 
                 className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl cursor-pointer hover:border-blue-500/50 transition-all duration-300 shadow-xl hover:shadow-blue-500/20 group"
@@ -1594,12 +1594,15 @@ export default function SocialPage() {
                 <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 shadow-xl">
                   <div className="flex items-center justify-between mb-5">
                     <p className="text-white font-bold text-sm">Usuarios recomendados</p>
-                    <button className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors">
-                      Ver todo
+                    <button 
+                      onClick={() => setShowAllUsers(!showAllUsers)}
+                      className="text-blue-400 hover:text-blue-300 text-xs font-bold transition-colors"
+                    >
+                      {showAllUsers ? 'Ver menos' : 'Ver todo'}
                     </button>
                   </div>
-                  <div className="space-y-4">
-                    {visibleSuggestedUsers.slice(0, 5).map((suggestedUser) => (
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+                    {(showAllUsers ? visibleSuggestedUsers : visibleSuggestedUsers.slice(0, 5)).map((suggestedUser) => (
                       <div key={suggestedUser.userid} className="flex items-center justify-between group">
                         <div 
                           onClick={() => goToUserProfile(suggestedUser.userid)}
@@ -1737,7 +1740,6 @@ export default function SocialPage() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* Modal de Compartir */}
       {showShareModal && (
@@ -2309,8 +2311,7 @@ export default function SocialPage() {
         </div>
       )}
 
-      
-    </div>
+      </div>
     </div>
   )
 }
