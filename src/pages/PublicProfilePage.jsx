@@ -725,28 +725,31 @@ const likePost = async (postId) => {
               </div>
 
               {/* Bio */}
-              {profile.bio && (
+              {profile.bio && typeof profile.bio === "string" && profile.bio.trim().toLowerCase() !== 'null' && profile.bio.trim() && (
                 <div className="bg-slate-800/50 rounded-lg p-4">
                   <p className="text-slate-300">{profile.bio}</p>
                 </div>
               )}
 
               {/* Intereses */}
-              {getArrayData(profile.interests).length > 0 && (
-                <div>
-                  <h3 className="text-white font-semibold mb-2">Intereses</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {getArrayData(profile.interests).map((interest, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm"
-                      >
-                        {interest}
-                      </span>
-                    ))}
+              {(() => {
+                const arrayInterests = getArrayData(profile.interests).filter(interest => interest && interest.toLowerCase() !== 'null');
+                return arrayInterests.length > 0 ? (
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Intereses</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {arrayInterests.map((interest, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm"
+                        >
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                ) : null;
+              })()}
 
               {/* Estilos de viaje favoritos */}
               {getArrayData(profile.favorite_trips).length > 0 && (
@@ -1316,7 +1319,7 @@ const likePost = async (postId) => {
                       <h4 className="text-white font-semibold text-sm truncate text-center">
                         {friend.nombre} {friend.apellido}
                       </h4>
-                      {friend.bio && (
+                      {friend.bio && typeof friend.bio === "string" && friend.bio.trim() && (
                         <p className="text-slate-400 text-xs mt-1 line-clamp-2 text-center">
                           {friend.bio}
                         </p>
