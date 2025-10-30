@@ -7,6 +7,7 @@ import { MapPin, MessageCircle, Users, Heart, CloudSun, ChevronLeft, ChevronRigh
 import ROUTES from '@/config/routes'
 import { useNotifications } from '@/hooks/useNotifications'
 import FloatingNotificationPanel from './FloatingNotificationPanel'
+import { loadUserAvatar } from '@/utils/avatarHelper'
 
 const EXPANDED_WIDTH = 288
 const COLLAPSED_WIDTH = 80
@@ -72,23 +73,30 @@ export default function Navigation() {
         return
       }
       try {
+        // Cargar avatar desde el backend (usa admin, sin problemas de RLS)
+        const avatarUrl = await loadUserAvatar(user.id)
+        
+        // Cargar datos del usuario
         const { data, error } = await supabase
           .from('User')
-          .select('userid,nombre,apellido,avatar_url')
+          .select('userid,nombre,apellido')
           .eq('userid', user.id)
           .single()
+        
         if (!active) return
+        
         if (data && !error) {
-          setUserProfile(data)
-          return
+          setUserProfile({
+            ...data,
+            avatar_url: avatarUrl || null
+          })
+        } else {
+          // Fallback si no hay datos en User
+          setUserProfile({
+            userid: user.id,
+            avatar_url: avatarUrl || user.user_metadata?.avatar_url
+          })
         }
-        try {
-          const response = await getUserAvatarApi(user.id)
-          const avatarUrl = response?.avatar_url || response?.data?.avatar_url || response?.url
-          if (active && avatarUrl) {
-            setUserProfile((prev) => ({ ...(prev || {}), userid: user.id, avatar_url: avatarUrl }))
-          }
-        } catch (_error) {}
       } catch (profileError) {
         console.error('Error loading user profile in navigation:', profileError)
       }

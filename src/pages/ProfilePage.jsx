@@ -7,6 +7,7 @@ import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin,
 import AvatarUpload from '../components/AvatarUpload'
 import MyTripHistory from '../components/MyTripHistory'
 import BackButton from '../components/BackButton'
+import { clearAvatarCache } from '../utils/avatarHelper'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null)
@@ -83,28 +84,81 @@ export default function ProfilePage() {
         }
 
         setProfile(info)
-        setAvatarUrl(mergedMeta?.avatar_url || '')
-
-        // Intentar obtener avatar persistente desde backend o tabla pública
+        
+        // Cargar avatar con prioridad: backend (usa admin) > tabla User > metadata
+        let loadedAvatarUrl = null
+        
+        // 1. Intentar desde backend (PRIORIDAD - usa admin de Supabase, sin problemas de RLS)
         try {
-          const avatarRes = await getUserAvatar(info.user_id)
-          const backendUrl = avatarRes?.avatar_url || avatarRes?.data?.avatar_url || avatarRes?.url
-          if (backendUrl) {
-            setAvatarUrl(backendUrl)
+          console.log('🔍 Buscando avatar en backend (vía admin)...')
+          
+          // Usar fetch directo para evitar problemas de autenticación
+          const backendUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/profile/user/?user_id=${info.user_id}`
+          console.log('📍 URL del backend:', backendUrl)
+          
+          const response = await fetch(backendUrl)
+          console.log('📡 Status de respuesta:', response.status)
+          
+          if (response.ok) {
+            const data = await response.json()
+            console.log('📊 Respuesta completa del backend:', data)
+            console.log('📊 Objeto user completo:', JSON.stringify(data?.user, null, 2))
+            
+            // El backend devuelve { ok: true, user: { avatar_url: "..." } }
+            const avatarFromBackend = data?.user?.avatar_url || data?.avatar_url || data?.data?.avatar_url
+            console.log('📊 Avatar extraído:', avatarFromBackend)
+            console.log('📊 data.user.avatar_url:', data?.user?.avatar_url)
+            
+            if (avatarFromBackend && avatarFromBackend !== null) {
+              loadedAvatarUrl = avatarFromBackend
+              console.log('✅ Avatar encontrado en backend:', loadedAvatarUrl)
+            } else {
+              console.warn('⚠️ Backend respondió OK pero avatar_url es null')
+            }
           } else {
-            // Fallback: leer desde tabla User en Supabase
-            try {
-              const { data: userRows, error: userErr } = await supabase
-                .from('User')
-                .select('avatar_url')
-                .eq('userid', info.user_id)
-                .limit(1)
-              if (!userErr && Array.isArray(userRows) && userRows[0]?.avatar_url) {
-                setAvatarUrl(userRows[0].avatar_url)
-              }
-            } catch (_e) {}
+            console.warn('⚠️ Backend respondió con error:', response.status)
           }
-        } catch (_e) {}
+        } catch (e) {
+          console.error('❌ Error buscando en backend:', e)
+        }
+
+        // 2. Fallback: tabla User de Supabase
+        if (!loadedAvatarUrl) {
+          try {
+            console.log('🔍 Buscando avatar en tabla User...')
+            const { data: userRows, error: userErr } = await supabase
+              .from('User')
+              .select('avatar_url, avatarUrl, foto_perfil')
+              .eq('userid', info.user_id)
+              .single()
+            
+            console.log('📊 Respuesta de tabla User:', { userRows, userErr })
+            
+            // Buscar en diferentes posibles nombres de campo
+            const possibleUrl = userRows?.avatar_url || userRows?.avatarUrl || userRows?.foto_perfil
+            
+            if (!userErr && possibleUrl) {
+              loadedAvatarUrl = possibleUrl
+              console.log('✅ Avatar encontrado en tabla User:', loadedAvatarUrl)
+            }
+          } catch (e) {
+            console.warn('⚠️ Error buscando en tabla User:', e)
+          }
+        }
+
+        // 3. Fallback: metadata
+        if (!loadedAvatarUrl && mergedMeta?.avatar_url) {
+          loadedAvatarUrl = mergedMeta.avatar_url
+          console.log('✅ Avatar encontrado en metadata:', loadedAvatarUrl)
+        }
+
+        setAvatarUrl(loadedAvatarUrl || '')
+        console.log('🖼️ Avatar final cargado:', loadedAvatarUrl || 'Sin avatar')
+        
+        // Verificar que el avatar se guardó correctamente
+        if (!loadedAvatarUrl) {
+          console.warn('⚠️⚠️⚠️ NO SE ENCONTRÓ AVATAR EN NINGUNA FUENTE')
+        }
         setBio(mergedMeta?.bio || '')
         setInterests(Array.isArray(mergedMeta?.interests) ? mergedMeta.interests.join(', ') : (mergedMeta?.interests || ''))
         setFavoriteTrips(Array.isArray(mergedMeta?.favorite_travel_styles) ? mergedMeta.favorite_travel_styles.join(', ') : (mergedMeta?.favorite_travel_styles || ''))
@@ -139,49 +193,72 @@ export default function ProfilePage() {
     try {
       setSaving(true)
       setError('')
+      
+      console.log('🖼️ Iniciando actualización de avatar:', newAvatarUrl)
+      let successCount = 0
+      const errors = []
 
-      // 1) Intentar actualizar metadata en Supabase Auth (puede fallar si no hay sesión activa en Supabase)
+      // 1) Actualizar en el backend Django (PRIORIDAD MÁXIMA - usa admin de Supabase sin RLS)
+      // El backend tiene permisos de admin y puede escribir sin problemas
       try {
-        await updateUserMetadata({ avatar_url: newAvatarUrl })
-      } catch (authErr) {
-        console.warn('updateUserMetadata falló, continuo con backend/User table:', authErr)
-      }
-
-      // 2) Actualizar en el backend (no depende de Supabase Auth)
-      try {
-        await upsertProfileToBackend({
+        console.log('📝 Actualizando backend Django...')
+        console.log('📝 Enviando avatar_url:', newAvatarUrl)
+        
+        // IMPORTANTE: Solo enviar los campos necesarios para no sobrescribir otros datos
+        const backendResponse = await upsertProfileToBackend({
           user_id: profile?.user_id,
           email: profile?.email,
-          first_name: profile?.meta?.first_name,
-          last_name: profile?.meta?.last_name,
-          document_number: profile?.meta?.document_number,
-          sex: profile?.meta?.sex,
-          birth_date: profile?.meta?.birth_date,
-          bio: bio,
-          interests: interests.split(',').map(i => i.trim()).filter(Boolean),
-          favorite_travel_styles: favoriteTrips.split(',').map(t => t.trim()).filter(Boolean),
-          avatar_url: newAvatarUrl,
+          first_name: profile?.meta?.first_name || '',
+          last_name: profile?.meta?.last_name || '',
+          document_number: profile?.meta?.document_number || '',
+          sex: profile?.meta?.sex || '',
+          birth_date: profile?.meta?.birth_date || '',
+          bio: bio || '',
+          interests: interests ? interests.split(',').map(i => i.trim()).filter(Boolean) : [],
+          favorite_travel_styles: favoriteTrips ? favoriteTrips.split(',').map(t => t.trim()).filter(Boolean) : [],
+          avatar_url: newAvatarUrl,  // Este es el campo crítico
         })
-      } catch (backendErr) {
-        console.warn('Error updating backend avatar:', backendErr)
-      }
-
-      // 3) Actualizar avatar_url en la tabla User (bypass RLS mediante supabase JS si tiene permisos del usuario)
-      try {
-        const { error: updateError } = await supabase
-          .from('User')
-          .update({ avatar_url: newAvatarUrl })
-          .eq('userid', profile?.user_id)
-        if (updateError) {
-          console.warn('Error updating avatar_url in User table:', updateError)
+        console.log('✅ Backend Django actualizado correctamente')
+        console.log('✅ Respuesta del backend:', backendResponse)
+        
+        // Verificar que realmente se guardó
+        if (backendResponse?.ok || backendResponse?.data) {
+          successCount++
+        } else {
+          throw new Error('Backend no confirmó el guardado')
         }
-      } catch (tableErr) {
-        console.warn('Error updating avatar_url in User table:', tableErr)
+      } catch (backendErr) {
+        console.error('❌ Error updating backend:', backendErr)
+        errors.push('Error en backend: ' + backendErr.message)
       }
 
-      // 4) Actualizar estado local siempre que tengamos la URL nueva
+      // 2) Actualizar metadata en Supabase Auth (opcional, para compatibilidad)
+      try {
+        console.log('📝 Actualizando Supabase Auth metadata...')
+        await updateUserMetadata({ avatar_url: newAvatarUrl })
+        console.log('✅ Supabase Auth metadata actualizado')
+        successCount++
+      } catch (authErr) {
+        console.warn('⚠️ updateUserMetadata falló (no crítico):', authErr)
+      }
+
+      // 3) Actualizar estado local
       setAvatarUrl(newAvatarUrl)
+      console.log(`✅ Avatar actualizado localmente. Éxitos: ${successCount}/2`)
+
+      // 4) Limpiar cache de avatares para forzar recarga en otros componentes
+      clearAvatarCache(profile?.user_id)
+      console.log('🗑️ Cache de avatar limpiado')
+
+      // Mostrar mensaje de éxito
+      if (successCount === 0) {
+        throw new Error('No se pudo guardar el avatar: ' + errors.join(', '))
+      } else {
+        setSuccessMessage('✅ Avatar actualizado exitosamente')
+        setTimeout(() => setSuccessMessage(''), 3000)
+      }
     } catch (e) {
+      console.error('❌ Error crítico al actualizar avatar:', e)
       setError(e?.message || 'Error al actualizar la foto de perfil')
     } finally {
       setSaving(false)
@@ -278,24 +355,46 @@ export default function ProfilePage() {
   const loadUserReviews = async (userId) => {
     try {
       setReviewsLoading(true)
-      const { data, error } = await supabase
+      
+      // Cargar reviews sin el join (evitar error de tabla profiles)
+      const { data: reviewsData, error } = await supabase
         .from('reviews')
-        .select(`
-          *,
-          reviewer:profiles!reviews_reviewer_id_fkey(*)
-        `)
+        .select('*')
         .eq('reviewed_user_id', userId)
         .order('created_at', { ascending: false })
         .limit(10)
 
       if (error) {
         console.error('Error loading reviews:', error)
+        setUserReviews([])
         return
       }
 
-      setUserReviews(data || [])
+      // Enriquecer con datos del reviewer desde la tabla User
+      if (reviewsData && reviewsData.length > 0) {
+        const enrichedReviews = await Promise.all(
+          reviewsData.map(async (review) => {
+            if (!review.reviewer_id) return review
+            
+            const { data: userData } = await supabase
+              .from('User')
+              .select('userid, nombre, apellido, avatar_url')
+              .eq('userid', review.reviewer_id)
+              .single()
+            
+            return {
+              ...review,
+              reviewer: userData || null
+            }
+          })
+        )
+        setUserReviews(enrichedReviews)
+      } else {
+        setUserReviews([])
+      }
     } catch (error) {
       console.error('Error loading reviews:', error)
+      setUserReviews([])
     } finally {
       setReviewsLoading(false)
     }

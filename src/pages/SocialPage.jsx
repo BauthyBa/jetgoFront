@@ -27,6 +27,7 @@ import HashtagParser from '@/components/HashtagParser'
 import TrendingHashtags from '@/components/TrendingHashtags'
 import { listTrips } from '@/services/trips'
 import TripDetailsModal from '@/components/TripDetailsModal'
+import { loadUserAvatar, loadMultipleAvatars } from '@/utils/avatarHelper'
 
 export default function SocialPage() {
   const navigate = useNavigate()
@@ -285,22 +286,29 @@ export default function SocialPage() {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser()
       if (authUser) {
+        // Cargar avatar desde el backend (usa admin, sin problemas de RLS)
+        const avatarUrl = await loadUserAvatar(authUser.id)
+        
         // Obtener datos completos del usuario desde la tabla User
         const { data: userData, error } = await supabase
           .from('User')
-          .select('userid, nombre, apellido, avatar_url, bio')
+          .select('userid, nombre, apellido, bio')
           .eq('userid', authUser.id)
           .single()
         
         if (error) {
           console.error('Error fetching user data:', error)
-          // Si no hay datos en User, usar solo authUser
-          setUser(authUser)
+          // Si no hay datos en User, usar solo authUser con avatar del backend
+          setUser({
+            ...authUser,
+            avatar_url: avatarUrl || authUser.user_metadata?.avatar_url
+          })
         } else {
-          // Combinar datos de auth con datos de la tabla User
+          // Combinar datos de auth con datos de la tabla User y avatar del backend
           setUser({
             ...authUser,
             ...userData,
+            avatar_url: avatarUrl || userData.avatar_url || authUser.user_metadata?.avatar_url,
             id: authUser.id // Mantener id para compatibilidad
           })
         }
@@ -318,16 +326,18 @@ export default function SocialPage() {
         const data = await response.json()
         const posts = data.posts || []
         
-        // Enriquecer posts con datos de usuario si no están completos
+        // Obtener IDs únicos de usuarios
+        const userIds = [...new Set(posts.map(p => p.user_id).filter(Boolean))]
+        
+        // Cargar avatares de todos los usuarios a la vez (más eficiente)
+        const avatarMap = await loadMultipleAvatars(userIds)
+        
+        // Enriquecer posts con datos de usuario
         const enrichedPosts = await Promise.all(posts.map(async (post) => {
-          if (post.author && post.author.avatar_url) {
-            return post // Ya tiene datos completos
-          }
-          
           // Buscar datos del usuario en Supabase
           const { data: userData } = await supabase
             .from('User')
-            .select('userid, nombre, apellido, avatar_url')
+            .select('userid, nombre, apellido')
             .eq('userid', post.user_id)
             .single()
           
@@ -337,8 +347,11 @@ export default function SocialPage() {
               userid: userData.userid,
               nombre: userData.nombre,
               apellido: userData.apellido,
-              avatar_url: userData.avatar_url
-            } : post.author
+              avatar_url: avatarMap[post.user_id] || null // Avatar desde backend
+            } : {
+              ...post.author,
+              avatar_url: avatarMap[post.user_id] || post.author?.avatar_url
+            }
           }
         }))
         
@@ -441,7 +454,7 @@ export default function SocialPage() {
       // Cargar usuarios sugeridos (no amigos)
       let query = supabase
         .from('User')
-        .select('userid, nombre, apellido, avatar_url, bio')
+        .select('userid, nombre, apellido, bio')
       
       // Solo excluir amigos si hay alguno
       if (friendIds.size > 0) {
@@ -453,7 +466,18 @@ export default function SocialPage() {
       const cleaned = (users || [])
         .filter(u => u?.userid && u.userid !== user.userid)
         .filter(u => (u?.nombre || u?.apellido))
-      setSuggestedUsers(cleaned)
+      
+      // Cargar avatares desde el backend
+      const userIds = cleaned.map(u => u.userid)
+      const avatarMap = await loadMultipleAvatars(userIds)
+      
+      // Agregar avatares a los usuarios
+      const usersWithAvatars = cleaned.map(u => ({
+        ...u,
+        avatar_url: avatarMap[u.userid] || null
+      }))
+      
+      setSuggestedUsers(usersWithAvatars)
 
       // Cargar estados de amistad para usuarios sugeridos
       if (cleaned && cleaned.length > 0) {
