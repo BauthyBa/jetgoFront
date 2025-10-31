@@ -38,7 +38,7 @@ export default function ProfileMenu({ isLoggedIn, user, onThemeToggle }) {
           const { data, error } = await supabase
             .from('User')
             .select('*')
-            .eq('id', user.id)
+            .eq('userid', user.id)
             .single()
           
           if (data && !error) {
