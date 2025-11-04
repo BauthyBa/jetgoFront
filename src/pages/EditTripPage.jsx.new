@@ -1,0 +1,348 @@
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import Navigation from '@/components/Navigation';
+import { updateTrip, getTripById } from '@/services/trips';
+import { useToast } from '@/components/ui/use-toast';
+
+const EditTripPage = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const tripId = searchParams.get('id');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    origin: '',
+    destination: '',
+    startDate: null,
+    endDate: null,
+    budgetMin: '',
+    budgetMax: '',
+    maxParticipants: '',
+  });
+
+  // Cargar datos del viaje
+  useEffect(() => {
+    const loadTrip = async () => {
+      try {
+        setLoading(true);
+        const trip = await getTripById(tripId);
+        if (trip) {
+          setFormData({
+            name: trip.name || '',
+            description: trip.description || '',
+            origin: trip.origin || '',
+            destination: trip.destination || '',
+            startDate: trip.startDate ? new Date(trip.startDate) : null,
+            endDate: trip.endDate ? new Date(trip.endDate) : null,
+            budgetMin: trip.budgetMin || '',
+            budgetMax: trip.budgetMax || '',
+            maxParticipants: trip.maxParticipants || '',
+          });
+        }
+      } catch (error) {
+        console.error('Error al cargar el viaje:', error);
+        toast({
+          title: 'Error',
+          description: 'No se pudo cargar la información del viaje',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (tripId) {
+      loadTrip();
+    }
+  }, [tripId, toast]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleDateChange = (date, field) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: date
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    
+    try {
+      await updateTrip(tripId, {
+        ...formData,
+        startDate: formData.startDate?.toISOString(),
+        endDate: formData.endDate?.toISOString(),
+      });
+      
+      toast({
+        title: '¡Éxito!',
+        description: 'El viaje se ha actualizado correctamente',
+      });
+      
+      // Redirigir después de 1.5 segundos
+      setTimeout(() => {
+        navigate('/mis-viajes');
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error al actualizar el viaje:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el viaje. Inténtalo de nuevo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <p className="text-gray-600">Cargando información del viaje...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navigation />
+      <div className="ml-0 md:ml-20 lg:ml-64 p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="mb-6 flex items-center gap-2"
+          >
+            ← Volver atrás
+          </Button>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <h1 className="text-2xl font-bold mb-6">Editar viaje</h1>
+            
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Nombre del viaje */}
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nombre del viaje</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Ej.: Aventura en la montaña"
+                    required
+                  />
+                </div>
+
+                {/* Origen */}
+                <div className="space-y-2">
+                  <Label htmlFor="origin">Origen</Label>
+                  <Input
+                    id="origin"
+                    name="origin"
+                    value={formData.origin}
+                    onChange={handleChange}
+                    placeholder="Ciudad de origen"
+                    required
+                  />
+                </div>
+
+                {/* Destino */}
+                <div className="space-y-2">
+                  <Label htmlFor="destination">Destino</Label>
+                  <Input
+                    id="destination"
+                    name="destination"
+                    value={formData.destination}
+                    onChange={handleChange}
+                    placeholder="Ciudad de destino"
+                    required
+                  />
+                </div>
+
+                {/* Fecha de inicio */}
+                <div className="space-y-2">
+                  <Label>Fecha de inicio</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !formData.startDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.startDate ? (
+                          format(formData.startDate, "PPP", { locale: es })
+                        ) : (
+                          <span>Selecciona una fecha</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.startDate}
+                        onSelect={(date) => handleDateChange(date, 'startDate')}
+                        initialFocus
+                        locale={es}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Fecha de fin */}
+                <div className="space-y-2">
+                  <Label>Fecha de regreso (opcional)</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !formData.endDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.endDate ? (
+                          format(formData.endDate, "PPP", { locale: es })
+                        ) : (
+                          <span>Selecciona una fecha</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.endDate}
+                        onSelect={(date) => handleDateChange(date, 'endDate')}
+                        initialFocus
+                        locale={es}
+                        disabled={(date) =>
+                          formData.startDate ? date < formData.startDate : false
+                        }
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Presupuesto mínimo */}
+                <div className="space-y-2">
+                  <Label htmlFor="budgetMin">Presupuesto mínimo (opcional)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <Input
+                      id="budgetMin"
+                      name="budgetMin"
+                      type="number"
+                      value={formData.budgetMin}
+                      onChange={handleChange}
+                      className="pl-8"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+
+                {/* Presupuesto máximo */}
+                <div className="space-y-2">
+                  <Label htmlFor="budgetMax">Presupuesto máximo (opcional)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <Input
+                      id="budgetMax"
+                      name="budgetMax"
+                      type="number"
+                      value={formData.budgetMax}
+                      onChange={handleChange}
+                      className="pl-8"
+                      min={formData.budgetMin || 0}
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+
+                {/* Máximo de participantes */}
+                <div className="space-y-2">
+                  <Label htmlFor="maxParticipants">Máximo de participantes (opcional)</Label>
+                  <Input
+                    id="maxParticipants"
+                    name="maxParticipants"
+                    type="number"
+                    value={formData.maxParticipants}
+                    onChange={handleChange}
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              {/* Descripción */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Descripción del viaje</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Cuéntanos sobre tu viaje..."
+                  rows={4}
+                  className="min-h-[120px]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-4 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate(-1)}
+                  disabled={saving}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    'Guardar cambios'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default EditTripPage;

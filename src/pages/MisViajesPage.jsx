@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, getSession } from '@/services/supabase'
-import { listTrips, updateTrip, deleteTrip } from '@/services/trips'
+import { listTrips, deleteTrip } from '@/services/trips'
 import { getApplicationsByTrip, updateApplicationStatus } from '@/services/applications'
 import ROUTES from '@/config/routes'
 import {
@@ -32,24 +32,12 @@ export default function MisViajesPage() {
   const [participatingTrips, setParticipatingTrips] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedTrip, setSelectedTrip] = useState(null)
-  const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showApplicationsPanel, setShowApplicationsPanel] = useState(false)
   const [showParticipantsPanel, setShowParticipantsPanel] = useState(false)
   const [applications, setApplications] = useState([])
   const [participants, setParticipants] = useState([])
   const [expandedTrip, setExpandedTrip] = useState(null)
-  const [editForm, setEditForm] = useState({
-    name: '',
-    description: '',
-    destination: '',
-    origin: '',
-    startDate: '',
-    endDate: '',
-    budgetMin: '',
-    budgetMax: '',
-    maxParticipants: ''
-  })
   const [processingAction, setProcessingAction] = useState(false)
 
   // Cargar usuario actual
@@ -80,9 +68,11 @@ export default function MisViajesPage() {
     setLoading(true)
     try {
       const allTrips = await listTrips()
+      console.log('🔍 Todos los viajes cargados:', allTrips)
       
       // Viajes creados por el usuario
       const created = allTrips.filter(trip => trip.creatorId === user.id)
+      console.log('✅ Viajes creados por el usuario:', created)
       
       // Viajes en los que participa (obteniendo los rooms del usuario)
       const { data: rooms } = await supabase
@@ -209,40 +199,6 @@ export default function MisViajesPage() {
     } catch (error) {
       console.error('Error actualizando solicitud:', error)
       alert('Error al procesar la solicitud')
-    } finally {
-      setProcessingAction(false)
-    }
-  }
-
-  // Abrir modal de edición
-  const handleEditTrip = (trip) => {
-    setSelectedTrip(trip)
-    setEditForm({
-      name: trip.name || '',
-      description: trip.description || '',
-      destination: trip.destination || '',
-      origin: trip.origin || '',
-      startDate: trip.startDate || '',
-      endDate: trip.endDate || '',
-      budgetMin: trip.budgetMin || '',
-      budgetMax: trip.budgetMax || '',
-      maxParticipants: trip.maxParticipants || ''
-    })
-    setShowEditModal(true)
-  }
-
-  // Guardar edición
-  const handleSaveEdit = async () => {
-    if (!selectedTrip) return
-    
-    setProcessingAction(true)
-    try {
-      await updateTrip(selectedTrip.id, editForm)
-      setShowEditModal(false)
-      await loadMyTrips()
-    } catch (error) {
-      console.error('Error actualizando viaje:', error)
-      alert('Error al actualizar el viaje')
     } finally {
       setProcessingAction(false)
     }
@@ -385,7 +341,15 @@ export default function MisViajesPage() {
                   </Button>
                   
                   <Button
-                    onClick={() => handleEditTrip(trip)}
+                    onClick={() => {
+                      if (!trip.id) {
+                        console.error('❌ Error: trip.id es undefined', trip)
+                        alert('Error: No se puede editar este viaje (ID no disponible)')
+                        return
+                      }
+                      console.log('📝 Navegando a editar viaje:', trip.id)
+                      navigate(ROUTES.EDITAR_VIAJE(trip.id))
+                    }}
                     variant="secondary"
                     className="flex items-center gap-2"
                   >
@@ -671,159 +635,6 @@ export default function MisViajesPage() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de edición */}
-      {showEditModal && selectedTrip && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-slate-700 rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl">
-            {/* Header */}
-            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-white">Editar viaje</h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Formulario */}
-            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Nombre del viaje
-                </label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Descripción
-                </label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  rows={3}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Origen
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.origin}
-                    onChange={(e) => setEditForm({ ...editForm, origin: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Destino
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.destination}
-                    onChange={(e) => setEditForm({ ...editForm, destination: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Fecha inicio
-                  </label>
-                  <input
-                    type="date"
-                    value={editForm.startDate}
-                    onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Fecha fin
-                  </label>
-                  <input
-                    type="date"
-                    value={editForm.endDate}
-                    onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Presupuesto mínimo
-                  </label>
-                  <input
-                    type="number"
-                    value={editForm.budgetMin}
-                    onChange={(e) => setEditForm({ ...editForm, budgetMin: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Presupuesto máximo
-                  </label>
-                  <input
-                    type="number"
-                    value={editForm.budgetMax}
-                    onChange={(e) => setEditForm({ ...editForm, budgetMax: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Máx. participantes
-                  </label>
-                  <input
-                    type="number"
-                    value={editForm.maxParticipants}
-                    onChange={(e) => setEditForm({ ...editForm, maxParticipants: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-slate-700/50 flex gap-3 justify-end">
-              <Button
-                onClick={() => setShowEditModal(false)}
-                variant="secondary"
-                disabled={processingAction}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSaveEdit}
-                disabled={processingAction}
-                className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
-              >
-                {processingAction ? 'Guardando...' : 'Guardar cambios'}
-              </Button>
             </div>
           </div>
         </div>

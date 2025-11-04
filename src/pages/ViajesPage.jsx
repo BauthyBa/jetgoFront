@@ -354,7 +354,12 @@ export default function ViajesPage() {
 
   const handleEditTrip = (trip) => {
     // Navegar a la página de edición del viaje
-    navigate(`${ROUTES.CREATE_TRIP}?edit=${trip.id}`)
+    if (!trip.id) {
+      console.error('❌ Error: trip.id es undefined', trip)
+      alert('Error: No se puede editar este viaje (ID no disponible)')
+      return
+    }
+    navigate(ROUTES.EDITAR_VIAJE(trip.id))
   }
 
   const isMemberFn = (trip) => {

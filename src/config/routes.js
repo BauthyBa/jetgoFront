@@ -26,6 +26,7 @@ export const ROUTES = {
   // Rutas de viajes
   CREAR_VIAJE: '/crear-viaje',
   CREAR_VIAJE_FORM: '/crear-viaje/formulario',
+  EDITAR_VIAJE: (tripId) => `/editar-viaje/${tripId}`,
   TRIP_DETAILS: (tripId) => `/trip/${tripId}`,
   TRIP_REVIEWS: (tripId) => `/trip/${tripId}/reviews`,
   TRIP_CHAT: (tripId) => `/modern-chat?trip=${encodeURIComponent(tripId)}`,

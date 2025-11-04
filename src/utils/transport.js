@@ -5,11 +5,16 @@ const transportTypeUiToBackend = {
   avion: 'avion',
 }
 
-const transportTypeBackendToUi = Object.entries(transportTypeUiToBackend)
-  .reduce((acc, [uiValue, backendValue]) => {
-    acc[backendValue] = uiValue
-    return acc
-  }, {})
+const transportTypeBackendToUi = {
+  auto: 'auto',
+  car: 'auto',
+  colectivo: 'bus',
+  bus: 'bus',
+  tren: 'tren',
+  train: 'tren',
+  avion: 'avion',
+  plane: 'avion',
+}
 
 export function mapTransportTypeForBackend(uiValue) {
   if (!uiValue) return null
@@ -18,7 +23,8 @@ export function mapTransportTypeForBackend(uiValue) {
 
 export function mapTransportTypeForUi(backendValue) {
   if (!backendValue) return null
-  return transportTypeBackendToUi[backendValue] || backendValue
+  const normalized = String(backendValue).toLowerCase()
+  return transportTypeBackendToUi[normalized] || backendValue
 }
 
 export function getTransportTypeLabel(uiValue) {

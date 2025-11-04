@@ -30,8 +30,11 @@ export function normalizeTrip(raw) {
   const createdAt = raw.created_at || raw.createdAt || raw.created || raw.created_on || null
   const updatedAt = raw.updated_at || raw.updatedAt || raw.updated || raw.updated_on || null
 
+  // El ID puede venir como 'id' o 'trip_id'
+  const id = raw.id || raw.trip_id || null
+
   return {
-    id: raw.id,
+    id,
     name,
     destination,
     origin,
@@ -91,6 +94,7 @@ export async function createTrip(payload) {
 // Update trip (frontend expects backend endpoint to exist; if not, caller should handle 404)
 export async function updateTrip(tripId, payload) {
   const { data } = await api.post('/trips/update/', { 
+    id: tripId,
     trip_id: tripId, 
     ...payload 
   })

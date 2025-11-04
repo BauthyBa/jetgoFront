@@ -38,6 +38,7 @@ export default function Layout() {
     '/trip',
     '/viajes',
     '/crear-viaje',
+    '/editar-viaje',
     '/profile',
     '/amigos',
     '/social',
@@ -86,6 +87,7 @@ export default function Layout() {
           !location.pathname.startsWith('/clima') &&
           !location.pathname.startsWith('/viajes') &&
           !location.pathname.startsWith('/crear-viaje') &&
+          !location.pathname.startsWith('/editar-viaje') &&
           !location.pathname.startsWith('/profile') &&
           !location.pathname.startsWith('/u/') &&
           !location.pathname.startsWith('/trip') &&
