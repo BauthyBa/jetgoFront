@@ -128,17 +128,14 @@ export default function ProfilePage() {
             console.log('🔍 Buscando avatar en tabla User...')
             const { data: userRows, error: userErr } = await supabase
               .from('User')
-              .select('avatar_url, avatarUrl, foto_perfil')
+              .select('avatar_url')
               .eq('userid', info.user_id)
               .single()
             
             console.log('📊 Respuesta de tabla User:', { userRows, userErr })
             
-            // Buscar en diferentes posibles nombres de campo
-            const possibleUrl = userRows?.avatar_url || userRows?.avatarUrl || userRows?.foto_perfil
-            
-            if (!userErr && possibleUrl) {
-              loadedAvatarUrl = possibleUrl
+            if (!userErr && userRows?.avatar_url) {
+              loadedAvatarUrl = userRows.avatar_url
               console.log('✅ Avatar encontrado en tabla User:', loadedAvatarUrl)
             }
           } catch (e) {
@@ -293,6 +290,7 @@ export default function ProfilePage() {
           bio: bio.slice(0, 500),
           interests: interestsArray,
           favorite_travel_styles: favoriteTripsArray,
+          avatar_url: avatarUrl || null, // IMPORTANTE: Preservar el avatar actual
         })
       } catch (e) {
         console.warn('Error updating backend:', e)
