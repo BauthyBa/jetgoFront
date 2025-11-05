@@ -93,9 +93,9 @@ export async function createTrip(payload) {
 
 // Update trip (frontend expects backend endpoint to exist; if not, caller should handle 404)
 export async function updateTrip(tripId, payload) {
+  // El backend espera 'id' y 'creator_id', no 'trip_id'
   const { data } = await api.post('/trips/update/', { 
     id: tripId,
-    trip_id: tripId, 
     ...payload 
   })
   return data

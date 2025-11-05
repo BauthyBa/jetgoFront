@@ -92,10 +92,11 @@ export default function CreateTripForm() {
   // Temporada calculada (derivada en render)
   const computedSeason = (() => {
     try {
-      const start = trip.startDate ? new Date(trip.startDate) : null
-      if (!start) return null
+      if (!trip.startDate) return null
+      // Extraer el mes directamente del string YYYY-MM-DD sin usar Date
+      const month = parseInt(trip.startDate.split('-')[1]) - 1 // 0-indexed
       const hemi = getHemisphere(isoCountry)
-      return getSeasonFromMonth(start.getUTCMonth(), hemi)
+      return getSeasonFromMonth(month, hemi)
     } catch {
       return null
     }
@@ -244,11 +245,13 @@ export default function CreateTripForm() {
         throw new Error('Por favor indica el máximo de participantes')
       }
 
-      if (new Date(trip.startDate) < new Date()) {
+      // Comparar fechas en formato YYYY-MM-DD directamente
+      const today = new Date().toISOString().split('T')[0]
+      if (trip.startDate < today) {
         throw new Error('La fecha de inicio debe ser futura')
       }
 
-      if (trip.endDate && new Date(trip.endDate) < new Date(trip.startDate)) {
+      if (trip.endDate && trip.endDate < trip.startDate) {
         throw new Error('La fecha de fin debe ser posterior a la de inicio')
       }
 
@@ -258,9 +261,13 @@ export default function CreateTripForm() {
       }
 
       // Calcular temporada automáticamente según fecha de inicio y hemisferio del país
-      const start = trip.startDate ? new Date(trip.startDate) : null
-      const hemi = getHemisphere(isoForSubmit)
-      const autoSeason = start ? getSeasonFromMonth(start.getUTCMonth(), hemi) : 'any'
+      let autoSeason = 'any'
+      if (trip.startDate) {
+        // Extraer el mes directamente del string YYYY-MM-DD sin usar Date
+        const month = parseInt(trip.startDate.split('-')[1]) - 1 // 0-indexed
+        const hemi = getHemisphere(isoForSubmit)
+        autoSeason = getSeasonFromMonth(month, hemi)
+      }
 
       // Preparar datos para envío - convertir a snake_case para el backend
       const tripData = {

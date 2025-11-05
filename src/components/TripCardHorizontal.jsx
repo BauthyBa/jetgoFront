@@ -13,6 +13,7 @@ import {
   Home,
   Globe
 } from 'lucide-react'
+import { formatDateDisplay } from '@/utils/dateFormat'
 
 export default function TripCardHorizontal({ trip, onJoin, onLeave, joining, leaving, onEdit, canEdit, isMember, isOwner, onApply, hasApplied }) {
   if (!trip) return null
@@ -39,11 +40,7 @@ export default function TripCardHorizontal({ trip, onJoin, onLeave, joining, lea
 
   const formatDate = (date) => {
     if (!date) return null
-    return new Date(date).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
+    return formatDateDisplay(date)
   }
 
   const formatBudget = () => {

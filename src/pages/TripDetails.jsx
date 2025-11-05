@@ -9,6 +9,7 @@ import { getUserApplications } from '@/services/applications'
 import { listRoomsForUser } from '@/services/chat'
 import ROUTES from '@/config/routes'
 import ReportUserModal from '@/components/ReportUserModal'
+import { formatDateRange } from '@/utils/dateFormat'
 import {
   Star,
   MessageCircle,
@@ -115,9 +116,7 @@ export default function TripDetails() {
   const dateRange = useMemo(() => {
     if (!trip?.startDate) return ''
     try {
-      return trip?.endDate
-        ? `${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`
-        : new Date(trip.startDate).toLocaleDateString()
+      return formatDateRange(trip.startDate, trip.endDate)
     } catch {
       return ''
     }

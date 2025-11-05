@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import BackButton from '@/components/BackButton'
+import { formatDateDisplay } from '@/utils/dateFormat'
 
 export default function MisViajesPage() {
   const navigate = useNavigate()
@@ -261,7 +262,7 @@ export default function MisViajesPage() {
                 {trip.startDate && (
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    <span>{new Date(trip.startDate).toLocaleDateString()}</span>
+                    <span>{formatDateDisplay(trip.startDate)}</span>
                   </div>
                 )}
               </div>

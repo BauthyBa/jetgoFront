@@ -73,10 +73,11 @@ export default function EditTripPage() {
 
   const computedSeason = (() => {
     try {
-      const start = trip.startDate ? new Date(trip.startDate) : null
-      if (!start) return null
+      if (!trip.startDate) return null
+      // Extraer el mes directamente del string YYYY-MM-DD sin usar Date
+      const month = parseInt(trip.startDate.split('-')[1]) - 1 // 0-indexed
       const hemi = getHemisphere(isoCountry)
-      return getSeasonFromMonth(start.getUTCMonth(), hemi)
+      return getSeasonFromMonth(month, hemi)
     } catch {
       return null
     }
@@ -129,8 +130,13 @@ export default function EditTripPage() {
           if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
             return dateString
           }
-          // Si tiene hora, extraer solo la fecha
-          const date = new Date(dateString)
+          // Si tiene hora (formato ISO), extraer solo la parte de la fecha
+          if (dateString.includes('T')) {
+            return dateString.split('T')[0]
+          }
+          // Si es otro formato, intentar parsearlo sin problemas de timezone
+          const date = new Date(dateString + 'T00:00:00')
+          if (isNaN(date.getTime())) return ''
           const year = date.getFullYear()
           const month = String(date.getMonth() + 1).padStart(2, '0')
           const day = String(date.getDate()).padStart(2, '0')

@@ -1,6 +1,6 @@
 const transportTypeUiToBackend = {
   auto: 'auto',
-  bus: 'colectivo',
+  bus: 'bus',
   tren: 'tren',
   avion: 'avion',
 }

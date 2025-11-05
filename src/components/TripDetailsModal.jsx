@@ -6,6 +6,7 @@ import { listTrips, normalizeTrip } from '@/services/trips'
 import { supabase } from '@/services/supabase'
 import ROUTES from '@/config/routes'
 import { getFeaturedImage } from '@/services/wikipedia'
+import { formatDateRange, formatDateDisplay } from '@/utils/dateFormat'
 
 export default function TripDetailsModal({ isOpen, onClose, tripId, trip: tripProp }) {
   const [loading, setLoading] = useState(false)
@@ -206,16 +207,14 @@ export default function TripDetailsModal({ isOpen, onClose, tripId, trip: tripPr
   const dateRange = useMemo(() => {
     if (!trip?.startDate) return ''
     try {
-      return trip?.endDate
-        ? `${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`
-        : new Date(trip.startDate).toLocaleDateString()
+      return formatDateRange(trip.startDate, trip.endDate)
     } catch { return '' }
   }, [trip])
 
   const createdAtText = useMemo(() => {
     if (!trip?.createdAt) return ''
     try {
-      return new Date(trip.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+      return formatDateDisplay(trip.createdAt, { format: 'long' })
     } catch { return '' }
   }, [trip?.createdAt])
 

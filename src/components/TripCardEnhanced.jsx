@@ -17,6 +17,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { getFeaturedImage } from '@/services/wikipedia'
+import { formatDateDisplay } from '@/utils/dateFormat'
 
 export default function TripCardEnhanced({ 
   trip, 
@@ -79,11 +80,7 @@ export default function TripCardEnhanced({
 
   const formatDate = (date) => {
     if (!date) return null
-    return new Date(date).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
+    return formatDateDisplay(date)
   }
 
   const formatBudget = () => {
