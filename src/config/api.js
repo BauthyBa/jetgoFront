@@ -1,7 +1,7 @@
 const BACKEND_FALLBACKS = {
   PRODUCTION: 'https://jetgoback.onrender.com',
   STAGING: 'https://jetgoback.onrender.com',
-  LOCAL: 'http://localhost:8000',
+  LOCAL: 'https://jetgoback.onrender.com',
 }
 
 function sanitizeBackendUrl(url) {

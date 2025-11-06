@@ -283,6 +283,7 @@ export default function Navigation() {
             {navItems.map((item) => {
               const Icon = item.icon
               const active = item.isActive(location)
+              const isProfileItem = item.label === 'Perfil'
               return (
                 <Link
                   key={item.path}
@@ -291,7 +292,11 @@ export default function Navigation() {
                     active ? 'text-emerald-400' : 'text-slate-200 hover:text-emerald-200'
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${active ? 'fill-emerald-500/20 text-emerald-400' : 'text-slate-200'}`} />
+                  {isProfileItem ? (
+                    <ProfileNavIcon user={user} userProfile={userProfile} active={active} />
+                  ) : (
+                    <Icon className={`h-5 w-5 ${active ? 'fill-emerald-500/20 text-emerald-400' : 'text-slate-200'}`} />
+                  )}
                   <span className="mt-1">{item.label}</span>
                 </Link>
               )
@@ -369,6 +374,33 @@ function getUserInitials(user, userProfile) {
     return user.email.charAt(0).toUpperCase()
   }
   return 'U'
+}
+
+function ProfileNavIcon({ user, userProfile, active }) {
+  if (!user) {
+    return <UserRound className={`h-6 w-6 ${active ? 'text-emerald-400' : 'text-slate-200'}`} />
+  }
+
+  const avatarUrl = getUserAvatarUrl(user, userProfile)
+  const initials = getUserInitials(user, userProfile)
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt="Tu avatar"
+        className={`h-6 w-6 rounded-full border ${active ? 'border-emerald-400' : 'border-white/10'} object-cover`}
+      />
+    )
+  }
+
+  return (
+    <div
+      className={`h-6 w-6 rounded-full border ${active ? 'border-emerald-400 text-emerald-100' : 'border-white/10 text-white'} bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center text-[10px] font-semibold`}
+    >
+      {initials}
+    </div>
+  )
 }
 
 function UserAvatar({ user, userProfile, isCollapsed }) {

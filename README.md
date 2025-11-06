@@ -33,10 +33,10 @@ VITE_API_BASE_URL=https://tu-backend.com/api
 ```
 Si no defines variables, el proyecto usa valores por defecto de desarrollo:
 - `VITE_API_BASE_URL` -> `https://jetgoback.onrender.com/api`
-- `VITE_LOCAL_API_BASE_URL` (opcional) -> `http://localhost:8000/api`
+- `VITE_LOCAL_API_BASE_URL` (opcional) -> apunta a la URL de tu backend local
 - En `src/services/supabase.js` hay valores de ejemplo para URL/KEY (recomendado sobrescribir con env).
 
-Cuando la app corre en `http://localhost` intenta detectar automáticamente si el backend local (`VITE_LOCAL_API_BASE_URL`) está disponible; si no lo encuentra o no responde al ping, vuelve a la API deployada en Render. En producción/páginas públicas siempre se mantiene la URL remota.
+Cuando la app corre en `http://localhost` intenta detectar automáticamente si el backend configurado en `VITE_LOCAL_API_BASE_URL` está disponible; si no lo encuentra o no responde al ping, vuelve a la API deployada en Render. En producción/páginas públicas siempre se mantiene la URL remota.
 
 Importante: Nunca subas claves reales a git. Usa variables de entorno.
 

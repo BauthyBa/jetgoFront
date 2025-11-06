@@ -1,62 +1,202 @@
 import { MapPin, Navigation, Clock } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
-export default function SimpleLocationMap({ 
-  latitude, 
-  longitude, 
-  address, 
-  timestamp, 
-  isLive = false 
+let leafletModulePromise = null
+let leafletCssPromise = null
+
+async function loadLeaflet() {
+  if (!leafletModulePromise) {
+    leafletModulePromise = import('leaflet').then((module) => module.default || module)
+  }
+  if (!leafletCssPromise) {
+    leafletCssPromise = import('leaflet/dist/leaflet.css')
+  }
+
+  const L = await leafletModulePromise
+  await leafletCssPromise
+  return L
+}
+
+export default function SimpleLocationMap({
+  latitude,
+  longitude,
+  address,
+  timestamp,
+  isLive = false,
 }) {
+  const mapContainerRef = useRef(null)
+  const mapInstanceRef = useRef(null)
+  const markerRef = useRef(null)
+
+  const [isLoading, setIsLoading] = useState(true)
   const [mapError, setMapError] = useState(false)
-  const [currentMapUrl, setCurrentMapUrl] = useState('')
-  const [showIframe, setShowIframe] = useState(false)
-  
-  console.log('🗺️ SimpleLocationMap RENDERED with:', { latitude, longitude, address, timestamp, isLive })
-  
-  // Usar imagen estática de Google Maps (sin API key)
-  const googleMapsStaticUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=18&size=400x200&maptype=roadmap&markers=color:red%7C${latitude},${longitude}&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWWgU6xUqYI0`
-  
-  // Fallback a OpenStreetMap si Google Maps falla
-  const fallbackMapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=18&size=400x200&maptype=mapnik&markers=${latitude},${longitude},red&format=png`
-  
-  // Segundo fallback a MapBox (sin API key)
-  const mapboxUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s-marker+ff0000(${longitude},${latitude})/${longitude},${latitude},18,0/400x200@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw`
-  
-  // Tercer fallback a OpenStreetMap alternativo
-  const osmUrl = `https://tile.openstreetmap.org/18/${Math.floor((longitude + 180) / 360 * Math.pow(2, 18))}/${Math.floor((1 - Math.log(Math.tan(latitude * Math.PI / 180) + 1 / Math.cos(latitude * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, 18))}.png`
-  
-  // Iframe de Google Maps como último recurso
-  const googleMapsEmbedUrl = `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWWgU6xUqYI0&center=${latitude},${longitude}&zoom=18&maptype=roadmap`
-  
-  // URL simple de Google Maps sin API key
-  const simpleGoogleMapsUrl = `https://maps.google.com/maps?q=${latitude},${longitude}&z=18&output=embed`
-  
-  console.log('🔗 Google Maps URL:', googleMapsStaticUrl)
-  console.log('🔗 Fallback URL:', fallbackMapUrl)
-  console.log('🎯 Component props:', { latitude, longitude, address, timestamp, isLive })
-  
+
   useEffect(() => {
-    setCurrentMapUrl(googleMapsStaticUrl)
-    setMapError(false)
-    setShowIframe(false)
+    let cancelled = false
+
+    async function initialiseMap() {
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        setMapError(true)
+        setIsLoading(false)
+        return
+      }
+
+      setIsLoading(true)
+      setMapError(false)
+
+      try {
+        const waitForContainer = () =>
+          new Promise((resolve, reject) => {
+            let attempts = 0
+            const maxAttempts = 50
+
+            const check = () => {
+              attempts += 1
+              if (cancelled) {
+                reject(new Error('Cancelled'))
+                return
+              }
+              const el = mapContainerRef.current
+              if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
+                resolve()
+                return
+              }
+              if (attempts >= maxAttempts) {
+                reject(new Error('Timeout waiting for map container'))
+                return
+              }
+              setTimeout(check, 100)
+            }
+
+            check()
+          })
+
+        await waitForContainer()
+
+        const L = await loadLeaflet()
+        if (cancelled || !mapContainerRef.current) {
+          return
+        }
+
+        // Limpiar instancias previas
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove()
+          mapInstanceRef.current = null
+        }
+
+        const map = L.map(mapContainerRef.current, {
+          attributionControl: false,
+          zoomControl: false,
+          dragging: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          tap: false,
+        })
+
+        mapInstanceRef.current = map
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          maxZoom: 20,
+          subdomains: 'abcd',
+          attribution: '© OpenStreetMap contributors, © CARTO',
+        }).addTo(map)
+
+        map.setView([latitude, longitude], 16)
+        map.dragging.disable()
+        map.scrollWheelZoom.disable()
+        map.doubleClickZoom.disable()
+        map.boxZoom.disable()
+        map.keyboard.disable()
+        if (map.tap) {
+          map.tap.disable()
+        }
+
+        const marker = L.marker([latitude, longitude], {
+          icon: L.divIcon({
+            className: 'simple-location-marker',
+            html: `
+              <div style="
+                background: #10b981;
+                width: 22px;
+                height: 22px;
+                border-radius: 50%;
+                border: 3px solid #1f2937;
+                box-shadow: 0 6px 12px rgba(0,0,0,0.35);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              ">
+                <div style="
+                  width: 8px;
+                  height: 8px;
+                  background: white;
+                  border-radius: 50%;
+                "></div>
+              </div>
+            `,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          }),
+        }).addTo(map)
+
+        markerRef.current = marker
+        map.whenReady(() => {
+          if (!cancelled) {
+            setIsLoading(false)
+          }
+        })
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      } catch (error) {
+        if (error?.message === 'Cancelled') {
+          return
+        }
+        console.error('Error inicializando mapa simple:', error)
+        if (!cancelled) {
+          setMapError(true)
+          setIsLoading(false)
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.remove()
+            mapInstanceRef.current = null
+          }
+        }
+      }
+    }
+
+    initialiseMap()
+
+    return () => {
+      cancelled = true
+      if (markerRef.current) {
+        markerRef.current.remove()
+        markerRef.current = null
+      }
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+    }
   }, [latitude, longitude])
-  
-  // Función para crear SVG fallback
+
   const createFallbackSVG = () => {
+    const safeLat = typeof latitude === 'number' ? latitude : 0
+    const safeLng = typeof longitude === 'number' ? longitude : 0
     const svgContent = `<svg width="400" height="200" xmlns="http://www.w3.org/2000/svg">
       <rect width="400" height="200" fill="#1f2937"/>
       <rect x="0" y="0" width="400" height="200" fill="#2d3748" opacity="0.3"/>
       <circle cx="200" cy="100" r="12" fill="#10b981" stroke="#ffffff" stroke-width="3"/>
       <circle cx="200" cy="100" r="4" fill="#ffffff"/>
       <text x="200" y="130" text-anchor="middle" fill="#10b981" font-family="Arial" font-size="14" font-weight="bold">
-        ${latitude.toFixed(6)}, ${longitude.toFixed(6)}
+        ${safeLat.toFixed(6)}, ${safeLng.toFixed(6)}
       </text>
       <text x="200" y="150" text-anchor="middle" fill="#9ca3af" font-family="Arial" font-size="10">
-        Ubicacion compartida
+        Ubicación compartida
       </text>
     </svg>`
-    
+
     try {
       return `data:image/svg+xml;base64,${btoa(svgContent)}`
     } catch (error) {
@@ -64,65 +204,34 @@ export default function SimpleLocationMap({
       return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFmMjkzNyIvPjx0ZXh0IHg9IjIwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMTBiOTgxIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiPk1hcGEgbm8gZGlzcG9uaWJsZTwvdGV4dD48L3N2Zz4='
     }
   }
-  
-  // Función para manejar el error del iframe
-  const handleIframeError = () => {
-    console.log('❌ Iframe falló, usando SVG fallback')
-    setMapError(true)
-  }
 
   const handleMapClick = () => {
-    // Abrir en Google Maps
     const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`
-    window.open(googleMapsUrl, '_blank')
+    window.open(googleMapsUrl, '_blank', 'noopener,noreferrer')
   }
 
   return (
     <div className="relative">
-      {/* Mapa estático con fallback */}
-      <div 
+      <div
         className="w-full h-48 rounded-lg overflow-hidden border border-slate-700 cursor-pointer hover:opacity-90 transition"
         onClick={handleMapClick}
       >
-        {!showIframe ? (
-          <img
-            src={currentMapUrl}
-            alt="Ubicación en el mapa"
-            className="w-full h-full object-cover"
-            onLoad={() => console.log('✅ Mapa cargó correctamente:', currentMapUrl)}
-            onError={(e) => {
-              console.log('❌ Mapa falló:', currentMapUrl)
-              if (currentMapUrl === googleMapsStaticUrl) {
-                console.log('🔄 Probando OpenStreetMap')
-                setCurrentMapUrl(fallbackMapUrl)
-              } else if (currentMapUrl === fallbackMapUrl) {
-                console.log('🔄 Probando MapBox')
-                setCurrentMapUrl(mapboxUrl)
-              } else if (currentMapUrl === mapboxUrl) {
-                console.log('🔄 Probando OSM alternativo')
-                setCurrentMapUrl(osmUrl)
-              } else {
-                console.log('🔄 Usando iframe de Google Maps')
-                setShowIframe(true)
-              }
-            }}
-          />
+        {!mapError ? (
+          <div className="relative h-full w-full">
+            <div
+              ref={mapContainerRef}
+              className={`h-full w-full ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+            />
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#1f2937]">
+                <div className="flex items-center gap-2 text-slate-300 text-sm">
+                  <div className="animate-spin w-4 h-4 border-2 border-slate-600 border-t-emerald-500 rounded-full" />
+                  Cargando mapa...
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
-          <iframe
-            src={simpleGoogleMapsUrl}
-            width="100%"
-            height="100%"
-            style={{ border: 0 }}
-            allowFullScreen
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            title="Ubicación en el mapa"
-            onError={handleIframeError}
-          />
-        )}
-        
-        {/* SVG Fallback cuando todos los mapas fallan */}
-        {mapError && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#1f2937]">
             <img
               src={createFallbackSVG()}
@@ -131,9 +240,8 @@ export default function SimpleLocationMap({
             />
           </div>
         )}
-        
-        {/* Overlay con información */}
-        <div className="absolute top-2 left-2 right-2 bg-black/70 backdrop-blur-sm rounded-lg p-2">
+
+        <div className="absolute top-2 left-2 right-2 bg-black/70 backdrop-blur-sm rounded-lg p-2 pointer-events-none">
           <div className="flex items-center gap-2 text-xs text-emerald-400">
             <MapPin className="w-3 h-3" />
             <span className="font-medium">
@@ -141,10 +249,10 @@ export default function SimpleLocationMap({
             </span>
           </div>
         </div>
-        
-        {/* Botón de acción */}
+
         <div className="absolute bottom-2 right-2">
           <button
+            type="button"
             onClick={handleMapClick}
             className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-full text-xs font-medium transition flex items-center gap-1"
           >
@@ -153,8 +261,7 @@ export default function SimpleLocationMap({
           </button>
         </div>
       </div>
-      
-      {/* Información adicional */}
+
       <div className="mt-2 p-3 bg-[#1f2937] rounded-lg border border-slate-700">
         <div className="flex items-center gap-2 text-sm text-emerald-400">
           <MapPin className="w-4 h-4" />
@@ -162,13 +269,13 @@ export default function SimpleLocationMap({
             {isLive ? 'Ubicación en vivo' : 'Ubicación compartida'}
           </span>
         </div>
-        
+
         {address && (
           <div className="mt-1 text-sm text-slate-300 truncate">
             {address}
           </div>
         )}
-        
+
         <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
           <div className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
@@ -176,11 +283,12 @@ export default function SimpleLocationMap({
           </div>
           <div className="flex items-center gap-1">
             <Navigation className="w-3 h-3" />
-            {latitude.toFixed(6)}, {longitude.toFixed(6)}
+            {typeof latitude === 'number' && typeof longitude === 'number'
+              ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+              : 'Coordenadas no disponibles'}
           </div>
         </div>
-        
-        {/* Información de precisión */}
+
         <div className="mt-2 text-xs text-slate-500">
           <span className="text-emerald-400">📍</span> Precisión: Alta precisión GPS
         </div>

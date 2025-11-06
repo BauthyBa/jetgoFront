@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSession, updateUserMetadata, supabase } from '../services/supabase'
-import { upsertProfileToBackend, getUserAvatar, setAuthToken } from '../services/api'
+import { upsertProfileToBackend, getUserAvatar, setAuthToken, getApiBaseUrl } from '../services/api'
 import { updatePassword, sendPasswordResetEmail } from '../services/passwordReset'
 import { User, Settings, Star, MessageSquare, Heart, Shield, CreditCard, MapPin, Bell, Edit3, Save, X, Download, Trash2, AlertTriangle, FileText, MapPin as MapPinIcon } from 'lucide-react'
 import AvatarUpload from '../components/AvatarUpload'
@@ -92,31 +92,36 @@ export default function ProfilePage() {
         try {
           console.log('🔍 Buscando avatar en backend (vía admin)...')
           
-          // Usar fetch directo para evitar problemas de autenticación
-          const backendUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/profile/user/?user_id=${info.user_id}`
-          console.log('📍 URL del backend:', backendUrl)
-          
-          const response = await fetch(backendUrl)
-          console.log('📡 Status de respuesta:', response.status)
-          
-          if (response.ok) {
-            const data = await response.json()
-            console.log('📊 Respuesta completa del backend:', data)
-            console.log('📊 Objeto user completo:', JSON.stringify(data?.user, null, 2))
-            
-            // El backend devuelve { ok: true, user: { avatar_url: "..." } }
-            const avatarFromBackend = data?.user?.avatar_url || data?.avatar_url || data?.data?.avatar_url
-            console.log('📊 Avatar extraído:', avatarFromBackend)
-            console.log('📊 data.user.avatar_url:', data?.user?.avatar_url)
-            
-            if (avatarFromBackend && avatarFromBackend !== null) {
-              loadedAvatarUrl = avatarFromBackend
-              console.log('✅ Avatar encontrado en backend:', loadedAvatarUrl)
-            } else {
-              console.warn('⚠️ Backend respondió OK pero avatar_url es null')
-            }
+          const apiBaseUrl = getApiBaseUrl()
+          if (!apiBaseUrl) {
+            console.warn('⚠️ No se pudo determinar la base URL de la API para cargar el avatar.')
           } else {
-            console.warn('⚠️ Backend respondió con error:', response.status)
+            // Usar fetch directo para evitar problemas de autenticación
+            const backendUrl = `${apiBaseUrl}/profile/user/?user_id=${info.user_id}`
+            console.log('📍 URL del backend:', backendUrl)
+            
+            const response = await fetch(backendUrl)
+            console.log('📡 Status de respuesta:', response.status)
+            
+            if (response.ok) {
+              const data = await response.json()
+              console.log('📊 Respuesta completa del backend:', data)
+              console.log('📊 Objeto user completo:', JSON.stringify(data?.user, null, 2))
+              
+              // El backend devuelve { ok: true, user: { avatar_url: "..." } }
+              const avatarFromBackend = data?.user?.avatar_url || data?.avatar_url || data?.data?.avatar_url
+              console.log('📊 Avatar extraído:', avatarFromBackend)
+              console.log('📊 data.user.avatar_url:', data?.user?.avatar_url)
+              
+              if (avatarFromBackend && avatarFromBackend !== null) {
+                loadedAvatarUrl = avatarFromBackend
+                console.log('✅ Avatar encontrado en backend:', loadedAvatarUrl)
+              } else {
+                console.warn('⚠️ Backend respondió OK pero avatar_url es null')
+              }
+            } else {
+              console.warn('⚠️ Backend respondió con error:', response.status)
+            }
           }
         } catch (e) {
           console.error('❌ Error buscando en backend:', e)

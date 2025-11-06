@@ -3,6 +3,8 @@
  * El backend usa el admin de Supabase, así que no tiene problemas de RLS
  */
 
+import { getApiBaseUrl } from '@/services/api'
+
 // Cache de avatares para evitar peticiones repetidas
 const avatarCache = new Map()
 
@@ -16,8 +18,16 @@ export async function loadUserAvatar(userId) {
     return avatarCache.get(userId)
   }
 
+  const apiBaseUrl = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : null
+
+  if (!apiBaseUrl) {
+    console.warn('⚠️ No se pudo resolver la base URL de la API; se omite la carga de avatar.')
+    avatarCache.set(userId, null)
+    return null
+  }
+
   try {
-    const backendUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/profile/user/?user_id=${userId}`
+    const backendUrl = `${apiBaseUrl}/profile/user/?user_id=${userId}`
     
     const response = await fetch(backendUrl)
     

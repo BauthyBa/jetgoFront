@@ -3,18 +3,25 @@
  * Usa SOLO el backend Django que tiene permisos de admin
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+import { getApiBaseUrl } from './api'
 
 /**
  * Guardar avatar de un usuario
  */
 export async function saveUserAvatar(userId, avatarUrl) {
+  const apiBase = getApiBaseUrl()
+
+  if (!apiBase) {
+    console.error('❌ No API base URL configured; cannot save avatar.')
+    return { success: false, error: 'API base URL not configured' }
+  }
+
   try {
     console.log('💾 Guardando avatar:', { userId, avatarUrl })
     
     // Primero obtener datos actuales del usuario
     console.log('📥 Obteniendo datos actuales del usuario...')
-    const getUserResponse = await fetch(`${API_BASE}/profile/user/?user_id=${userId}`)
+    const getUserResponse = await fetch(`${apiBase}/profile/user/?user_id=${userId}`)
     
     let userData = {}
     if (getUserResponse.ok) {
@@ -40,7 +47,7 @@ export async function saveUserAvatar(userId, avatarUrl) {
     
     console.log('💾 Enviando al backend:', payload)
     
-    const response = await fetch(`${API_BASE}/auth/upsert_profile/`, {
+    const response = await fetch(`${apiBase}/auth/upsert_profile/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -68,8 +75,15 @@ export async function saveUserAvatar(userId, avatarUrl) {
  * Obtener avatar de un usuario
  */
 export async function getUserAvatar(userId) {
+  const apiBase = getApiBaseUrl()
+
+  if (!apiBase) {
+    console.error('❌ No API base URL configured; cannot fetch avatar.')
+    return null
+  }
+
   try {
-    const response = await fetch(`${API_BASE}/profile/user/?user_id=${userId}`)
+    const response = await fetch(`${apiBase}/profile/user/?user_id=${userId}`)
     
     if (response.ok) {
       const data = await response.json()
