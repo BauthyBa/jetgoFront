@@ -7,6 +7,7 @@ import { supabase } from '@/services/supabase'
 import ROUTES from '@/config/routes'
 import { getFeaturedImage } from '@/services/wikipedia'
 import { formatDateRange, formatDateDisplay } from '@/utils/dateFormat'
+import { getParticipantStats } from '@/utils/tripParticipants'
 
 export default function TripDetailsModal({ isOpen, onClose, tripId, trip: tripProp }) {
   const [loading, setLoading] = useState(false)
@@ -18,6 +19,8 @@ export default function TripDetailsModal({ isOpen, onClose, tripId, trip: tripPr
   const [creatorAvatar, setCreatorAvatar] = useState('')
   const [creatorId, setCreatorId] = useState('')
   const effectiveTripId = tripProp?.id || tripId
+  const participantStats = useMemo(() => getParticipantStats(trip), [trip])
+  const participantLabel = participantStats && (participantStats.hasCurrent || participantStats.hasMax) ? participantStats.label : null
 
   useEffect(() => {
     if (!isOpen) return
@@ -300,8 +303,11 @@ export default function TripDetailsModal({ isOpen, onClose, tripId, trip: tripPr
                 {trip?.roomType && <div className="flex items-center gap-2"><Home className="w-4 h-4" /><span>{trip.roomType}</span></div>}
                 {trip?.season && <div className="flex items-center gap-2"><Star className="w-4 h-4" /><span>{trip.season}</span></div>}
                 {budget && <div className="flex items-center gap-2"><DollarSign className="w-4 h-4" /><span>Presupuesto: {budget}</span></div>}
-                {(trip?.currentParticipants != null || trip?.maxParticipants != null) && (
-                  <div className="flex items-center gap-2"><Users className="w-4 h-4" /><span>{trip?.currentParticipants ?? '?'} / {trip?.maxParticipants ?? '?'} participantes</span></div>
+                {participantLabel && (
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    <span>{participantLabel}</span>
+                  </div>
                 )}
                 {createdAtText && (
                   <div className="flex items-center gap-2"><Calendar className="w-4 h-4" /><span>Creado el {createdAtText}</span></div>
@@ -325,9 +331,7 @@ export default function TripDetailsModal({ isOpen, onClose, tripId, trip: tripPr
               )}
               {!loading && participants.length === 0 && (
                 <div className="text-slate-400 text-sm">
-                  {typeof trip?.currentParticipants === 'number' && trip.currentParticipants > 0
-                    ? `Participantes: ${trip.currentParticipants}`
-                    : 'Sin participantes aún'}
+                  {participantLabel || 'Sin participantes visibles aún'}
                 </div>
               )}
               {participants.length > 0 && (

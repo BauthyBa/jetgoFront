@@ -12,6 +12,7 @@ import {
   Calendar
 } from 'lucide-react'
 import ROUTES from '@/config/routes'
+import { getParticipantStats, isTripFull } from '@/utils/tripParticipants'
 
 export default function TarjetaViaje({ viaje, creadorNombre, onApply, hasApplied, isOwner, isMember }) {
   // Formatear fecha
@@ -57,11 +58,15 @@ export default function TarjetaViaje({ viaje, creadorNombre, onApply, hasApplied
     return 'Consultar precio'
   }
 
+  const participantStats = getParticipantStats(viaje)
+  const participantLabel = participantStats?.hasCurrent || participantStats?.hasMax ? participantStats.label : null
+  const tripFull = isTripFull(viaje)
+
   // Obtener estado del viaje
   const getTripStatus = () => {
     if (viaje.status === 'completed') return 'Completo'
     if (viaje.status === 'cancelled') return 'Cancelado'
-    if (viaje.maxParticipants && viaje.currentParticipants >= viaje.maxParticipants) {
+    if (tripFull) {
       return 'Completo'
     }
     return 'Disponible'
@@ -150,12 +155,12 @@ export default function TarjetaViaje({ viaje, creadorNombre, onApply, hasApplied
 
               {/* Información adicional */}
               <div className="flex items-center gap-4 text-sm text-slate-300">
-                <div className="flex items-center gap-1">
-                  <Users className="w-4 h-4" />
-                  <span>
-                    {viaje.currentParticipants || 0}/{viaje.maxParticipants || '∞'} participantes
-                  </span>
-                </div>
+                {participantLabel && (
+                  <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    <span>{participantLabel}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
                   <span>
@@ -217,9 +222,10 @@ export default function TarjetaViaje({ viaje, creadorNombre, onApply, hasApplied
                   e.stopPropagation()
                   onApply?.(viaje)
                 }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                disabled={tripFull}
+                className={`w-full text-white font-semibold py-2 px-4 rounded-lg transition-colors ${tripFull ? 'bg-blue-600/50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
-                Aplicar
+                {tripFull ? 'Sin cupos' : 'Aplicar'}
               </button>
             )}
           </div>

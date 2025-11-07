@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { getParticipantStats, isTripFull } from '@/utils/tripParticipants'
 
 export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEdit, canEdit, isMember, isOwner, onApply, hasApplied, hideApply, onView }) {
   if (!trip) return null
@@ -8,9 +9,9 @@ export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEd
   const budget = trip.budgetMin || trip.budgetMax
     ? `$${trip.budgetMin ?? '?'} - $${trip.budgetMax ?? '?'}`
     : null
-  const occupancy = (trip.currentParticipants != null || trip.maxParticipants != null)
-    ? `${trip.currentParticipants ?? '?'} / ${trip.maxParticipants ?? '?'}`
-    : null
+  const participantStats = getParticipantStats(trip)
+  const participantLabel = participantStats?.hasCurrent || participantStats?.hasMax ? participantStats.label : null
+  const isFull = isTripFull(trip)
 
   const short = (str, max = 36) => {
     try { const s = String(str || '').trim(); return s.length > max ? s.slice(0, max - 1) + '…' : s } catch { return str }
@@ -37,7 +38,7 @@ export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEd
         {budget && <span className="muted">Presupuesto: {budget}</span>}
         {trip.roomType && <span className="muted">Habitación: {trip.roomType}</span>}
         {trip.season && <span className="muted">Temporada: {trip.season}</span>}
-        {occupancy && <span className="muted">Cupos: {occupancy}</span>}
+        {participantLabel && <span className="muted">Cupos: {participantLabel}</span>}
       </div>
       {trip.tags && trip.tags.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -74,11 +75,11 @@ export default function TripCard({ trip, onJoin, onLeave, joining, leaving, onEd
             <button
               className="btn"
               type="button"
-              disabled={joining || (trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants)}
+              disabled={joining || isFull}
               onClick={onApply || onJoin}
-              title={(trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants) ? 'Cupos completos' : ''}
+              title={isFull ? 'Cupos completos' : ''}
             >
-              {joining ? 'Aplicando…' : (trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants ? 'Sin cupo' : 'Aplicar')}
+              {joining ? 'Aplicando…' : (isFull ? 'Sin cupo' : 'Aplicar')}
             </button>
           )
         )}

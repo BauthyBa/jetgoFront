@@ -14,6 +14,7 @@ import {
   Globe
 } from 'lucide-react'
 import { formatDateDisplay } from '@/utils/dateFormat'
+import { getParticipantStats, isTripFull } from '@/utils/tripParticipants'
 
 export default function TripCardHorizontal({ trip, onJoin, onLeave, joining, leaving, onEdit, canEdit, isMember, isOwner, onApply, hasApplied }) {
   if (!trip) return null
@@ -50,14 +51,9 @@ export default function TripCardHorizontal({ trip, onJoin, onLeave, joining, lea
     return `${min} - ${max}`
   }
 
-  const formatParticipants = () => {
-    if (trip.currentParticipants == null && trip.maxParticipants == null) return null
-    const current = trip.currentParticipants ?? '?'
-    const max = trip.maxParticipants ?? '?'
-    return `${current}/${max}`
-  }
-
-  const isFull = trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants
+  const participantStats = getParticipantStats(trip)
+  const participantLabel = participantStats?.hasCurrent || participantStats?.hasMax ? participantStats.label : null
+  const isFull = isTripFull(trip)
 
   return (
     <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 hover:bg-slate-800/70 transition-all duration-300 w-full max-w-4xl">
@@ -120,11 +116,11 @@ export default function TripCardHorizontal({ trip, onJoin, onLeave, joining, lea
                 </div>
               )}
 
-              {/* Participantes */}
-              {formatParticipants() && (
+              {/* Cupos */}
+              {participantLabel && (
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-300">{formatParticipants()} participantes</span>
+                  <span className="text-slate-300">{participantLabel}</span>
                 </div>
               )}
 

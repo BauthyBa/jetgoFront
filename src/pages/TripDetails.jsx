@@ -23,6 +23,7 @@ import {
   Clock,
   ArrowUpRight
 } from 'lucide-react'
+import { getParticipantStats, getRemainingSlots } from '@/utils/tripParticipants'
 
 export default function TripDetails() {
   const { tripId } = useParams()
@@ -131,21 +132,26 @@ export default function TripDetails() {
     return min || max
   }, [trip])
 
-  const participantsSummary = useMemo(() => {
-    if (!trip) return null
-    const hasCurrent = trip.currentParticipants != null
-    const hasMax = trip.maxParticipants != null
-    if (!hasCurrent && !hasMax) return null
-    const current = hasCurrent ? trip.currentParticipants : '—'
-    const max = hasMax ? trip.maxParticipants : '—'
-    return `${current} / ${max}`
-  }, [trip])
+  const participantStats = useMemo(() => getParticipantStats(trip), [trip])
+  const participantsInfo = useMemo(() => {
+    if (!participantStats) return null
+    const hasInfo = participantStats.hasCurrent || participantStats.hasMax
+    if (!hasInfo) return null
+    const remaining = getRemainingSlots(trip)
+    return {
+      label: participantStats.label,
+      remaining,
+      current: participantStats.current,
+      max: participantStats.max,
+    }
+  }, [trip, participantStats])
 
   const occupancyPercent = useMemo(() => {
-    if (!trip || trip.maxParticipants == null || trip.maxParticipants <= 0) return null
-    const current = trip.currentParticipants ?? 0
-    return Math.max(0, Math.min(100, Math.round((current / trip.maxParticipants) * 100)))
-  }, [trip])
+    if (!participantStats?.hasMax || !participantStats.hasCurrent) return null
+    const { current, max } = participantStats
+    if (max == null || max <= 0 || current == null) return null
+    return Math.max(0, Math.min(100, Math.round((current / max) * 100)))
+  }, [participantStats])
 
   const transportLabel = useMemo(() => {
     if (!trip?.tipo) return null
@@ -158,12 +164,12 @@ export default function TripDetails() {
     const items = []
     if (dateRange) items.push({ icon: Calendar, label: 'Fechas', value: dateRange })
     if (formattedBudget) items.push({ icon: DollarSign, label: 'Presupuesto estimado', value: formattedBudget })
-    if (participantsSummary) items.push({ icon: Users, label: 'Cupos disponibles', value: participantsSummary })
+    if (participantsInfo?.label) items.push({ icon: Users, label: 'Cupos disponibles', value: participantsInfo.label })
     if (trip.season) items.push({ icon: Clock, label: 'Temporada', value: trip.season })
     if (trip.roomType) items.push({ icon: Home, label: 'Alojamiento', value: trip.roomType })
     if (trip.country) items.push({ icon: Globe, label: 'País', value: trip.country })
     return items
-  }, [trip, dateRange, formattedBudget, participantsSummary])
+  }, [trip, dateRange, formattedBudget, participantsInfo])
 
   // Determinar el estado del usuario con respecto al viaje
   const userTripStatus = useMemo(() => {
@@ -342,7 +348,7 @@ export default function TripDetails() {
                   <div>
                     <p className="text-xs uppercase tracking-wide text-slate-400">Cupos</p>
                     <p className="text-base font-semibold text-white">
-                      {participantsSummary ?? 'Por definir'}
+                      {participantsInfo?.label ?? 'Por definir'}
                     </p>
                   </div>
                   {occupancyPercent != null && (
@@ -421,9 +427,9 @@ export default function TripDetails() {
               <h2 className="text-xl font-semibold text-white">Participantes</h2>
               <p className="text-sm text-slate-400">Personas que ya se sumaron al viaje</p>
             </div>
-            {participantsSummary && (
+            {participantsInfo?.label && (
               <span className="rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-sm font-semibold text-emerald-200">
-                {participantsSummary}
+                {participantsInfo.label}
               </span>
             )}
           </div>

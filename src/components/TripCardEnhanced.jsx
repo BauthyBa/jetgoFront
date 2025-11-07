@@ -19,6 +19,7 @@ import {
 import { getFeaturedImage } from '@/services/wikipedia'
 import { formatDateDisplay } from '@/utils/dateFormat'
 import ROUTES from '@/config/routes'
+import { getParticipantStats, isTripFull } from '@/utils/tripParticipants'
 
 export default function TripCardEnhanced({ 
   trip, 
@@ -100,14 +101,9 @@ export default function TripCardEnhanced({
     return `${min} - ${max}`
   }
 
-  const formatParticipants = () => {
-    if (trip.currentParticipants == null && trip.maxParticipants == null) return null
-    const current = trip.currentParticipants ?? '?'
-    const max = trip.maxParticipants ?? '?'
-    return `${current}/${max}`
-  }
-
-  const isFull = trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants
+  const participantStats = getParticipantStats(trip)
+  const participantLabel = participantStats?.hasCurrent || participantStats?.hasMax ? participantStats.label : null
+  const isFull = isTripFull(trip)
 
   const cardCover = (
     <div className="relative h-48 overflow-hidden">
@@ -209,11 +205,11 @@ export default function TripCardEnhanced({
               </div>
             )}
 
-            {/* Participantes */}
-            {formatParticipants() && (
+            {/* Cupos */}
+            {participantLabel && (
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-slate-400" />
-                <span className="text-sm text-slate-300">{formatParticipants()}</span>
+                <span className="text-sm text-slate-300">{participantLabel}</span>
               </div>
             )}
 
@@ -364,13 +360,13 @@ export default function TripCardEnhanced({
               </div>
             )}
   
-            {/* Participantes */}
-            {formatParticipants() && (
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-slate-400" />
-                <span className="text-slate-300">{formatParticipants()} participantes</span>
-              </div>
-            )}
+              {/* Cupos */}
+              {participantLabel && (
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-300">{participantLabel}</span>
+                </div>
+              )}
   
             {/* Presupuesto */}
             {formatBudget() && (
