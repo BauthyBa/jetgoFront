@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getFriendRequests, respondFriendRequest, getFriends } from '@/services/friends'
 import { UserPlus, Check, X, Clock, Users } from 'lucide-react'
+import { loadMultipleAvatars } from '@/utils/avatarHelper'
 
 export default function FriendRequestsPanel({ currentUser }) {
   const [requests, setRequests] = useState([])
@@ -66,8 +67,30 @@ export default function FriendRequestsPanel({ currentUser }) {
       console.log('🔍 FriendRequestsPanel - Respuesta de amigos:', response)
       
       if (response.ok) {
-        setFriends(response.friends || [])
-        console.log('🔍 FriendRequestsPanel - Amigos cargados:', response.friends?.length || 0)
+        let friendsList = response.friends || []
+
+        try {
+          const friendIds = friendsList
+            .map((friend) => friend?.friend_id || friend?.userid || friend?.user_id || friend?.id)
+            .filter(Boolean)
+
+          if (friendIds.length > 0) {
+            const avatarsMap = await loadMultipleAvatars(friendIds)
+            friendsList = friendsList.map((friend) => {
+              const candidateId = friend?.friend_id || friend?.userid || friend?.user_id || friend?.id
+              const avatarFromResponse = friend?.avatar_url || friend?.avatar
+              return {
+                ...friend,
+                avatar_url: avatarFromResponse || avatarsMap[candidateId] || null,
+              }
+            })
+          }
+        } catch (avatarError) {
+          console.warn('FriendRequestsPanel - Error cargando avatares:', avatarError)
+        }
+
+        setFriends(friendsList)
+        console.log('🔍 FriendRequestsPanel - Amigos cargados:', friendsList.length)
       } else {
         console.error('🔍 FriendRequestsPanel - Error en respuesta de amigos:', response.error)
         setError(response.error || 'Error cargando amigos')
@@ -218,8 +241,32 @@ export default function FriendRequestsPanel({ currentUser }) {
             {friends.map((friend) => (
               <div key={friend.id} className="glass-card p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white font-medium">
-                    {friend.full_name?.charAt(0)?.toUpperCase() || 'A'}
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center text-white font-semibold text-xs">
+                    {friend.avatar_url ? (
+                      <img
+                        src={friend.avatar_url}
+                        alt={friend.full_name || 'Avatar de amigo'}
+                        className="w-full h-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none'
+                          const fallbackNode = event.currentTarget.nextElementSibling
+                          if (fallbackNode) {
+                            fallbackNode.style.display = 'flex'
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <span style={{ display: friend.avatar_url ? 'none' : 'flex' }}>
+                      {friend.full_name
+                        ? friend.full_name
+                            .split(' ')
+                            .filter(Boolean)
+                            .map((part) => part[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase()
+                        : 'A'}
+                    </span>
                   </div>
                   <div>
                     <h4 className="font-medium text-white">
@@ -264,8 +311,32 @@ export default function FriendRequestsPanel({ currentUser }) {
             <div key={request.id} className="glass-card p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium">
-                    {request.other_user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-blue-500/10 border border-blue-400/40 flex items-center justify-center text-white font-semibold text-xs">
+                    {request.other_user?.avatar_url ? (
+                      <img
+                        src={request.other_user.avatar_url}
+                        alt={request.other_user?.full_name || 'Avatar de usuario'}
+                        className="w-full h-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none'
+                          const fallbackNode = event.currentTarget.nextElementSibling
+                          if (fallbackNode) {
+                            fallbackNode.style.display = 'flex'
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <span style={{ display: request.other_user?.avatar_url ? 'none' : 'flex' }}>
+                      {request.other_user?.full_name
+                        ? request.other_user.full_name
+                            .split(' ')
+                            .filter(Boolean)
+                            .map((part) => part[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase()
+                        : 'U'}
+                    </span>
                   </div>
                   <div>
                     <h4 className="font-medium text-white">

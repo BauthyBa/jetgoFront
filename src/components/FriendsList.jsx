@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getFriends } from '@/services/friends'
-import { Users, User } from 'lucide-react'
+import { Users } from 'lucide-react'
+import { loadMultipleAvatars } from '@/utils/avatarHelper'
 
 export default function FriendsList({ userId, currentUserId }) {
   const [friends, setFriends] = useState([])
@@ -18,7 +19,29 @@ export default function FriendsList({ userId, currentUserId }) {
       setError('')
       const response = await getFriends(userId)
       if (response.ok) {
-        setFriends(response.friends || [])
+        let friendsList = response.friends || []
+
+        try {
+          const friendIds = friendsList
+            .map((friend) => friend?.friend_id || friend?.userid || friend?.user_id || friend?.id)
+            .filter(Boolean)
+
+          if (friendIds.length > 0) {
+            const avatarsMap = await loadMultipleAvatars(friendIds)
+            friendsList = friendsList.map((friend) => {
+              const candidateId = friend?.friend_id || friend?.userid || friend?.user_id || friend?.id
+              const avatarFromResponse = friend?.avatar_url || friend?.avatar
+              return {
+                ...friend,
+                avatar_url: avatarFromResponse || avatarsMap[candidateId] || null,
+              }
+            })
+          }
+        } catch (avatarError) {
+          console.warn('FriendsList - Error cargando avatares:', avatarError)
+        }
+
+        setFriends(friendsList)
       } else {
         setError(response.error || 'Error cargando amigos')
       }
@@ -72,8 +95,32 @@ export default function FriendsList({ userId, currentUserId }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {friends.map((friend) => (
           <div key={friend.id} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-medium">
-              {friend.full_name?.charAt(0)?.toUpperCase() || 'U'}
+            <div className="w-9 h-9 rounded-full overflow-hidden bg-blue-500/10 border border-blue-400/40 flex items-center justify-center text-white text-xs font-semibold">
+              {friend.avatar_url ? (
+                <img
+                  src={friend.avatar_url}
+                  alt={friend.full_name || 'Avatar de amigo'}
+                  className="w-full h-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none'
+                    const fallbackNode = event.currentTarget.nextElementSibling
+                    if (fallbackNode) {
+                      fallbackNode.style.display = 'flex'
+                    }
+                  }}
+                />
+              ) : null}
+              <span style={{ display: friend.avatar_url ? 'none' : 'flex' }}>
+                {friend.full_name
+                  ? friend.full_name
+                      .split(' ')
+                      .filter(Boolean)
+                      .map((part) => part[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()
+                  : 'U'}
+              </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">
