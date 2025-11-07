@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { getFeaturedImage } from '@/services/wikipedia'
 import { formatDateDisplay } from '@/utils/dateFormat'
+import ROUTES from '@/config/routes'
 
 export default function TripCardEnhanced({ 
   trip, 
@@ -37,6 +38,15 @@ export default function TripCardEnhanced({
 }) {
   const [destinationImage, setDestinationImage] = useState(null)
   const [imageLoading, setImageLoading] = useState(false)
+  const originLabel = trip?.origin || 'Origen no especificado'
+  const destinationLabel = trip?.destination || 'Destino no especificado'
+  const titleText = trip?.name || `${originLabel} → ${destinationLabel}`
+  const tripDetailsHref = trip?.id ? ROUTES.TRIP_DETAILS(trip.id) : null
+  const handleViewTrip = () => {
+    if (typeof onView === 'function') {
+      onView(trip)
+    }
+  }
 
   // Cargar imagen del destino
   useEffect(() => {
@@ -99,61 +109,83 @@ export default function TripCardEnhanced({
 
   const isFull = trip.maxParticipants && trip.currentParticipants != null && trip.currentParticipants >= trip.maxParticipants
 
+  const cardCover = (
+    <div className="relative h-48 overflow-hidden">
+      {imageLoading ? (
+        <div className="w-full h-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+        </div>
+      ) : destinationImage ? (
+        <img 
+          src={destinationImage} 
+          alt={trip.destination}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+      ) : (
+        <div className="w-full h-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
+          <Globe className="w-16 h-16 text-emerald-400" />
+        </div>
+      )}
+      
+      {/* Overlay con información básica */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none">
+        <div className="absolute bottom-4 left-4 right-4 select-none">
+          <div className="block text-white">
+            <h3 className="text-xl font-bold mb-1 line-clamp-1">
+              {titleText}
+            </h3>
+            <div className="flex items-center gap-2 text-white/90">
+              <MapPin className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm truncate">
+                {originLabel} → {destinationLabel}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
   // Renderizado en modo tarjeta
   if (viewMode === 'card') {
     return (
       <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 overflow-hidden hover:bg-slate-800/70 transition-all duration-300 group">
         {/* Imagen del destino */}
-        <div className="relative h-48 overflow-hidden">
-          {imageLoading ? (
-            <div className="w-full h-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-            </div>
-          ) : destinationImage ? (
-            <img 
-              src={destinationImage} 
-              alt={trip.destination}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
-              <Globe className="w-16 h-16 text-emerald-400" />
-            </div>
-          )}
-          
-          {/* Overlay con información básica */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent">
-            <div className="absolute bottom-4 left-4 right-4 select-none">
-              <div className="block text-white">
-                <h3 className="text-xl font-bold mb-1 line-clamp-1">
-                  {trip.name}
-                </h3>
-                <div className="flex items-center gap-2 text-white/90">
-                  <MapPin className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm truncate">
-                    {trip.origin} → {trip.destination}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {tripDetailsHref ? (
+          <Link
+            to={tripDetailsHref}
+            className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+          >
+            {cardCover}
+          </Link>
+        ) : (
+          cardCover
+        )}
 
         {/* Contenido de la tarjeta */
         }
         <div className="p-6">
           {/* Ver viaje */}
-          {onView && (
+          {onView ? (
             <div className="mb-4">
               <button
                 className="btn w-full"
                 type="button"
-                onClick={() => onView(trip)}
+                onClick={handleViewTrip}
               >
                 Ver viaje
               </button>
             </div>
-          )}
+          ) : tripDetailsHref ? (
+            <div className="mb-4">
+              <Link
+                className="btn w-full text-center block"
+                to={tripDetailsHref}
+              >
+                Ver viaje
+              </Link>
+            </div>
+          ) : null}
           {/* Fechas */}
           {trip.startDate && (
             <div className="flex items-center gap-2 mb-4 text-slate-300">
@@ -269,148 +301,172 @@ export default function TripCardEnhanced({
     )
   }
 
+  const listHeaderInner = (
+    <>
+      {/* Imagen del destino */}
+      <div className="flex-shrink-0">
+        {imageLoading ? (
+          <div className="w-32 h-32 rounded-lg bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+          </div>
+        ) : destinationImage ? (
+          <img 
+            src={destinationImage} 
+            alt={trip.destination}
+            className="w-32 h-32 rounded-lg object-cover"
+          />
+        ) : (
+          <div className="w-32 h-32 rounded-lg bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
+            <Globe className="w-12 h-12 text-emerald-400" />
+          </div>
+        )}
+      </div>
+  
+      {/* Información principal */}
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          {/* Título y ruta */}
+          <div className="flex-1 min-w-0">
+            <div 
+              className="text-xl font-bold text-white line-clamp-1"
+            >
+              {titleText}
+            </div>
+            
+            <div className="flex items-center gap-2 mt-2 text-slate-300">
+              <MapPin className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">
+                {originLabel} → {destinationLabel}
+              </span>
+            </div>
+  
+            {/* Fechas */}
+            {trip.startDate && (
+              <div className="flex items-center gap-2 mt-2 text-slate-300">
+                <Calendar className="w-4 h-4 flex-shrink-0" />
+                <span>
+                  {formatDate(trip.startDate)}
+                  {trip.endDate && ` - ${formatDate(trip.endDate)}`}
+                </span>
+              </div>
+            )}
+          </div>
+  
+          {/* Información adicional */}
+          <div className="flex flex-wrap gap-4 text-sm">
+            {/* Transporte */}
+            {trip.tipo && (
+              <div className="flex items-center gap-2">
+                <div className={getTransportColor(trip.tipo)}>
+                  {getTransportIcon(trip.tipo)}
+                </div>
+                <span className="text-slate-300 capitalize">{trip.tipo}</span>
+              </div>
+            )}
+  
+            {/* Participantes */}
+            {formatParticipants() && (
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-400" />
+                <span className="text-slate-300">{formatParticipants()} participantes</span>
+              </div>
+            )}
+  
+            {/* Presupuesto */}
+            {formatBudget() && (
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-slate-400" />
+                <span className="text-slate-300">{formatBudget()}</span>
+              </div>
+            )}
+          </div>
+        </div>
+  
+        {/* Detalles adicionales */}
+        <div className="mt-4 flex flex-wrap gap-4 text-sm">
+          {trip.country && (
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-300">{trip.country}</span>
+            </div>
+          )}
+          
+          {trip.roomType && (
+            <div className="flex items-center gap-2">
+              <Home className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-300">{trip.roomType}</span>
+            </div>
+          )}
+          
+          {trip.season && (
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-300">{trip.season}</span>
+            </div>
+          )}
+        </div>
+  
+        {/* Tags */}
+        {trip.tags && trip.tags.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {trip.tags.map((tag, index) => (
+              <span 
+                key={index}
+                className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full border border-emerald-500/30"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+  
+        {/* Descripción */}
+        {trip.description && (
+          <div className="mt-4">
+            <p className="text-slate-300 text-sm line-clamp-2">
+              {trip.description}
+            </p>
+          </div>
+        )}
+      </div>
+    </>
+  )
+
   // Renderizado en modo lista
   return (
     <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 hover:bg-slate-800/70 transition-all duration-300 w-full max-w-4xl">
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Imagen del destino */}
-        <div className="flex-shrink-0">
-          {imageLoading ? (
-            <div className="w-32 h-32 rounded-lg bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-            </div>
-          ) : destinationImage ? (
-            <img 
-              src={destinationImage} 
-              alt={trip.destination}
-              className="w-32 h-32 rounded-lg object-cover"
-            />
-          ) : (
-            <div className="w-32 h-32 rounded-lg bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
-              <Globe className="w-12 h-12 text-emerald-400" />
-            </div>
-          )}
-        </div>
-
-        {/* Información principal */}
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-            {/* Título y ruta */}
-            <div className="flex-1 min-w-0">
-              <div 
-                className="text-xl font-bold text-white line-clamp-1"
-              >
-                {trip.name}
-              </div>
-              
-              <div className="flex items-center gap-2 mt-2 text-slate-300">
-                <MapPin className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">
-                  {trip.origin || 'Origen no especificado'} → {trip.destination || 'Destino no especificado'}
-                </span>
-              </div>
-
-              {/* Fechas */}
-              {trip.startDate && (
-                <div className="flex items-center gap-2 mt-2 text-slate-300">
-                  <Calendar className="w-4 h-4 flex-shrink-0" />
-                  <span>
-                    {formatDate(trip.startDate)}
-                    {trip.endDate && ` - ${formatDate(trip.endDate)}`}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Información adicional */}
-            <div className="flex flex-wrap gap-4 text-sm">
-              {/* Transporte */}
-              {trip.tipo && (
-                <div className="flex items-center gap-2">
-                  <div className={getTransportColor(trip.tipo)}>
-                    {getTransportIcon(trip.tipo)}
-                  </div>
-                  <span className="text-slate-300 capitalize">{trip.tipo}</span>
-                </div>
-              )}
-
-              {/* Participantes */}
-              {formatParticipants() && (
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-300">{formatParticipants()} participantes</span>
-                </div>
-              )}
-
-              {/* Presupuesto */}
-              {formatBudget() && (
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-300">{formatBudget()}</span>
-                </div>
-              )}
-            </div>
+        {tripDetailsHref ? (
+          <Link
+            to={tripDetailsHref}
+            className="flex flex-col lg:flex-row gap-6 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 rounded-lg"
+          >
+            {listHeaderInner}
+          </Link>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-6 flex-1">
+            {listHeaderInner}
           </div>
-
-          {/* Detalles adicionales */}
-          <div className="mt-4 flex flex-wrap gap-4 text-sm">
-            {trip.country && (
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-slate-400" />
-                <span className="text-slate-300">{trip.country}</span>
-              </div>
-            )}
-            
-            {trip.roomType && (
-              <div className="flex items-center gap-2">
-                <Home className="w-4 h-4 text-slate-400" />
-                <span className="text-slate-300">{trip.roomType}</span>
-              </div>
-            )}
-            
-            {trip.season && (
-              <div className="flex items-center gap-2">
-                <Star className="w-4 h-4 text-slate-400" />
-                <span className="text-slate-300">{trip.season}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Tags */}
-          {trip.tags && trip.tags.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {trip.tags.map((tag, index) => (
-                <span 
-                  key={index}
-                  className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full border border-emerald-500/30"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Descripción */}
-          {trip.description && (
-            <div className="mt-4">
-              <p className="text-slate-300 text-sm line-clamp-2">
-                {trip.description}
-              </p>
-            </div>
-          )}
-        </div>
-
+        )}
+  
         {/* Acciones */}
         <div className="flex-shrink-0 flex flex-col gap-3">
-          {onView && (
+          {onView ? (
             <button 
               className="btn w-full" 
               type="button" 
-              onClick={() => onView(trip)}
+              onClick={handleViewTrip}
             >
               Ver viaje
             </button>
-          )}
+          ) : tripDetailsHref ? (
+            <Link 
+              className="btn w-full text-center" 
+              to={tripDetailsHref}
+            >
+              Ver viaje
+            </Link>
+          ) : null}
           {canEdit && (
             <button 
               className="btn secondary w-full" 

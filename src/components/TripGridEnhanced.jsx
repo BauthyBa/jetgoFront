@@ -59,6 +59,12 @@ export default function TripGridEnhanced({
   const handleFilterChange = (type) => {
     setFilterType(type)
   }
+  
+  const handleViewTrip = (trip) => {
+    if (!trip) return
+    setSelectedTrip(trip)
+    setDetailsOpen(true)
+  }
 
   return (
     <div className="space-y-6">
@@ -149,14 +155,14 @@ export default function TripGridEnhanced({
               onApply={onApply ? () => onApply(trip) : undefined}
               hasApplied={!!hasAppliedFn && hasAppliedFn(trip)}
               hideApply={hideApply}
-              onView={() => { setSelectedTrip(trip); setDetailsOpen(true) }}
+              onView={() => handleViewTrip(trip)}
             />
           ))}
         </div>
       )}
-
+      
       {detailsOpen && (
-        <TripDetailsModal 
+        <TripDetailsModal
           isOpen={detailsOpen}
           onClose={() => { setDetailsOpen(false); setSelectedTrip(null) }}
           trip={selectedTrip}
