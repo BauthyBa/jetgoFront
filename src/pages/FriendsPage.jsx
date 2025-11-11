@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSession, supabase } from '@/services/supabase'
-import { getFriendRequests, respondFriendRequest, getFriends, sendFriendRequest } from '@/services/friends'
-import { UserPlus, Check, X, Clock, Users, Search } from 'lucide-react'
+import { getFriendRequests, respondFriendRequest, getFriends, sendFriendRequest, removeFriend } from '@/services/friends'
+import { UserPlus, Check, X, Clock, Users, ArrowLeft, Search } from 'lucide-react'
 import GlassCard from '@/components/GlassCard'
-import { loadMultipleAvatars } from '@/utils/avatarHelper'
  
 
 export default function FriendsPage() {
@@ -21,6 +20,7 @@ export default function FriendsPage() {
   const [friendshipStatuses, setFriendshipStatuses] = useState({})
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState({ open: false, friend: null, loading: false })
 
   // Seleccionar 3 usuarios recomendados al azar cada vez que cambia suggestedUsers
   const randomSuggestedUsers = useMemo(() => {
@@ -133,30 +133,8 @@ export default function FriendsPage() {
       console.log('🔍 FriendsPage - Respuesta de amigos:', response)
       
       if (response.ok) {
-        let friendsList = response.friends || []
-
-        try {
-          const friendIds = friendsList
-            .map((friend) => friend?.friend_id || friend?.userid || friend?.user_id || friend?.id)
-            .filter(Boolean)
-
-          if (friendIds.length > 0) {
-            const avatarsMap = await loadMultipleAvatars(friendIds)
-            friendsList = friendsList.map((friend) => {
-              const candidateId = friend?.friend_id || friend?.userid || friend?.user_id || friend?.id
-              const avatarFromResponse = friend?.avatar_url || friend?.avatar
-              return {
-                ...friend,
-                avatar_url: avatarFromResponse || avatarsMap[candidateId] || null,
-              }
-            })
-          }
-        } catch (avatarError) {
-          console.warn('FriendsPage - Error cargando avatares:', avatarError)
-        }
-
-        setFriends(friendsList)
-        console.log('🔍 FriendsPage - Amigos cargados:', friendsList.length)
+        setFriends(response.friends || [])
+        console.log('🔍 FriendsPage - Amigos cargados:', response.friends?.length || 0)
       } else {
         console.error('🔍 FriendsPage - Error en respuesta de amigos:', response.error)
         setError(response.error || 'Error cargando amigos')
@@ -230,6 +208,32 @@ export default function FriendsPage() {
         return copy
       })
       showNotification('Error', 'No se pudo enviar la solicitud', 'error')
+    }
+  }
+
+  const requestRemoveFriend = (friend) => {
+    if (!friend?.id) return
+    setConfirmRemove({ open: true, friend, loading: false })
+  }
+
+  const confirmRemoveFriend = async () => {
+    try {
+      const friend = confirmRemove.friend
+      const userId = profile.userid || profile.user_id || profile.id
+      if (!userId || !friend?.id) return
+      setConfirmRemove((prev) => ({ ...prev, loading: true }))
+      const resp = await removeFriend(userId, friend.id)
+      if (resp?.ok) {
+        setFriends((prev) => prev.filter((f) => f.id !== friend.id))
+        showNotification('Eliminado', `${friend.full_name || 'Usuario'} fue eliminado de tus amigos`, 'success')
+        setConfirmRemove({ open: false, friend: null, loading: false })
+      } else {
+        showNotification('Error', resp?.error || 'No se pudo eliminar al amigo', 'error')
+        setConfirmRemove((prev) => ({ ...prev, loading: false }))
+      }
+    } catch (e) {
+      showNotification('Error', 'No se pudo eliminar al amigo', 'error')
+      setConfirmRemove((prev) => ({ ...prev, loading: false }))
     }
   }
 
@@ -401,7 +405,10 @@ export default function FriendsPage() {
             <div className="space-y-3">
               {randomSuggestedUsers.map((u) => (
                 <div key={u.userid} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="flex items-center gap-3 min-w-0 cursor-pointer"
+                    onClick={() => navigate(`/profile/${u.userid}`)}
+                  >
                     <div className="w-11 h-11 rounded-full overflow-hidden bg-slate-700/80 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-slate-600/40">
                       {u.avatar_url ? (
                         <img src={u.avatar_url} alt={u.nombre} className="w-full h-full object-cover" />
@@ -507,41 +514,28 @@ export default function FriendsPage() {
             <div className="space-y-3 max-w-2xl mx-auto">
               {friends.map((friend) => (
                 <GlassCard key={friend.id} className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full overflow-hidden bg-emerald-500/10 border border-emerald-400/30 flex items-center justify-center text-white font-semibold text-sm">
-                      {friend.avatar_url ? (
-                        <img
-                          src={friend.avatar_url}
-                          alt={friend.full_name || 'Avatar de amigo'}
-                          className="w-full h-full object-cover"
-                          onError={(event) => {
-                            event.currentTarget.style.display = 'none'
-                            const fallbackNode = event.currentTarget.nextElementSibling
-                            if (fallbackNode) {
-                              fallbackNode.style.display = 'flex'
-                            }
-                          }}
-                        />
-                      ) : null}
-                      <span style={{ display: friend.avatar_url ? 'none' : 'flex' }}>
-                        {friend.full_name
-                          ? friend.full_name
-                              .split(' ')
-                              .filter(Boolean)
-                              .map((part) => part[0])
-                              .join('')
-                              .slice(0, 2)
-                              .toUpperCase()
-                          : 'A'}
-                      </span>
+                  <div
+                    className="flex items-center gap-3 cursor-pointer"
+                    onClick={() => navigate(`/profile/${friend.id}`)}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white font-medium">
+                      {friend.full_name?.charAt(0)?.toUpperCase() || 'A'}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <h4 className="font-medium text-white">
                         {friend.full_name || 'Amigo'}
                       </h4>
                       <p className="text-sm text-slate-400">
                         Amigos desde {new Date(friend.friendship_date).toLocaleDateString()}
                       </p>
+                    </div>
+                    <div className="ml-auto">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); requestRemoveFriend(friend) }}
+                        className="px-3 py-1.5 rounded-lg text-xs bg-red-600 hover:bg-red-700 text-white transition"
+                      >
+                        Eliminar
+                      </button>
                     </div>
                   </div>
                 </GlassCard>
@@ -582,32 +576,10 @@ export default function FriendsPage() {
                 <GlassCard key={request.id} className="p-5 hover:bg-white/5 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-11 h-11 rounded-full overflow-hidden bg-blue-500/10 border border-blue-400/40 flex items-center justify-center text-white font-semibold text-sm">
-                        {request.other_user?.avatar_url ? (
-                          <img
-                            src={request.other_user.avatar_url}
-                            alt={request.other_user?.full_name || 'Avatar de usuario'}
-                            className="w-full h-full object-cover"
-                            onError={(event) => {
-                              event.currentTarget.style.display = 'none'
-                              const fallbackNode = event.currentTarget.nextElementSibling
-                              if (fallbackNode) {
-                                fallbackNode.style.display = 'flex'
-                              }
-                            }}
-                          />
-                        ) : null}
-                        <span style={{ display: request.other_user?.avatar_url ? 'none' : 'flex' }}>
-                          {request.other_user?.full_name
-                            ? request.other_user.full_name
-                                .split(' ')
-                                .filter(Boolean)
-                                .map((part) => part[0])
-                                .join('')
-                                .slice(0, 2)
-                                .toUpperCase()
-                            : 'U'}
-                        </span>
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 p-[2px]">
+                        <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-white font-medium">
+                          {request.other_user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                        </div>
                       </div>
                       <div>
                         <h4 className="font-medium text-white">
@@ -690,6 +662,41 @@ export default function FriendsPage() {
         )}
       </div>
     </div>
+    {/* Confirm Remove Friend Modal */}
+    {confirmRemove.open && (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !confirmRemove.loading && setConfirmRemove({ open: false, friend: null, loading: false })} />
+        <div className="relative z-[210] w-[92vw] max-w-sm rounded-2xl border border-slate-700 bg-slate-900/95 shadow-2xl p-5">
+          <h3 className="text-white text-base font-semibold mb-1">Eliminar amigo</h3>
+          <p className="text-slate-300 text-sm mb-4">
+            ¿Seguro que querés eliminar a{' '}
+            <span className="font-semibold text-white">
+              {confirmRemove.friend?.full_name || 'este usuario'}
+            </span>{' '}
+            de tus amigos?
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-lg text-sm bg-slate-700 hover:bg-slate-600 text-white transition disabled:opacity-60"
+              disabled={confirmRemove.loading}
+              onClick={() => setConfirmRemove({ open: false, friend: null, loading: false })}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-lg text-sm bg-red-600 hover:bg-red-700 text-white transition disabled:opacity-60"
+              disabled={confirmRemove.loading}
+              onClick={confirmRemoveFriend}
+            >
+              {confirmRemove.loading ? 'Eliminando…' : 'Eliminar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   )
 }
+

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { getFriends } from '@/services/friends'
-import { Users } from 'lucide-react'
-import { loadMultipleAvatars } from '@/utils/avatarHelper'
+import { useNavigate } from 'react-router-dom'
+import { getFriends, removeFriend } from '@/services/friends'
+import { Users, User } from 'lucide-react'
 
 export default function FriendsList({ userId, currentUserId }) {
+  const navigate = useNavigate()
   const [friends, setFriends] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -19,29 +20,7 @@ export default function FriendsList({ userId, currentUserId }) {
       setError('')
       const response = await getFriends(userId)
       if (response.ok) {
-        let friendsList = response.friends || []
-
-        try {
-          const friendIds = friendsList
-            .map((friend) => friend?.friend_id || friend?.userid || friend?.user_id || friend?.id)
-            .filter(Boolean)
-
-          if (friendIds.length > 0) {
-            const avatarsMap = await loadMultipleAvatars(friendIds)
-            friendsList = friendsList.map((friend) => {
-              const candidateId = friend?.friend_id || friend?.userid || friend?.user_id || friend?.id
-              const avatarFromResponse = friend?.avatar_url || friend?.avatar
-              return {
-                ...friend,
-                avatar_url: avatarFromResponse || avatarsMap[candidateId] || null,
-              }
-            })
-          }
-        } catch (avatarError) {
-          console.warn('FriendsList - Error cargando avatares:', avatarError)
-        }
-
-        setFriends(friendsList)
+        setFriends(response.friends || [])
       } else {
         setError(response.error || 'Error cargando amigos')
       }
@@ -50,6 +29,26 @@ export default function FriendsList({ userId, currentUserId }) {
       setError('Error cargando amigos')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const [confirmState, setConfirmState] = useState({ open: false, friendId: null, friendName: '' })
+  const requestRemove = (friendId, friendName) => {
+    if (userId !== currentUserId) return
+    setConfirmState({ open: true, friendId, friendName: friendName || 'este usuario' })
+  }
+  const confirmRemove = async () => {
+    try {
+      setLoading(true)
+      const resp = await removeFriend(currentUserId, confirmState.friendId)
+      if (resp?.ok) {
+        setFriends((prev) => prev.filter((f) => f.id !== confirmState.friendId))
+      }
+    } catch (e) {
+      console.error('Error eliminando amigo:', e)
+    } finally {
+      setLoading(false)
+      setConfirmState({ open: false, friendId: null, friendName: '' })
     }
   }
 
@@ -94,33 +93,13 @@ export default function FriendsList({ userId, currentUserId }) {
       
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {friends.map((friend) => (
-          <div key={friend.id} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg">
-            <div className="w-9 h-9 rounded-full overflow-hidden bg-blue-500/10 border border-blue-400/40 flex items-center justify-center text-white text-xs font-semibold">
-              {friend.avatar_url ? (
-                <img
-                  src={friend.avatar_url}
-                  alt={friend.full_name || 'Avatar de amigo'}
-                  className="w-full h-full object-cover"
-                  onError={(event) => {
-                    event.currentTarget.style.display = 'none'
-                    const fallbackNode = event.currentTarget.nextElementSibling
-                    if (fallbackNode) {
-                      fallbackNode.style.display = 'flex'
-                    }
-                  }}
-                />
-              ) : null}
-              <span style={{ display: friend.avatar_url ? 'none' : 'flex' }}>
-                {friend.full_name
-                  ? friend.full_name
-                      .split(' ')
-                      .filter(Boolean)
-                      .map((part) => part[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()
-                  : 'U'}
-              </span>
+          <div
+            key={friend.id}
+            className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg cursor-pointer"
+            onClick={() => navigate(`/profile/${friend.id}`)}
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-medium">
+              {friend.full_name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">
@@ -135,9 +114,46 @@ export default function FriendsList({ userId, currentUserId }) {
                 Tú
               </div>
             )}
+            {userId === currentUserId && friend.id !== currentUserId && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); requestRemove(friend.id, friend.full_name) }}
+                className="text-xs px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white"
+              >
+                Eliminar
+              </button>
+            )}
           </div>
         ))}
       </div>
     </div>
+    {/* Confirm modal (embedded usage) */}
+    {confirmState.open && (
+      <div className="fixed inset-0 z-[160] flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmState({ open: false, friendId: null, friendName: '' })} />
+        <div className="relative z-[170] w-[92vw] max-w-sm rounded-2xl border border-slate-700 bg-slate-900/95 shadow-2xl p-5">
+          <h3 className="text-white text-base font-semibold mb-1">Eliminar amigo</h3>
+          <p className="text-slate-300 text-sm mb-4">
+            ¿Seguro que querés eliminar a <span className="text-white font-semibold">{confirmState.friendName}</span> de tus amigos?
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-lg text-sm bg-slate-700 hover:bg-slate-600 text-white transition"
+              onClick={() => setConfirmState({ open: false, friendId: null, friendName: '' })}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-lg text-sm bg-red-600 hover:bg-red-700 text-white transition"
+              onClick={confirmRemove}
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   )
 }

@@ -1,5 +1,4 @@
 import { api } from './api'
-import { supabase } from './supabase'
 import { mapTransportTypeForUi } from '@/utils/transport'
 
 // Map backend trip payloads (supports multiple shapes) to a unified model
@@ -25,18 +24,14 @@ export function normalizeTrip(raw) {
   const transportTypeRaw = raw.transport_type || raw.tipo || null
   const transportType = mapTransportTypeForUi(transportTypeRaw)
   const maxParticipants = raw.max_participants ?? null
-  const baseCurrentParticipants = raw.current_participants ?? raw.currentParticipants ?? null
-  const currentParticipants = baseCurrentParticipants
+  const currentParticipants = raw.current_participants ?? raw.currentParticipants ?? null
   const creatorId = raw.creator_id || null
   const country = raw.country || null
   const createdAt = raw.created_at || raw.createdAt || raw.created || raw.created_on || null
   const updatedAt = raw.updated_at || raw.updatedAt || raw.updated || raw.updated_on || null
 
-  // El ID puede venir como 'id' o 'trip_id'
-  const id = raw.id || raw.trip_id || null
-
   return {
-    id,
+    id: raw.id,
     name,
     destination,
     origin,
@@ -57,7 +52,6 @@ export function normalizeTrip(raw) {
     tipo: transportType,
     maxParticipants,
     currentParticipants,
-    currentParticipantsBase: baseCurrentParticipants,
     creatorId,
     country,
     createdAt,
@@ -69,15 +63,13 @@ export function normalizeTrip(raw) {
 export async function listTrips() {
   const { data } = await api.get('/trips/list/')
   const trips = Array.isArray(data?.trips) ? data.trips : []
-  const normalized = trips.map(normalizeTrip).filter(Boolean)
-  return await withChatParticipants(normalized)
+  return trips.map(normalizeTrip).filter(Boolean)
 }
 
 export async function getUserParticipatingTrips() {
   const { data } = await api.get('/trips/my-participating/')
   const trips = Array.isArray(data?.trips) ? data.trips : []
-  const normalized = trips.map(normalizeTrip).filter(Boolean)
-  return await withChatParticipants(normalized)
+  return trips.map(normalizeTrip).filter(Boolean)
 }
 
 export async function joinTrip(tripId, userId) {
@@ -98,9 +90,8 @@ export async function createTrip(payload) {
 
 // Update trip (frontend expects backend endpoint to exist; if not, caller should handle 404)
 export async function updateTrip(tripId, payload) {
-  // El backend espera 'id' y 'creator_id', no 'trip_id'
   const { data } = await api.post('/trips/update/', { 
-    id: tripId,
+    trip_id: tripId, 
     ...payload 
   })
   return data
@@ -110,74 +101,4 @@ export async function updateTrip(tripId, payload) {
 export async function deleteTrip(tripId) {
   const { data } = await api.post('/trips/delete/', { trip_id: tripId })
   return data
-}
-
-async function withChatParticipants(trips) {
-  const ids = trips.map((t) => t?.id).filter(Boolean)
-  if (ids.length === 0) return trips
-  const counts = await fetchChatParticipantCounts(ids)
-  if (!counts || Object.keys(counts).length === 0) return trips
-  return trips.map((trip) => {
-    const key = String(trip?.id)
-    const chatCount = counts[key]
-    if (chatCount == null) return trip
-    return {
-      ...trip,
-      currentParticipants: chatCount,
-    }
-  })
-}
-
-async function fetchChatParticipantCounts(tripIds) {
-  try {
-    const uniqueTripIds = Array.from(new Set(
-      (tripIds || []).map((id) => (id != null ? String(id) : '')).filter(Boolean)
-    ))
-    if (uniqueTripIds.length === 0) return {}
-
-    const { data: rooms, error: roomsError } = await supabase
-      .from('chat_rooms')
-      .select('id, trip_id')
-      .in('trip_id', uniqueTripIds)
-      .eq('is_group', true)
-
-    if (roomsError || !rooms || rooms.length === 0) return {}
-    const roomIds = rooms.map((room) => room?.id).filter(Boolean)
-    if (roomIds.length === 0) return {}
-
-    const countsByTrip = {}
-    const membersCountPromises = rooms.map(async (room) => {
-      const roomId = room?.id
-      const tripId = room?.trip_id
-      if (!roomId || !tripId) return null
-      const count = await fetchRoomMemberCount(roomId)
-      if (count == null) return null
-      return { tripId: String(tripId), count }
-    })
-
-    const membersCounts = await Promise.all(membersCountPromises)
-    for (const item of membersCounts) {
-      if (!item) continue
-      const existing = countsByTrip[item.tripId]
-      countsByTrip[item.tripId] = existing == null ? item.count : Math.max(existing, item.count)
-    }
-
-    return countsByTrip
-  } catch (error) {
-    console.error('Error obteniendo integrantes desde chat:', error)
-    return {}
-  }
-}
-
-async function fetchRoomMemberCount(roomId) {
-  try {
-    const response = await api.get('/chat-members/', { params: { room_id: roomId } })
-    const members = Array.isArray(response?.data?.members) ? response.data.members : []
-    if (members.length === 0) return 0
-    const uniqueIds = new Set(members.map((member) => String(member?.user_id || '')).filter(Boolean))
-    return uniqueIds.size
-  } catch (error) {
-    console.error(`Error obteniendo miembros del room ${roomId}:`, error)
-    return null
-  }
 }

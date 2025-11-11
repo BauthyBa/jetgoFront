@@ -27,7 +27,6 @@ import SocialPage from './pages/SocialPage.jsx'
 import WeatherPage from './pages/WeatherPage.jsx'
 import MisViajesPage from './pages/MisViajesPage.jsx'
 import NotificationsPage from './pages/NotificationsPage.jsx'
-import EditTripPage from './pages/EditTripPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 import FeedPage from './pages/FeedPage.jsx'
 
@@ -68,10 +67,6 @@ const router = createBrowserRouter([
       { 
         path: 'mis-viajes', 
         element: <ProtectedRoute><MisViajesPage /></ProtectedRoute> 
-      },
-      { 
-        path: 'editar-viaje/:tripId', 
-        element: <ProtectedRoute><EditTripPage /></ProtectedRoute> 
       },
       { 
         path: 'amigos', 

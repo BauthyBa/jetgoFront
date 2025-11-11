@@ -9,7 +9,8 @@ function normalizeBaseUrl(url) {
 const REMOTE_API_BASE_URL = normalizeBaseUrl('https://jetgoback.onrender.com/api')
 const ENV_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL)
 const LOCAL_ENV_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_LOCAL_API_BASE_URL)
-const LOCAL_CANDIDATE = LOCAL_ENV_BASE_URL
+const FALLBACK_LOCAL_API_BASE_URL = normalizeBaseUrl('http://localhost:8000/api')
+const LOCAL_CANDIDATE = LOCAL_ENV_BASE_URL || FALLBACK_LOCAL_API_BASE_URL
 
 function resolveInitialBaseUrl() {
   if (ENV_BASE_URL) return ENV_BASE_URL
@@ -17,7 +18,7 @@ function resolveInitialBaseUrl() {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname
     if (['localhost', '127.0.0.1', '::1'].includes(host)) {
-      return LOCAL_CANDIDATE || REMOTE_API_BASE_URL
+      return LOCAL_CANDIDATE
     }
   }
 

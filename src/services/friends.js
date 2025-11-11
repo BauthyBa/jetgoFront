@@ -78,3 +78,17 @@ export async function inviteFriendToTrip(tripId, friendId, organizerId) {
     throw error
   }
 }
+
+// Eliminar amigo (unfriend)
+export async function removeFriend(userId, friendId) {
+  try {
+    const response = await api.post('/friends/remove/', {
+      user_id: userId,
+      friend_id: friendId,
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error eliminando amigo:', error)
+    throw error
+  }
+}
