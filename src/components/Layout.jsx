@@ -43,6 +43,7 @@ export default function Layout() {
     '/social',
     '/clima',
     '/notificaciones',
+    '/hashtag',
   ]
   const hideHeader = hideHeaderOn.some((p) => location.pathname.startsWith(p))
   const hideNavigationOn = ['/login', '/signup', '/register', '/forgot-password', '/reset-password', '/verify-dni']

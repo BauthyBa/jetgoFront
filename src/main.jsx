@@ -29,6 +29,7 @@ import MisViajesPage from './pages/MisViajesPage.jsx'
 import NotificationsPage from './pages/NotificationsPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 import FeedPage from './pages/FeedPage.jsx'
+import HashtagPage from './pages/HashtagPage.jsx'
 
 const router = createBrowserRouter([
   {
@@ -103,6 +104,10 @@ const router = createBrowserRouter([
       { 
         path: 'profile/:userId', 
         element: <ProtectedRoute><PublicProfilePage /></ProtectedRoute> 
+      },
+      { 
+        path: 'hashtag/:hashtag', 
+        element: <ProtectedRoute><HashtagPage /></ProtectedRoute> 
       },
       { 
         path: 'profile/reviews', 
