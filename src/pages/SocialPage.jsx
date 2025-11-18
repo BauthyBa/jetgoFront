@@ -1086,7 +1086,7 @@ export default function SocialPage() {
         try { await linkPostHashtags(result?.id, newPostContent) } catch {}
         // UI feedback
         console.log('Post creado:', result)
-        alert('¡Post creado exitosamente!')
+        showNotification('Post publicado', '¡Tu post se creó exitosamente!')
         closeCreatePostModal()
         // Recargar posts
         loadPosts()
