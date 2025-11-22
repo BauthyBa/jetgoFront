@@ -28,7 +28,20 @@ export async function getTripExpenses(filters = {}) {
     if (filters.offset) params.append('offset', filters.offset)
 
     const response = await api.get(`/trip-expenses/list/?${params.toString()}`)
-    return response.data
+    const payload = response.data
+    // Normalizar formato para consumidores antiguos/nuevos
+    const pickArray = (obj) => {
+      if (!obj) return null
+      if (Array.isArray(obj)) return obj
+      if (Array.isArray(obj.expenses)) return obj.expenses
+      if (Array.isArray(obj.data)) return obj.data
+      if (Array.isArray(obj.results)) return obj.results
+      if (obj.data && Array.isArray(obj.data.expenses)) return obj.data.expenses
+      if (obj.data && Array.isArray(obj.data.data)) return obj.data.data
+      return null
+    }
+    const items = pickArray(payload) || []
+    return { items, raw: payload }
   } catch (error) {
     console.error('Error fetching trip expenses:', error)
     throw error
@@ -256,4 +269,69 @@ export function getDebtsSummary(splits) {
   })
   
   return debts.sort((a, b) => b.amount - a.amount)
+}
+
+// Cálculo de liquidación pairwise (quién paga a quién) en una sola divisa
+export function settleDebts(expenses, baseCurrency = 'USD', participantIds = []) {
+  if (!Array.isArray(expenses)) return []
+  const ids = new Set(
+    Array.from(participantIds || [])
+      .filter(Boolean)
+      .map((id) => String(id))
+  )
+  const paidMap = {}
+  expenses.forEach((e) => {
+    if ((e.currency || baseCurrency) !== baseCurrency) return
+    const pid = e.payer_id
+    if (pid) ids.add(String(pid))
+    // sumar
+    if (pid) paidMap[pid] = (paidMap[pid] || 0) + Number(e.amount || 0)
+    // asegurar participantes de splits
+    if (Array.isArray(e.splits)) {
+      e.splits.forEach((s) => {
+        if (s.user_id) ids.add(String(s.user_id))
+      })
+    }
+  })
+  // Si no hay IDs, usar los payers de los gastos
+  if (ids.size === 0) {
+    expenses.forEach((e) => {
+      if (e.payer_id) ids.add(String(e.payer_id))
+    })
+  }
+  if (ids.size === 0) return []
+
+  const entries = Array.from(ids).map((userId) => ({
+    userId,
+    paid: paidMap[userId] || 0,
+  }))
+  const total = entries.reduce((s, r) => s + r.paid, 0)
+  const avg = total / entries.length
+
+  const creditors = []
+  const debtors = []
+  entries.forEach(({ userId, paid }) => {
+    const diff = Math.round((paid - avg) * 100) / 100
+    if (diff > 0) creditors.push({ userId, amount: diff })
+    else if (diff < 0) debtors.push({ userId, amount: -diff })
+  })
+  const settlements = []
+  let cIdx = 0
+  let dIdx = 0
+  while (cIdx < creditors.length && dIdx < debtors.length) {
+    const cred = creditors[cIdx]
+    const debt = debtors[dIdx]
+    const pay = Math.min(cred.amount, debt.amount)
+    settlements.push({
+      from: debt.userId,
+      to: cred.userId,
+      amount: pay,
+      currency: baseCurrency,
+    })
+    cred.amount = Math.round((cred.amount - pay) * 100) / 100
+    debt.amount = Math.round((debt.amount - pay) * 100) / 100
+    if (cred.amount <= 0.001) cIdx++
+    if (debt.amount <= 0.001) dIdx++
+  }
+  return settlements
 }

@@ -1223,7 +1223,7 @@ export default function ModernChatPage() {
                   </div>
                   
                   <div className="flex items-center gap-1 md:gap-2">
-                    {activeRoom?.trip_id && (
+                    {activeRoom?.trip_id && !isPrivateRoom(activeRoom) && (
                       <Button
                         variant={showExpenses ? 'default' : 'ghost'}
                         size="sm"

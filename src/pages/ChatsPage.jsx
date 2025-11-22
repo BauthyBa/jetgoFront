@@ -609,7 +609,7 @@ export default function ChatsPage() {
                           </span>
                         )}
                       </div>
-                      {activeRoom?.trip_id && (
+                      {activeRoom?.trip_id && !isPrivateRoom(activeRoom) && (
                         <Button
                           variant={showExpenses ? 'default' : 'secondary'}
                           onClick={() => setShowExpenses((prev) => !prev)}
