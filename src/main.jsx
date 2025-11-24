@@ -27,6 +27,7 @@ import SocialPage from './pages/SocialPage.jsx'
 import WeatherPage from './pages/WeatherPage.jsx'
 import MisViajesPage from './pages/MisViajesPage.jsx'
 import NotificationsPage from './pages/NotificationsPage.jsx'
+import EditTripPage from './pages/EditTripPage.jsx'
 import { initializeApiBaseUrl } from './services/api.js'
 import FeedPage from './pages/FeedPage.jsx'
 import HashtagPage from './pages/HashtagPage.jsx'
@@ -88,6 +89,10 @@ const router = createBrowserRouter([
       { 
         path: 'crear-viaje/formulario', 
         element: <ProtectedRoute><CreateTripForm /></ProtectedRoute> 
+      },
+      { 
+        path: 'editar-viaje/:tripId', 
+        element: <ProtectedRoute><EditTripPage /></ProtectedRoute> 
       },
       { 
         path: 'u/:username', 

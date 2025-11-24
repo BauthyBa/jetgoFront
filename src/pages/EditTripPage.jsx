@@ -259,22 +259,24 @@ export default function EditTripPage() {
         throw new Error('Debes estar autenticado para editar un viaje')
       }
 
+      const toNull = (v) => (v === undefined || v === null || String(v).trim() === '' ? null : v)
+
       const tripData = {
-        creator_id: profile.id,
-        name: trip.name,
-        origin: trip.origin,
-        destination: trip.destination,
-        start_date: trip.startDate,
-        end_date: trip.endDate || null,
+        id: tripId,
+        creator_id: String(originalTrip?.raw?.creator_id || originalTrip?.creatorId || profile.id || ''),
+        name: toNull(trip.name),
+        origin: toNull(trip.origin),
+        destination: toNull(trip.destination),
+        start_date: toNull(trip.startDate),
+        end_date: toNull(trip.endDate),
         budget_min: trip.budgetMin ? parseFloat(trip.budgetMin) : null,
         budget_max: trip.budgetMax ? parseFloat(trip.budgetMax) : null,
         max_participants: trip.maxParticipants ? parseInt(trip.maxParticipants) : null,
-        room_type: trip.roomType,
-        season: autoSeason,
-        country: countryForSubmit,
-        currency: trip.currency,
-        description: trip.description || '',
-        transport_type: backendTransportType
+        room_type: toNull(trip.roomType),
+        season: toNull(autoSeason),
+        country: toNull(countryForSubmit),
+        currency: trip.currency || 'USD',
+        transport_type: backendTransportType || null,
       }
 
       console.log('📤 Actualizando viaje:', tripData)
@@ -292,8 +294,9 @@ export default function EditTripPage() {
         throw new Error(result?.error || 'Error al actualizar el viaje')
       }
     } catch (error) {
-      console.error('❌ Error actualizando viaje:', error)
-      setError(error.message || 'Error al actualizar el viaje')
+      const apiErr = error?.response?.data?.error
+      console.error('❌ Error actualizando viaje:', apiErr || error)
+      setError(apiErr || error.message || 'Error al actualizar el viaje')
     } finally {
       setSubmitting(false)
     }

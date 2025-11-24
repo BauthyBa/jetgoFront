@@ -44,16 +44,21 @@ export default function Layout() {
     '/clima',
     '/notificaciones',
     '/hashtag',
+    '/editar-viaje',
   ]
   const hideHeader = hideHeaderOn.some((p) => location.pathname.startsWith(p))
   const hideNavigationOn = ['/login', '/signup', '/register', '/forgot-password', '/reset-password', '/verify-dni']
   const showNavigation = !hideNavigationOn.some((p) => location.pathname.startsWith(p))
-  
+
+  const isEditTrip = location.pathname.startsWith('/editar-viaje')
+  const containerBg = isEditTrip ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'
+  const mainClass = isEditTrip ? 'flex-1 w-full' : `flex-1 w-full ${isRoot || hideHeader ? '' : 'container'}`
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 transition-[padding-left] duration-300 md:pl-[var(--sidebar-width)]">
+    <div className={`min-h-screen ${containerBg} transition-[padding-left] duration-300 md:pl-[var(--sidebar-width)]`}>
       {showNavigation && <Navigation />}
       <div className="flex min-h-screen w-full flex-col">
-        {!isRoot && !hideHeader && (
+        {!isRoot && !hideHeader && !isEditTrip && (
           <header className="header">
             <div className="header-inner">
               <nav className="nav">
@@ -72,8 +77,9 @@ export default function Layout() {
             </div>
           </header>
         )}
-        {/* Compact back bar for views without main header and not dashboard */}
+
         {!isRoot &&
+          !isEditTrip &&
           hideHeader &&
           !location.pathname.startsWith('/login') &&
           !location.pathname.startsWith('/signup') &&
@@ -98,7 +104,8 @@ export default function Layout() {
             <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, rgba(148,163,184,0.25), rgba(148,163,184,0.06))' }} />
           </div>
         )}
-        <main className={`flex-1 w-full ${isRoot || hideHeader ? '' : 'container'}`}>
+
+        <main className={mainClass}>
           <Outlet />
         </main>
       </div>

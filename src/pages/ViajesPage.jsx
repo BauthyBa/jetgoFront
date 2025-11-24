@@ -354,7 +354,7 @@ export default function ViajesPage() {
 
   const handleEditTrip = (trip) => {
     // Navegar a la página de edición del viaje
-    navigate(`${ROUTES.CREATE_TRIP}?edit=${trip.id}`)
+    navigate(ROUTES.EDITAR_VIAJE(trip.id))
   }
 
   const isMemberFn = (trip) => {
