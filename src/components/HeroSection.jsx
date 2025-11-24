@@ -307,31 +307,35 @@ export default function HeroSection() {
               </div>
             )}
             {!tripsLoading && !tripsError && trips.length > 0 && (
-              <div className="relative">
+              <div className="relative max-w-6xl mx-auto">
                 {/* Dark overlay for trips section - smaller container */}
                 <div className="absolute inset-0 bg-slate-900/50 -m-2 sm:-m-4 lg:-m-6 rounded-2xl" />
                 <div className="relative z-10">
-                  <TripGridEnhanced 
-                    trips={trips.slice(0, visibleCount)} 
-                    onJoin={(trip) => {
-                      if (!loggedIn) {
-                        navigate('/login')
-                        return
-                      }
-                      setApplyModal({ open: true, trip })
-                    }}
-                    onLeave={() => {}}
-                    onApply={(trip) => {
-                      if (!loggedIn) {
-                        navigate('/login')
-                        return
-                      }
-                      setApplyModal({ open: true, trip })
-                    }}
-                    showViewToggle={true}
-                    showFilters={false}
-                    hideApply={true}
-                  />
+                  <div className="flex justify-center">
+                    <div className="w-full max-w-4xl">
+                      <TripGridEnhanced 
+                        trips={trips.slice(0, visibleCount)} 
+                        onJoin={(trip) => {
+                          if (!loggedIn) {
+                            navigate('/login')
+                            return
+                          }
+                          setApplyModal({ open: true, trip })
+                        }}
+                        onLeave={() => {}}
+                        onApply={(trip) => {
+                          if (!loggedIn) {
+                            navigate('/login')
+                            return
+                          }
+                          setApplyModal({ open: true, trip })
+                        }}
+                        showViewToggle={true}
+                        showFilters={false}
+                        hideApply={true}
+                      />
+                    </div>
+                  </div>
                   {trips.length > visibleCount && (
                     <div className="flex justify-center mt-6">
                       <Button 
