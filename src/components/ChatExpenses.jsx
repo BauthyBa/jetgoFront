@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getTripExpensesByTrip, createTripExpense, getExpenseCategories } from '@/services/expenses'
+import { getTripExpensesByTrip, createTripExpense, getExpenseCategories, updateTripExpense } from '@/services/expenses'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import ExpenseStats from './ExpenseStats'
@@ -8,25 +8,18 @@ import { settleDebts } from '@/services/expenses'
 import { supabase } from '@/services/supabase'
 import { api } from '@/services/api'
 
-const FALLBACK_RATES = {
-  USD: 1,
-  EUR: 1.08,
-  ARS: 0.0011,
-  BRL: 0.2,
-  MXN: 0.055,
-}
-
 export default function ChatExpenses({ tripId, roomId, userId, userNames = {} }) {
   const [expenses, setExpenses] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [baseCurrency, setBaseCurrency] = useState('USD')
-  const [rates, setRates] = useState({ USD: 1 }) // Se actualiza con UnitRateAPI
+  const [rates, setRates] = useState({ USD: 1 }) // Se actualiza con CurrencyAPI
   const [updatingRates, setUpdatingRates] = useState(false)
-  const [usingFallbackRates, setUsingFallbackRates] = useState(false)
   const [ratesTimestamp, setRatesTimestamp] = useState(null)
   const [participantMap, setParticipantMap] = useState({})
+  const [tripCreatorId, setTripCreatorId] = useState(null)
+  const isCreator = tripCreatorId && userId && String(tripCreatorId) === String(userId)
   useEffect(() => {
     setNewExpense((prev) => ({ ...prev, currency: baseCurrency || 'USD' }))
   }, [baseCurrency])
@@ -137,7 +130,7 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
     try {
       const { data, error } = await supabase
         .from('trips')
-        .select('country,currency,destination')
+        .select('country,currency,destination,creator_id')
         .eq('id', tripId)
         .limit(1)
       if (error) throw error
@@ -149,6 +142,7 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
         const mapped = COUNTRY_CURRENCY[country] || COUNTRY_CURRENCY[countryCode]
         const chosen = explicit || mapped || 'USD'
         setBaseCurrency(chosen)
+        setTripCreatorId(trip.creator_id || null)
       }
     } catch (e) {
       console.warn('No se pudo detectar moneda del viaje, usando USD:', e)
@@ -162,21 +156,58 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
       try {
         setUpdatingRates(true)
         const latest = await fetchRates(baseCurrency)
-        if (latest && typeof latest === 'object') {
-          // Mezclar con fallback solo para divisas ausentes, priorizando las reales
-          const merged = { ...FALLBACK_RATES, ...latest, [baseCurrency]: 1 }
-          setRates(merged)
-          setRatesTimestamp(new Date().toISOString())
-        }
+        if (!latest || typeof latest !== 'object') throw new Error('Sin tasas')
+        const merged = { ...latest, [baseCurrency]: 1 }
+        setRates(merged)
+        setRatesTimestamp(new Date().toISOString())
       } catch (e) {
-        console.warn('No se pudieron actualizar tasas, usando fallback local:', e)
-        setRates({ ...FALLBACK_RATES })
+        console.error('No se pudieron actualizar tasas desde CurrencyAPI:', e)
+        alert('No se pudieron obtener las tasas de cambio actualizadas. Intenta de nuevo.')
       } finally {
         setUpdatingRates(false)
       }
     }
     update()
   }, [baseCurrency])
+
+  const handleCurrencyChange = async (newCurrency) => {
+    if (!newCurrency || newCurrency === baseCurrency) return
+    try {
+      setUpdatingRates(true)
+      const latest = await fetchRates(newCurrency)
+      if (!latest || typeof latest !== 'object') throw new Error('Sin tasas')
+      const merged = { ...latest, [newCurrency]: 1 }
+      setRates(merged)
+      setRatesTimestamp(new Date().toISOString())
+
+      const convertedExpenses = []
+      for (const exp of expenses) {
+        const from = exp.currency || newCurrency
+        if (from === newCurrency) {
+          convertedExpenses.push({ ...exp, currency: newCurrency })
+          continue
+        }
+        const rate = merged[from]
+        if (!rate) throw new Error(`Sin tasa para ${from}`)
+        const rawAmount = Number(exp.amount || 0)
+        const newAmount = Number((rawAmount / rate).toFixed(2))
+        convertedExpenses.push({ ...exp, amount: newAmount, currency: newCurrency })
+        try {
+          await updateTripExpense(exp.id, { amount: newAmount, currency: newCurrency })
+        } catch (e) {
+          console.warn('No se pudo actualizar gasto al convertir moneda', exp.id, e)
+        }
+      }
+      setExpenses(convertedExpenses)
+      setBaseCurrency(newCurrency)
+      setNewExpense((prev) => ({ ...prev, currency: newCurrency }))
+    } catch (e) {
+      console.error('Error cambiando moneda del viaje:', e)
+      alert('No se pudo cambiar la moneda. Verifica la API de divisas o intenta más tarde.')
+    } finally {
+      setUpdatingRates(false)
+    }
+  }
 
   const loadExpenses = async () => {
     try {
@@ -269,10 +300,11 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
   }
 
   const convertToBase = (amount, currency) => {
-    const from = currency || 'USD'
-    // Sin conversiones: solo sumar cuando coincide con la divisa del viaje
-    if (from !== baseCurrency) return 0
-    return amount
+    const from = currency || baseCurrency
+    if (from === baseCurrency) return amount
+    const rate = rates[from]
+    if (!rate) return 0
+    return amount / rate
   }
 
   // Construir nombres conocidos a partir de trip_members/chat_members, userNames y gastos
@@ -312,6 +344,15 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
   // asegurar incluir al usuario actual
   if (userId) participantIds.add(String(userId))
   const settlements = settleDebts(visibleExpenses, baseCurrency, Array.from(participantIds))
+  const currencyOptions = Array.from(
+    new Set([
+      baseCurrency,
+      ...Object.keys(rates || {}),
+      ...expenses.map((e) => e.currency).filter(Boolean),
+    ]),
+  )
+    .filter(Boolean)
+    .sort()
 
   if (!tripId) {
     return (
@@ -329,6 +370,25 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
           <h4 className="text-2xl font-semibold text-white">Viaje</h4>
         </div>
         <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-xs text-slate-400 mb-1">Divisa del viaje</p>
+            {isCreator ? (
+              <select
+                value={baseCurrency}
+                onChange={(e) => handleCurrencyChange(e.target.value)}
+                className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm"
+                disabled={updatingRates}
+              >
+                {currencyOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700 text-white text-sm">
+                {baseCurrency}
+              </div>
+            )}
+          </div>
           <div className="bg-slate-800/60 px-3 py-2 rounded-xl text-right">
             <p className="text-xs text-slate-400">Total</p>
             <p className="text-emerald-300 font-semibold text-lg">

@@ -198,7 +198,7 @@ export default function ExpenseStats({ tripId, userNames = {}, baseCurrency = 'U
   })
 
   return (
-    <div className="glass-card p-4 mt-4 space-y-4 max-h-[420px] overflow-y-auto">
+    <div className="glass-card p-4 mt-4 space-y-4 max-h-[420px] overflow-y-auto scrollbar-hide">
       <div className="flex items-center justify-between">
         <h5 className="text-sm font-semibold text-white flex items-center gap-2">📊 Estadísticas de gastos</h5>
         <div className="text-xs text-slate-400">

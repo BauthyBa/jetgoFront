@@ -1,8 +1,8 @@
-// Servicio de tasas de cambio usando UnitRateAPI
-const API_KEY = '822vkTToc7pE4UFRPe3hWNBLMtOh83FgT4EMOuWReSYw1ovNEBN1bTvfJ2zCeBis'
-const ENDPOINT = 'https://api.unitrateapi.com/v1/latest'
-const CACHE_KEY = 'unitrate_rates_cache'
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 horas
+// Servicio de tasas de cambio usando currencyapi.net
+const API_KEY = '19bc2335d6d28939c989f78ed905f526da30'
+const ENDPOINT = 'https://currencyapi.net/api/v1/rates'
+const CACHE_KEY = 'currencyapi_rates_cache'
+const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
 
 function loadCache(base) {
   try {
@@ -26,8 +26,9 @@ function saveCache(base, rates) {
 }
 
 function normalizeRates(json, base) {
-  const rates = json?.rates || json?.data?.rates || {}
-  if (!rates[base]) rates[base] = 1
+  const data = json?.rates || {}
+  const rates = { ...data }
+  rates[base] = 1
   return rates
 }
 
@@ -36,13 +37,28 @@ export async function fetchRates(base = 'USD') {
   const cached = loadCache(base)
   if (cached) return cached
 
-  const url = `${ENDPOINT}?base=${encodeURIComponent(base)}&apikey=${encodeURIComponent(API_KEY)}`
+  // currencyapi.net devuelve tasas base USD; derivamos otras bases manualmente
+  const url = `${ENDPOINT}?key=${encodeURIComponent(API_KEY)}`
   const resp = await fetch(url)
   if (!resp.ok) {
-    throw new Error(`UnitRateAPI devolvió ${resp.status}`)
+    const reason = await resp.text().catch(() => '')
+    throw new Error(`CurrencyAPI devolvió ${resp.status}${reason ? `: ${reason}` : ''}`)
   }
   const json = await resp.json()
-  const rates = normalizeRates(json, base)
+  const usdRates = normalizeRates(json, 'USD')
+  let rates = usdRates
+  if (base && base !== 'USD') {
+    const pivot = usdRates[base]
+    if (!pivot || Number(pivot) === 0) {
+      throw new Error(`Sin tasa base USD para ${base}`)
+    }
+    const derived = {}
+    Object.keys(usdRates).forEach((code) => {
+      if (code === base) return
+      derived[code] = usdRates[code] / pivot
+    })
+    rates = { ...derived, [base]: 1 }
+  }
   saveCache(base, rates)
   return rates
 }
