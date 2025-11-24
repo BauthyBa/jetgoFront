@@ -3,7 +3,7 @@ import { getTripExpensesByTrip } from '@/services/expenses'
 
 const PALETTE = ['#22c55e', '#60a5fa', '#fbbf24', '#f472b6', '#a855f7', '#38bdf8', '#f97316', '#c084fc']
 
-export default function ExpenseStats({ tripId, userNames = {}, baseCurrency = 'USD', rates = {}, expensesOverride = null, settlements = [] }) {
+export default function ExpenseStats({ tripId, userNames = {}, baseCurrency = 'USD', rates = {}, expensesOverride = null, settlements = [], compact = false }) {
   const [stats, setStats] = useState({
     totalExpenses: 0,
     averageExpense: 0,
@@ -197,8 +197,12 @@ export default function ExpenseStats({ tripId, userNames = {}, baseCurrency = 'U
     return { payerId, from, to, color, ...data }
   })
 
+  const containerClass = compact
+    ? 'glass-card p-4 mt-4 space-y-4 w-full overflow-x-auto'
+    : 'glass-card p-4 mt-4 space-y-4 max-h-[420px] overflow-y-auto scrollbar-hide'
+
   return (
-    <div className="glass-card p-4 mt-4 space-y-4 max-h-[420px] overflow-y-auto scrollbar-hide">
+    <div className={containerClass}>
       <div className="flex items-center justify-between">
         <h5 className="text-sm font-semibold text-white flex items-center gap-2">📊 Estadísticas de gastos</h5>
         <div className="text-xs text-slate-400">

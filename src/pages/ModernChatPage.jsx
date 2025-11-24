@@ -58,6 +58,7 @@ export default function ModernChatPage() {
   const [showAudioTranscriber, setShowAudioTranscriber] = useState(false)
   const [transcribingAudio, setTranscribingAudio] = useState(null)
   const [audioTranscriptions, setAudioTranscriptions] = useState({})
+  const [showMobileActions, setShowMobileActions] = useState(false)
   const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false)
   const [messageToDelete, setMessageToDelete] = useState(null)
   const [showCamera, setShowCamera] = useState(false)
@@ -70,7 +71,8 @@ export default function ModernChatPage() {
   const unsubscribeRef = useRef(null)
   const messageEndRef = useRef(null)
   const typingTimeoutRef = useRef({})
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false))
+  const [sidebarOpen, setSidebarOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : false))
   const { markRoomAsRead } = useNotifications()
 
   const displayName =
@@ -89,6 +91,17 @@ export default function ModernChatPage() {
     .join('')
     .slice(0, 2)
     .toUpperCase()
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024
+      setIsMobile(mobile)
+      setSidebarOpen(mobile ? false : true)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -384,6 +397,7 @@ export default function ModernChatPage() {
       setActiveRoomId(roomId)
       setActiveRoom(room || null)
       setShowExpenses(false)
+      if (isMobile) setSidebarOpen(false)
       if (!silentHash) {
         window.history.replaceState({}, '', '/modern-chat')
       }
@@ -1085,26 +1099,28 @@ export default function ModernChatPage() {
   )
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0b141a] text-slate-100">
+    <div className="flex min-h-screen md:h-screen overflow-hidden bg-[#0b141a] text-slate-100 flex-col md:flex-row pb-16 md:pb-0">
       <ConnectionStatus />
 
-      <div className="flex h-full flex-1">
-        {/* Sidebar (animated width) */}
-        <div
-          className={`flex h-full flex-col border-r bg-[#111b21] transition-[width] duration-300 ${
-            sidebarOpen ? 'w-[340px] border-[#202c33]' : 'w-0 overflow-hidden border-transparent'
-          }`}
-        >
-          {sidebarContent}
-        </div>
+      <div className="flex h-full flex-1 relative">
+        {/* Sidebar (solo desktop/tablet) */}
+        {!isMobile && (
+          <div
+            className={`fixed md:static inset-y-0 left-0 z-30 flex h-full flex-col border-r bg-[#111b21] transition-transform duration-300 md:transition-[width] md:duration-300 ${
+              sidebarOpen ? 'translate-x-0 md:w-[340px] md:border-[#202c33]' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden md:border-transparent'
+            } w-full max-w-sm md:max-w-none`}
+          >
+            {sidebarContent}
+          </div>
+        )}
 
         {/* Main Chat Area */}
         <div className="relative flex h-full flex-1 flex-col">
-          {!sidebarOpen && (
+          {!sidebarOpen && !isMobile && (
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="absolute left-3 top-24 z-10 inline-flex items-center gap-2 rounded-full bg-[#202c33] px-3 py-1.5 text-sm text-slate-200 shadow hover:text-emerald-400"
+              className="absolute left-3 top-20 z-10 inline-flex items-center gap-2 rounded-full bg-[#202c33] px-3 py-1.5 text-xs md:text-sm text-slate-200 shadow hover:text-emerald-400 transition-transform duration-300"
               aria-label="Abrir lista de chats"
             >
               <ArrowLeft className="h-4 w-4 rotate-180" />
@@ -1112,39 +1128,60 @@ export default function ModernChatPage() {
             </button>
           )}
           {!activeRoomId ? (
-            <div className="flex flex-1 items-center justify-center bg-[radial-gradient(#ffffff08_1px,transparent_1px)] bg-[length:36px_36px]">
-              <div className="space-y-6 text-center">
-                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20">
-                  <svg className="w-12 h-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-semibold text-slate-100">
-                    ¡Bienvenido a JetGo Chat!
-                  </h2>
-                  <p className="max-w-md text-slate-400">
-                    Elegí una conversación para empezar a chatear con tu equipo y organizar todos los detalles del viaje.
-                  </p>
-                </div>
-                <div className="flex items-center justify-center gap-6 text-xs text-slate-500">
-                  <div className="flex items-center gap-2 uppercase tracking-widest">
-                    <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                    <span>Chats de viajes</span>
+            isMobile ? (
+              <div className="flex flex-1 flex-col bg-[#111b21]">
+                {sidebarContent}
+              </div>
+            ) : (
+              <div className="flex flex-1 items-center justify-center bg-[radial-gradient(#ffffff08_1px,transparent_1px)] bg-[length:36px_36px]">
+                <div className="space-y-6 text-center">
+                  <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20">
+                    <svg className="w-12 h-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
                   </div>
-                  <div className="flex items-center gap-2 uppercase tracking-widest">
-                    <div className="h-2 w-2 rounded-full bg-blue-400" />
-                    <span>Conversaciones privadas</span>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-semibold text-slate-100">
+                      ¡Bienvenido a JetGo Chat!
+                    </h2>
+                    <p className="max-w-md text-slate-400">
+                      Elegí una conversación para empezar a chatear con tu equipo y organizar todos los detalles del viaje.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-6 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 uppercase tracking-widest">
+                      <div className="h-2 w-2 rounded-full bg-emerald-400" />
+                      <span>Chats de viajes</span>
+                    </div>
+                    <div className="flex items-center gap-2 uppercase tracking-widest">
+                      <div className="h-2 w-2 rounded-full bg-blue-400" />
+                      <span>Conversaciones privadas</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )
           ) : (
             <>
               {/* Chat Header */}
-              <div className="border-b border-[#202c33] bg-[#111b21]/90 px-4 py-3">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
+              <div className="border-b border-[#202c33] bg-[#111b21]/90 px-3 md:px-4 py-3">
+                <div className="flex items-center justify-between gap-3 md:gap-4">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isMobile) {
+                          setActiveRoomId(null)
+                          setActiveRoom(null)
+                        } else {
+                          setSidebarOpen(true)
+                        }
+                      }}
+                      className="inline-flex md:hidden items-center justify-center rounded-full bg-[#202c33] p-2 text-slate-200 hover:text-emerald-400"
+                      aria-label="Volver a la lista de chats"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
                     <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-sm font-semibold text-emerald-200 sm:flex">
                       {(normalizeRoomName(activeRoom) || 'C')[0]?.toUpperCase() || 'C'}
                     </div>
@@ -1237,6 +1274,21 @@ export default function ModernChatPage() {
                         {showExpenses ? 'Ver chat' : 'Ver gastos'}
                       </Button>
                     )}
+                    {activeRoom?.trip_id && !isPrivateRoom(activeRoom) && (
+                      <Button
+                        variant={showExpenses ? 'default' : 'ghost'}
+                        size="icon"
+                        className={`inline-flex md:hidden h-10 w-10 rounded-full ${
+                          showExpenses
+                            ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400'
+                            : 'bg-[#1f2c33] text-slate-200 hover:text-emerald-200'
+                        }`}
+                        onClick={() => setShowExpenses((prev) => !prev)}
+                        aria-label={showExpenses ? 'Ver chat' : 'Ver gastos'}
+                      >
+                        💰
+                      </Button>
+                    )}
                     <button
                       type="button"
                       onClick={openChatDetails}
@@ -1252,7 +1304,7 @@ export default function ModernChatPage() {
               {/* Chat Content */}
               <div className="flex-1 flex flex-col bg-slate-800/30 min-h-0">
                 {showExpenses ? (
-                  <div className="flex-1 overflow-hidden">
+                  <div className="flex-1 overflow-y-auto">
                     <ChatExpenses
                       tripId={activeRoom?.trip_id}
                       roomId={activeRoomId}
@@ -1263,7 +1315,7 @@ export default function ModernChatPage() {
                 ) : (
                   <>
                     {/* Messages */}
-                    <div className="flex-1 overflow-y-auto bg-[radial-gradient(#ffffff08_1px,transparent_1px)] bg-[length:34px_34px] px-4 py-6">
+                    <div className="flex-1 overflow-y-auto bg-[radial-gradient(#ffffff08_1px,transparent_1px)] bg-[length:34px_34px] px-4 py-6 pb-24 md:pb-6">
                       <div className="mx-auto flex max-w-3xl flex-col gap-3">
                         {messages.map((message) => {
                           const isOwn = profile?.user_id && String(message.user_id) === String(profile.user_id)
@@ -1623,8 +1675,8 @@ export default function ModernChatPage() {
                     </div>
 
                     {/* Message Input */}
-                    <div className="flex-shrink-0 border-t border-[#202c33] bg-[#111b21]/90 px-4 py-4">
-                      <div className="mx-auto flex max-w-3xl flex-col gap-3">
+                    <div className="flex-shrink-0 border-t border-[#202c33] bg-[#111b21]/90 px-3 py-3 md:py-4 fixed left-0 right-0 bottom-[68px] z-30 md:static md:bottom-auto">
+                      <div className="mx-auto flex max-w-3xl flex-col gap-2 md:gap-3">
                         {showAudioRecorder && (
                           <div className="mb-4">
                             <AudioRecorder
@@ -1641,7 +1693,7 @@ export default function ModernChatPage() {
                             />
                           </div>
                         )}
-                        <div className="flex items-end gap-3">
+                        <div className="flex items-center gap-2 md:gap-3">
                           <input
                             ref={fileInputRef}
                             type="file"
@@ -1649,30 +1701,73 @@ export default function ModernChatPage() {
                             accept="image/*,application/pdf,.doc,.docx,.txt"
                             onChange={handleFileUpload}
                           />
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
-                            aria-label="Adjuntar archivo"
-                          >
-                            <Paperclip className="h-5 w-5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowCamera(true)}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
-                            aria-label="Tomar foto"
-                          >
-                            <Camera className="h-5 w-5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowLocationCapture(true)}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
-                            aria-label="Compartir ubicación"
-                          >
-                            <MapPin className="h-5 w-5" />
-                          </button>
+                          {isMobile ? (
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setShowMobileActions((v) => !v)}
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
+                                aria-label="Más acciones"
+                              >
+                                <MoreVertical className="h-5 w-5" />
+                              </button>
+                              {showMobileActions && (
+                                <div className="absolute bottom-12 left-0 z-20 flex gap-2 rounded-xl bg-[#202c33] p-2 shadow-lg">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setShowMobileActions(false); fileInputRef.current?.click() }}
+                                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1f2c33] text-slate-200 hover:text-emerald-200"
+                                    aria-label="Adjuntar archivo"
+                                  >
+                                    <Paperclip className="h-5 w-5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setShowMobileActions(false); setShowCamera(true) }}
+                                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1f2c33] text-slate-200 hover:text-emerald-200"
+                                    aria-label="Tomar foto"
+                                  >
+                                    <Camera className="h-5 w-5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setShowMobileActions(false); setShowLocationCapture(true) }}
+                                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1f2c33] text-slate-200 hover:text-emerald-200"
+                                    aria-label="Compartir ubicación"
+                                  >
+                                    <MapPin className="h-5 w-5" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
+                                aria-label="Adjuntar archivo"
+                              >
+                                <Paperclip className="h-5 w-5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowCamera(true)}
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
+                                aria-label="Tomar foto"
+                              >
+                                <Camera className="h-5 w-5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowLocationCapture(true)}
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#202c33] text-slate-300 transition hover:bg-[#1f2c33] hover:text-emerald-200"
+                                aria-label="Compartir ubicación"
+                              >
+                                <MapPin className="h-5 w-5" />
+                              </button>
+                            </>
+                          )}
                           <button
                             type="button"
                             onClick={() => setShowAudioRecorder(!showAudioRecorder)}
@@ -1727,9 +1822,12 @@ export default function ModernChatPage() {
                           
                           <Button
                             onClick={handleSend}
-                            className="h-11 rounded-full bg-emerald-500 px-5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400"
+                            className="h-12 w-12 rounded-full bg-emerald-500 px-0 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 flex items-center justify-center"
+                            aria-label="Enviar mensaje"
                           >
-                            Enviar
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-6 w-6 fill-current">
+                              <path d="M3.4 11.2 19.6 4a1 1 0 0 1 1.3 1.3l-7.2 16.2a1 1 0 0 1-1.8.06L9.3 14.7l-6-3a1 1 0 0 1 .1-1.8Zm6.9 3.1 1.2 4 4-9.1-5.2 2.4a1 1 0 0 0-.5.6Z" />
+                            </svg>
                           </Button>
                         </div>
                       </div>

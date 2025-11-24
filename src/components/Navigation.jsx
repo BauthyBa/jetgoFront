@@ -166,7 +166,6 @@ export default function Navigation() {
   }
 
   const hideMobileNav =
-    location.pathname.startsWith(ROUTES.MODERN_CHAT) ||
     location.pathname.startsWith(ROUTES.CHATS) ||
     location.pathname.startsWith(ROUTES.DASHBOARD)
 

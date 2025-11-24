@@ -7,6 +7,7 @@ import { fetchRates } from '@/services/forex'
 import { settleDebts } from '@/services/expenses'
 import { supabase } from '@/services/supabase'
 import { api } from '@/services/api'
+import { useMemo } from 'react'
 
 export default function ChatExpenses({ tripId, roomId, userId, userNames = {} }) {
   const [expenses, setExpenses] = useState([])
@@ -20,9 +21,17 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
   const [participantMap, setParticipantMap] = useState({})
   const [tripCreatorId, setTripCreatorId] = useState(null)
   const isCreator = tripCreatorId && userId && String(tripCreatorId) === String(userId)
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
   useEffect(() => {
     setNewExpense((prev) => ({ ...prev, currency: baseCurrency || 'USD' }))
   }, [baseCurrency])
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
   const [newExpense, setNewExpense] = useState({
     description: '',
     amount: '',
@@ -362,21 +371,25 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
     )
   }
 
+  const expensesListClass = isMobile ? 'max-h-none' : 'max-h-80'
+
   return (
-    <div className="glass-card p-6 space-y-6 w-full min-h-[60vh] overflow-y-auto">
-      <div className="flex items-center justify-between gap-4">
+    <div className="glass-card p-3 md:p-6 space-y-4 md:space-y-6 w-full min-h-[60vh] h-full overflow-y-auto pb-28 md:pb-0 w-full max-w-full overflow-x-auto">
+      <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between gap-4'}`}>
         <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Gastos compartidos</p>
-          <h4 className="text-2xl font-semibold text-white">Viaje</h4>
+          <p className="text-xs md:text-sm uppercase tracking-[0.2em] text-emerald-300">Gastos compartidos</p>
+          <h4 className="text-xl md:text-2xl font-semibold text-white">Viaje</h4>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
+        <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center gap-4'}`}>
+          <div className={`${isMobile ? 'flex items-center gap-2' : 'text-right'}`}>
             <p className="text-xs text-slate-400 mb-1">Divisa del viaje</p>
             {isCreator ? (
               <select
                 value={baseCurrency}
                 onChange={(e) => handleCurrencyChange(e.target.value)}
-                className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm"
+                className={`rounded-lg bg-slate-800 border border-slate-700 text-white ${
+                  isMobile ? 'px-2 py-1.5 text-xs max-w-[110px]' : 'px-3 py-2 text-sm w-full'
+                }`}
                 disabled={updatingRates}
               >
                 {currencyOptions.map((c) => (
@@ -488,7 +501,7 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
           No hay gastos registrados aún
         </div>
       ) : (
-        <div className="grid gap-3 max-h-80 overflow-auto pr-1">
+        <div className={`grid gap-3 ${expensesListClass} overflow-auto pr-1 w-full`}>
           {visibleExpenses.map((expense) => {
             const pid = expense.payer_id ? String(expense.payer_id) : ''
             const payerLabel =
@@ -569,6 +582,7 @@ export default function ChatExpenses({ tripId, roomId, userId, userNames = {} })
         rates={rates}
         expensesOverride={visibleExpenses}
         settlements={settlements}
+        compact={isMobile}
       />
     </div>
   )
