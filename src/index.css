@@ -1106,3 +1106,77 @@ html:not(.dark) textarea::-webkit-scrollbar-thumb {
 .animate-fade-in {
   animation: fadeIn 0.6s ease-out both;
 }
+
+/* Double-like heart animation */
+.heart-burst {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: heart-pop 0.95s ease-out forwards;
+  mix-blend-mode: screen;
+  z-index: 5;
+}
+
+.heart-burst svg {
+  filter: drop-shadow(0 10px 30px rgba(236, 72, 153, 0.35));
+}
+
+.heart-burst::after {
+  content: '';
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 2px solid rgba(236, 72, 153, 0.2);
+  animation: heart-ring 0.95s ease-out forwards;
+}
+
+@keyframes heart-pop {
+  0% { transform: scale(0.35); opacity: 0; }
+  20% { transform: scale(1.2); opacity: 1; }
+  55% { transform: scale(0.95); opacity: 0.95; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes heart-ring {
+  0% { transform: scale(0.4); opacity: 0.5; }
+  70% { transform: scale(1.15); opacity: 0.15; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* Global scrollbar style */
+:root {
+  --sb-track-color: #010123;
+  --sb-thumb-color: #192033;
+  --sb-size: 6px;
+}
+
+/* Estilo de scrollbar global para body y contenedores con overflow */
+body {
+  scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: var(--sb-size);
+  height: var(--sb-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--sb-track-color);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb-color);
+  border-radius: 3px;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  body {
+    scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+  }
+}

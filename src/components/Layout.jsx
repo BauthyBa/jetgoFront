@@ -96,7 +96,8 @@ export default function Layout() {
           !location.pathname.startsWith('/profile') &&
           !location.pathname.startsWith('/u/') &&
           !location.pathname.startsWith('/trip') &&
-          !location.pathname.startsWith('/notificaciones') && (
+          !location.pathname.startsWith('/notificaciones') &&
+          !location.pathname.startsWith('/hashtag') && (
           <div className="sticky top-0 z-30" style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BackButton fallback="/" />

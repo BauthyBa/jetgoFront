@@ -71,6 +71,7 @@ export default function SocialPage() {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0)
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0)
   const [friendshipStatuses, setFriendshipStatuses] = useState({})
+  const [heartBurst, setHeartBurst] = useState({})
   const [showPostMenu, setShowPostMenu] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [postToDelete, setPostToDelete] = useState(null)
@@ -591,6 +592,21 @@ export default function SocialPage() {
     } catch (error) {
       console.error('Error liking post:', error)
     }
+  }
+
+  const handleDoubleLike = (postId) => {
+    const alreadyLiked = likedPosts.has(postId)
+    if (!alreadyLiked) {
+      likePost(postId)
+    }
+    setHeartBurst((prev) => ({ ...prev, [postId]: true }))
+    setTimeout(() => {
+      setHeartBurst((prev) => {
+        const next = { ...prev }
+        delete next[postId]
+        return next
+      })
+    }, 850)
   }
 
   const toggleComments = async (postId) => {
@@ -1114,7 +1130,7 @@ export default function SocialPage() {
   const visiblePosts = posts.filter(p => !hiddenPosts.has(p.id))
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 scrollbar-hide" style={{ overflowY: 'auto' }}>
       <div className="flex flex-col gap-6 px-4 py-6 pb-24 md:px-8 md:pb-16 xl:px-12 max-w-5xl mx-auto relative">
         {toast.show && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[120]">
@@ -1165,7 +1181,7 @@ export default function SocialPage() {
         <div className="grid grid-cols-1 gap-6 md:gap-8 xl:grid-cols-[minmax(0,1fr)_360px] xl:h-[calc(100vh-180px)]">
 
             {/* Feed Principal */}
-            <div className="w-full max-w-2xl mx-auto xl:overflow-y-auto xl:h-full xl:pr-2" style={{ scrollbarWidth: 'thin' }}>
+            <div className="w-full max-w-2xl mx-auto xl:overflow-y-auto xl:h-full xl:pr-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
 
               {/* Stories */}
               <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 mb-6 shadow-2xl overflow-visible">
@@ -1353,7 +1369,12 @@ export default function SocialPage() {
               </div>
             ) : (
                 visiblePosts.map((post) => (
-                  <div key={post.id} id={`post-${post.id}`} className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden hover:border-slate-600/70 transition-all duration-300 shadow-2xl hover:shadow-blue-500/10">
+                  <div
+                    key={post.id}
+                    id={`post-${post.id}`}
+                    onDoubleClick={() => handleDoubleLike(post.id)}
+                    className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden hover:border-slate-600/70 transition-all duration-300 shadow-2xl hover:shadow-blue-500/10 relative"
+                  >
                     {/* Post Header */}
                     <div className="flex items-center justify-between p-5">
                       <div className="flex items-center gap-3">
@@ -1439,7 +1460,14 @@ export default function SocialPage() {
 
                     {/* Post Image/Video */}
                     {post.image_url && (
-                      <div className="w-full aspect-square bg-slate-950">
+                      <div className="relative w-full aspect-square bg-slate-950 overflow-hidden">
+                        {heartBurst[post.id] && (
+                          <div className="heart-burst">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="currentColor" className="w-20 h-20 text-pink-500 drop-shadow-lg">
+                              <path d="M16 28s-8.8-5.088-13.084-11.45C-1.6 9.4 2.186 2.666 8.876 4.99 11.2 5.8 12.8 7.76 16 11c3.2-3.24 4.8-5.2 7.124-6.01 6.69-2.324 10.476 4.41 5.96 11.56C24.8 22.912 16 28 16 28Z" />
+                            </svg>
+                          </div>
+                        )}
                         <img
                           src={post.image_url}
                           alt="Post"
@@ -1448,7 +1476,14 @@ export default function SocialPage() {
                       </div>
                     )}
                     {post.video_url && (
-                      <div className="w-full aspect-square bg-slate-950">
+                      <div className="relative w-full aspect-square bg-slate-950 overflow-hidden">
+                        {heartBurst[post.id] && (
+                          <div className="heart-burst">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="currentColor" className="w-20 h-20 text-pink-500 drop-shadow-lg">
+                              <path d="M16 28s-8.8-5.088-13.084-11.45C-1.6 9.4 2.186 2.666 8.876 4.99 11.2 5.8 12.8 7.76 16 11c3.2-3.24 4.8-5.2 7.124-6.01 6.69-2.324 10.476 4.41 5.96 11.56C24.8 22.912 16 28 16 28Z" />
+                            </svg>
+                          </div>
+                        )}
                         <video
                           src={post.video_url}
                           controls
@@ -1460,7 +1495,7 @@ export default function SocialPage() {
                     {/* Post Actions */}
                     <div className="px-5 pb-4">
                       <div className="flex items-center justify-between mb-4 pt-2">
-                        <div className="flex items-center gap-5">
+                      <div className="flex items-center gap-5">
                         <button
                           onClick={() => likePost(post.id)}
                             className="hover:scale-125 transition-all duration-200 active:scale-95"
@@ -1482,9 +1517,6 @@ export default function SocialPage() {
                             <Send className="w-7 h-7" />
                         </button>
                       </div>
-                        <button onClick={() => toggleSavePost(post.id)} className={`hover:scale-125 transition-all duration-200 active:scale-95 ${savedPosts.has(post.id) ? 'text-yellow-400' : 'text-slate-300 hover:text-yellow-400'}`}>
-                          <Bookmark className="w-7 h-7" />
-                        </button>
                       </div>
 
                       {/* Likes Count */}
@@ -1613,7 +1645,7 @@ export default function SocialPage() {
       </div>
 
           {/* Sidebar Derecho - Sugerencias */}
-          <div className="hidden xl:block w-[360px] xl:overflow-y-auto xl:h-full xl:pl-2" style={{ scrollbarWidth: 'thin' }}>
+          <div className="hidden xl:block w-[360px] xl:overflow-y-auto xl:h-full xl:pl-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             <div className="space-y-5">
               {/* Tu Perfil */}
               <div 
@@ -1655,7 +1687,7 @@ export default function SocialPage() {
                       {showAllUsers ? 'Ver menos' : 'Ver todo'}
                     </button>
                   </div>
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     {(showAllUsers ? visibleSuggestedUsers : visibleSuggestedUsers.slice(0, 5)).map((suggestedUser) => (
                       <div key={suggestedUser.userid} className="flex items-center justify-between group">
                         <div 

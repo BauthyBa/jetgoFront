@@ -11,6 +11,7 @@ export default function HashtagPage() {
   const [hashtagInfo, setHashtagInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
+  const goBackToSocial = () => navigate('/social')
 
   useEffect(() => {
     getCurrentUser()
@@ -118,7 +119,7 @@ export default function HashtagPage() {
       <div className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 border-b border-slate-800">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
           <button
-            onClick={() => navigate(-1)}
+            onClick={goBackToSocial}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 transition"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -166,7 +167,20 @@ export default function HashtagPage() {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      {/* Back bar lo maneja Layout (compact), aquí no renderizamos barra superior */}
+      <div className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 border-b border-slate-800">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
+          <button
+            onClick={goBackToSocial}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver a Social
+          </button>
+          <div className="text-slate-300 text-sm truncate">
+            Explorando #{hashtag}
+          </div>
+        </div>
+      </div>
 
       {/* Header */}
       <div className="border-b border-slate-800 bg-slate-900/30">
