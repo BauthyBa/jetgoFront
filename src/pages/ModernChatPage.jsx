@@ -1034,15 +1034,17 @@ export default function ModernChatPage() {
             <p className="text-xs text-slate-400">Tus conversaciones</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setSidebarOpen((o) => !o)}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-[#202c33] hover:text-emerald-400"
-          aria-label="Alternar panel"
-          title="Mostrar/ocultar lista de chats"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
+        {!isMobile && (
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((o) => !o)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition hover:bg-[#202c33] hover:text-emerald-400"
+            aria-label="Alternar panel"
+            title="Mostrar/ocultar lista de chats"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       <div className="border-b border-[#202c33] px-4 py-3">
@@ -1099,7 +1101,7 @@ export default function ModernChatPage() {
   )
 
   return (
-    <div className="flex min-h-screen md:h-screen overflow-hidden bg-[#0b141a] text-slate-100 flex-col md:flex-row pb-16 md:pb-0">
+    <div className="flex h-screen md:h-screen overflow-hidden bg-[#0b141a] text-slate-100 flex-col md:flex-row pb-16 md:pb-0">
       <ConnectionStatus />
 
       <div className="flex h-full flex-1 relative">
@@ -1115,7 +1117,7 @@ export default function ModernChatPage() {
         )}
 
         {/* Main Chat Area */}
-        <div className="relative flex h-full flex-1 flex-col">
+        <div className="relative flex h-full flex-1 flex-col overflow-hidden">
           {!sidebarOpen && !isMobile && (
             <button
               type="button"
@@ -1164,24 +1166,9 @@ export default function ModernChatPage() {
           ) : (
             <>
               {/* Chat Header */}
-              <div className="border-b border-[#202c33] bg-[#111b21]/90 px-3 md:px-4 py-3">
+              <div className="border-b border-[#202c33] bg-[#111b21]/90 px-3 md:px-4 py-3 sticky top-0 z-20">
                 <div className="flex items-center justify-between gap-3 md:gap-4">
                   <div className="flex items-center gap-2 md:gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isMobile) {
-                          setActiveRoomId(null)
-                          setActiveRoom(null)
-                        } else {
-                          setSidebarOpen(true)
-                        }
-                      }}
-                      className="inline-flex md:hidden items-center justify-center rounded-full bg-[#202c33] p-2 text-slate-200 hover:text-emerald-400"
-                      aria-label="Volver a la lista de chats"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                    </button>
                     <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-sm font-semibold text-emerald-200 sm:flex">
                       {(normalizeRoomName(activeRoom) || 'C')[0]?.toUpperCase() || 'C'}
                     </div>
